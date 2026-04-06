@@ -2,9 +2,13 @@
 
 Launcher de **Minecraft Java Edition** en modo offline: interfaz **React (Vite)** embebida en **JavaFX WebView** con servidor HTTP local, o interfaz **JavaFX** nativa si no existe `frontend/dist/`.
 
-**Versión actual:** `1.1.0-pre.1` (pre-release / beta).
+**Versión actual del código:** `1.1.0-pre.1` (pre-release / beta).
 
-> Esta línea **1.1.0-pre** es experimental: puede fallar el arranque del juego, la UI o la descarga de versiones. Si algo se rompe, **abre un [Issue](../../issues)** con sistema operativo, versión de Java, pasos exactos y, si puedes, una idea de implementación o parche.
+### Estabilidad
+
+La **única versión que el proyecto considera referencia estable** es la **primera release publicada**, etiqueta Git **`v0.1.0-pre.1`**. Todo lo construido después (incluida la rama actual y `v1.1.0-pre.1`) puede fallar en juego, UI o instalación: **se deja así**, sin garantía de corrección inmediata.
+
+Si necesitas algo predecible, **usa el checkout o la etiqueta `v0.1.0-pre.1`**. Para fallos en builds nuevas, puedes **abrir un [Issue](../../issues)** (SO, Java, pasos), sin compromiso de arreglo.
 
 ## Requisitos
 

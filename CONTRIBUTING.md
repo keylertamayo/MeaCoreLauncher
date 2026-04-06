@@ -10,7 +10,7 @@ Gracias por interesarte en mejorar el proyecto.
 4. **Qué esperabas** vs **qué ocurrió** (mensajes de consola, capturas si aplica).
 5. Si puedes, propón **implementación**: enlace a documentación, pseudocódigo o un *pull request*.
 
-Las versiones **pre-release** (p. ej. `1.1.0-pre.1`) se publican sabiendo que aún hay **bugs**; los informes detallados ayudan a estabilizar.
+**Referencia estable:** solo la **primera release** del repo, etiqueta **`v0.1.0-pre.1`**. Las versiones posteriores son experimentales; los informes en Issues ayudan, pero no hay compromiso de soporte.
 
 ## Cómo proponer cambios (Pull Requests)
 
