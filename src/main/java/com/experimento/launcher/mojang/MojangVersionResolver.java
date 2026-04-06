@@ -42,7 +42,7 @@ public final class MojangVersionResolver {
                 continue;
             }
             String type = v.path("type").asText("");
-            if ("old_alpha".equalsIgnoreCase(type) || "old_beta".equalsIgnoreCase(type)) {
+            if ("snapshot".equalsIgnoreCase(type)) {
                 continue;
             }
             long releasedAtMs = 0L;
@@ -56,7 +56,7 @@ public final class MojangVersionResolver {
             }
             out.add(new ManifestVersionEntry(id, type, releasedAtMs));
         }
-        out.sort(Comparator.comparingLong(ManifestVersionEntry::releasedAtMs));
+        out.sort(Comparator.comparingLong(ManifestVersionEntry::releasedAtMs).reversed());
         return out;
     }
 

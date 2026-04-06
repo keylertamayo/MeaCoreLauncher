@@ -8,14 +8,16 @@ import {
 const BG_IMAGE = "https://images.unsplash.com/photo-1656261650870-5c416854f8ba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkYXJrJTIwbWluZWNyYWZ0JTIwbGFuZHNjYXBlJTIwd2FsbHBhcGVyfGVufDF8fHx8MTc3NTQ5Mjk1MXww&ixlib=rb-4.1.0&q=80&w=1080";
 const NEWS_IMAGE = "https://images.unsplash.com/photo-1761662826595-a379027d6c0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaW5lY3JhZnQlMjBuaWdodCUyMGZvcmVzdCUyMGRhcmslMjBzY2VuZXJ5fGVufDF8fHx8MTc3NTQ5Mjk1NXww&ixlib=rb-4.1.0&q=80&w=1080";
 
-const allVersions = [
-  { id: "release-1214", label: "1.21.4 [release]", type: "release" },
-  { id: "release-1213", label: "1.21.3 [release]", type: "release" },
-  { id: "release-1206", label: "1.20.6 [release]", type: "release" },
-  { id: "snapshot-25w14a", label: "25w14a [snapshot]", type: "snapshot" },
-  { id: "snapshot-25w12a", label: "25w12a [snapshot]", type: "snapshot" },
-  { id: "forge-1211", label: "Forge 1.21.1", type: "modded" },
-  { id: "fabric-1214", label: "Fabric 1.21.4", type: "modded" },
+/** Manifiesto Mojang (vía bridge): todas las versiones oficiales excepto snapshots. */
+type ManifestVersionRow = {
+  id: string;
+  type: string;
+  label: string;
+  releasedAtMs?: number;
+};
+
+const FALLBACK_VERSION_ROWS: ManifestVersionRow[] = [
+  { id: "1.21.4", type: "release", label: "1.21.4  [release]", releasedAtMs: 0 },
 ];
 
 const jvmPresets = [
@@ -24,8 +26,6 @@ const jvmPresets = [
   { id: "java17", label: "Java 17 (LTS)" },
   { id: "java8", label: "Java 8" },
 ];
-
-const INSTALLABLE_TYPES = ["release", "modded"] as const;
 
 type Profile = {
   id: string;
@@ -37,6 +37,8 @@ type Profile = {
   jvmExtra: string;
   useGlobalMinecraft: boolean;
   servers: { id: string; name: string; ip: string; cracked: boolean }[];
+  /** Carpeta de instancia en el launcher; debe coincidir con el backend */
+  instanceId?: string;
 };
 
 type LauncherBridge = {
@@ -44,6 +46,12 @@ type LauncherBridge = {
   saveProfiles?: (profilesJson: string) => string | void;
   installVersion?: (versionJson: string) => string | void;
   startGame?: (payloadJson: string) => string | void;
+  /** JSON ManifestVersionRow[] — sin snapshots */
+  getManifestVersions?: () => string | void;
+  /** JSON string[] — carpetas en versions/ con version.json */
+  getInstalledVersionIds?: () => string | void;
+  /** JSON string[] — líneas de log del launcher (misma consola que Java) */
+  getLauncherLogs?: () => string | void;
 };
 
 declare global {
@@ -114,21 +122,13 @@ const navTabs = [
   { id: "registro", icon: <Terminal size={13} />, label: "Registro en linea" },
 ];
 
-const logLines = [
-  { time: "10:42:01", level: "INFO", msg: "MeaCore Launcher iniciado correctamente." },
-  { time: "10:42:01", level: "INFO", msg: "Versión del launcher: 2.4.1" },
-  { time: "10:42:02", level: "INFO", msg: "Verificando integridad de Java 21.0.3..." },
-  { time: "10:42:02", level: "OK", msg: "Java 21.0.3 encontrado en /usr/lib/jvm/java-21" },
-  { time: "10:42:03", level: "INFO", msg: "Cargando perfil: KronoxYT (KronoxYT)" },
-  { time: "10:42:03", level: "INFO", msg: "Versión seleccionada: 1.21.4 [release]" },
-  { time: "10:42:04", level: "INFO", msg: "Comprobando archivos de Minecraft 1.21.4..." },
-  { time: "10:42:05", level: "OK", msg: "Todos los archivos verificados (2048/2048)" },
-  { time: "10:42:05", level: "INFO", msg: "Descargando assets faltantes: 0 archivos" },
-  { time: "10:42:06", level: "WARN", msg: "Memoria asignada inferior al recomendado (4GB < 6GB)" },
-  { time: "10:42:07", level: "INFO", msg: "Iniciando Minecraft 1.21.4 con JVM: Java 21.0.3" },
-  { time: "10:42:07", level: "INFO", msg: "Argumentos JVM: -Xmx4G -Xms512M -XX:+UseG1GC" },
-  { time: "10:42:08", level: "OK", msg: "Proceso de Minecraft iniciado (PID: 18423)" },
-];
+function inferLogLevel(line: string): "INFO" | "OK" | "WARN" | "ERROR" {
+  const u = line.toUpperCase();
+  if (u.includes("ERROR") || u.includes("FATAL") || u.includes("EXCEPTION")) return "ERROR";
+  if (u.includes("WARN")) return "WARN";
+  if (u.includes("[OK]") || u.includes("BUILD SUCCESSFUL")) return "OK";
+  return "INFO";
+}
 
 // ─── Input style helper ─────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -205,6 +205,8 @@ function ProfilesTab({
   onDeleteProfile,
   onSave,
   onPlay,
+  versionLabels,
+  onRefreshVersions,
 }: {
   profiles: Profile[];
   selectedId: string;
@@ -215,10 +217,10 @@ function ProfilesTab({
   onDeleteProfile: () => void;
   onSave: () => void;
   onPlay: () => void;
+  versionLabels: string[];
+  onRefreshVersions?: () => void;
 }) {
-  const profileVersions = allVersions
-    .filter(v => INSTALLABLE_TYPES.includes(v.type as (typeof INSTALLABLE_TYPES)[number]))
-    .map(v => v.label);
+  const profileVersions = versionLabels;
 
   return (
     <div className="flex flex-col h-full">
@@ -259,7 +261,7 @@ function ProfilesTab({
               options={profileVersions}
               onChange={v => onUpdateProfile({ version: v })}
             />
-            <SmallBtn>
+            <SmallBtn onClick={onRefreshVersions}>
               <RotateCcw size={11} /> Actualizar lista
             </SmallBtn>
           </div>
@@ -420,7 +422,7 @@ function ServersTab({
 }
 
 // ─── REGISTRO TAB ─────────────────────────────────────────────────────────────
-function RegistroTab() {
+function RegistroTab({ lines }: { lines: string[] }) {
   const [filter, setFilter] = useState("Todos");
   const levelColor = (lvl: string) => {
     if (lvl === "OK") return "#4ade80";
@@ -428,12 +430,19 @@ function RegistroTab() {
     if (lvl === "ERROR") return "#f87171";
     return "#6b7280";
   };
-  const filtered = filter === "Todos" ? logLines : logLines.filter(l => l.level === filter);
+  const parsed = lines.map(raw => {
+    const m = raw.match(/^(\d{1,2}:\d{2}:\d{2})\s+(.*)$/);
+    const time = m?.[1] ?? "";
+    const rest = m?.[2] ?? raw;
+    const level = inferLogLevel(rest);
+    return { time, level, msg: rest };
+  });
+  const filtered = filter === "Todos" ? parsed : parsed.filter(l => l.level === filter);
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 py-2" style={{ background: "rgba(6,6,6,0.9)", borderBottom: "1px solid #1a1a1a" }}>
         <Terminal size={13} style={{ color: "#555" }} />
-        <span style={{ color: "#555", fontSize: "11px", letterSpacing: "0.06em" }}>CONSOLA DE REGISTRO</span>
+        <span style={{ color: "#555", fontSize: "11px", letterSpacing: "0.06em" }}>CONSOLA DE REGISTRO (Java)</span>
         <div className="ml-auto flex gap-1">
           {["Todos", "INFO", "OK", "WARN", "ERROR"].map(f => (
             <button
@@ -459,6 +468,11 @@ function RegistroTab() {
         className="flex-1 overflow-y-auto p-4 font-mono flex flex-col gap-0.5"
         style={{ background: "#050505", scrollbarWidth: "thin", scrollbarColor: "#222 transparent" }}
       >
+        {lines.length === 0 && (
+          <p style={{ color: "#555", fontSize: "11px", lineHeight: 1.6 }}>
+            Aún no hay mensajes del launcher. Al instalar o pulsar Jugar, las líneas reales aparecerán aquí (la consola anterior era solo demostración).
+          </p>
+        )}
         {filtered.map((line, i) => (
           <div key={i} className="flex gap-3" style={{ fontSize: "11px", lineHeight: "1.6" }}>
             <span style={{ color: "#333", minWidth: "60px" }}>{line.time}</span>
@@ -480,22 +494,41 @@ export function MinecraftLauncher() {
   const [activeTab, setActiveTab] = useState("news");
   const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
   const [selectedId, setSelectedId] = useState("p1");
-  const selectableVersions = useMemo(
-    () => allVersions.filter(v => INSTALLABLE_TYPES.includes(v.type as (typeof INSTALLABLE_TYPES)[number])),
-    []
+  const [manifestVersions, setManifestVersions] = useState<ManifestVersionRow[]>([]);
+  const selectableVersions = manifestVersions.length > 0 ? manifestVersions : FALLBACK_VERSION_ROWS;
+  /** Evita miles de nodos DOM (congela WebView) y selectores ilegibles. */
+  const MAX_VERSIONS_IN_UI = 150;
+  const versionsForPicker = useMemo(
+    () => selectableVersions.slice(0, MAX_VERSIONS_IN_UI),
+    [selectableVersions]
   );
-  const [selectedVersion, setSelectedVersion] = useState(selectableVersions[0]);
-  const [installedVersionIds, setInstalledVersionIds] = useState<string[]>(["release-1214", "forge-1211"]);
+  const versionLabels = useMemo(() => versionsForPicker.map(v => v.label), [versionsForPicker]);
+  const [selectedVersion, setSelectedVersion] = useState<ManifestVersionRow>(FALLBACK_VERSION_ROWS[0]);
+  const [installedVersionIds, setInstalledVersionIds] = useState<string[]>([]);
   const [versionOpen, setVersionOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [launcherLogs, setLauncherLogs] = useState<string[]>([]);
   const username = "KronoxYT";
   const profile = profiles.find(p => p.id === selectedId) ?? profiles[0];
 
+  const applyManifestRows = (parsed: ManifestVersionRow[]) => {
+    if (parsed.length === 0) return;
+    setManifestVersions(parsed);
+    setSelectedVersion(prev => parsed.find(v => v.id === prev.id) ?? parsed[0]);
+    setProfiles(prev =>
+      prev.map(p => {
+        const id = p.version.replace(/\s*\[.*?]\s*/g, "").trim().split(/\s+/)[0];
+        const row = parsed.find(r => r.id === id);
+        return row ? { ...p, version: row.label } : p;
+      })
+    );
+  };
+
   useEffect(() => {
-    const tryLoad = () => {
+    const tryLoadProfiles = () => {
       if (!window.meacoreBridge?.getProfiles) return;
       try {
         const raw = window.meacoreBridge.getProfiles();
@@ -510,16 +543,64 @@ export function MinecraftLauncher() {
         /* keep initialProfiles */
       }
     };
-    window.addEventListener("meacoreBridgeReady", tryLoad);
-    tryLoad();
-    const retry = window.setTimeout(tryLoad, 500);
-    const retry2 = window.setTimeout(tryLoad, 1500);
+    const tryLoadVersions = () => {
+      if (!window.meacoreBridge?.getManifestVersions) return;
+      try {
+        const raw = window.meacoreBridge.getManifestVersions();
+        if (typeof raw === "string" && raw.startsWith("[")) {
+          const parsed = JSON.parse(raw) as ManifestVersionRow[];
+          applyManifestRows(parsed);
+        }
+        const ins = window.meacoreBridge.getInstalledVersionIds?.();
+        if (typeof ins === "string" && ins.startsWith("[")) {
+          setInstalledVersionIds(JSON.parse(ins) as string[]);
+        }
+      } catch {
+        /* fallback rows */
+      }
+    };
+    const loadAll = () => {
+      tryLoadProfiles();
+      tryLoadVersions();
+    };
+    window.addEventListener("meacoreBridgeReady", loadAll);
+    loadAll();
+    const retry = window.setTimeout(loadAll, 500);
+    const retry2 = window.setTimeout(loadAll, 1500);
     return () => {
-      window.removeEventListener("meacoreBridgeReady", tryLoad);
+      window.removeEventListener("meacoreBridgeReady", loadAll);
       window.clearTimeout(retry);
       window.clearTimeout(retry2);
     };
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setVersionOpen(false);
+        setProfileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "registro") return;
+    const pull = () => {
+      try {
+        const raw = window.meacoreBridge?.getLauncherLogs?.();
+        if (typeof raw === "string" && raw.startsWith("[")) {
+          setLauncherLogs(JSON.parse(raw) as string[]);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    pull();
+    const id = window.setInterval(pull, 900);
+    return () => window.clearInterval(id);
+  }, [activeTab]);
 
   const ensureBridge = () => {
     if (!window.meacoreBridge) {
@@ -545,7 +626,7 @@ export function MinecraftLauncher() {
       id,
       name: "Nuevo Perfil",
       displayName: "Nuevo Perfil",
-      version: selectableVersions[0]?.label ?? "1.21.4 [release]",
+      version: selectableVersions[0]?.label ?? "1.21.4  [release]",
       versionFilter: "Todas",
       jvmPreset: "auto",
       jvmExtra: "",
@@ -605,10 +686,10 @@ export function MinecraftLauncher() {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setTimeout(() => { setIsPlaying(false); setProgress(0); }, 800);
+          setTimeout(() => { setIsPlaying(false); setProgress(0); }, 1500);
           return 100;
         }
-        return prev + Math.random() * 12;
+        return prev + 3;
       });
     }, 200);
   };
@@ -730,6 +811,22 @@ export function MinecraftLauncher() {
             onDeleteProfile={deleteSelectedProfile}
             onSave={saveProfiles}
             onPlay={handlePlay}
+            versionLabels={versionLabels}
+            onRefreshVersions={() => {
+              if (!ensureBridge()) return;
+              try {
+                const raw = window.meacoreBridge?.getManifestVersions?.();
+                if (typeof raw === "string" && raw.startsWith("[")) {
+                  applyManifestRows(JSON.parse(raw) as ManifestVersionRow[]);
+                }
+                const ins = window.meacoreBridge?.getInstalledVersionIds?.();
+                if (typeof ins === "string" && ins.startsWith("[")) {
+                  setInstalledVersionIds(JSON.parse(ins) as string[]);
+                }
+              } catch {
+                window.alert("No se pudo actualizar la lista de versiones.");
+              }
+            }}
           />
         )}
 
@@ -745,7 +842,7 @@ export function MinecraftLauncher() {
               <h2 className="text-white" style={{ fontSize: "14px", letterSpacing: "0.05em" }}>INSTALACIONES</h2>
               <SmallBtn
                 onClick={() => {
-                  const next = selectableVersions.find(v => !installedVersionIds.includes(v.id));
+                  const next = versionsForPicker.find(v => !installedVersionIds.includes(v.id));
                   if (!next) return;
                   if (!ensureBridge()) return;
                   const res = window.meacoreBridge?.installVersion?.(JSON.stringify({ version: next.label }));
@@ -761,7 +858,7 @@ export function MinecraftLauncher() {
             </div>
             <p style={{ color: "#666", fontSize: "11px", marginBottom: "10px" }}>INSTALADAS</p>
             <div className="flex flex-col gap-2 mb-5">
-              {selectableVersions.filter(v => installedVersionIds.includes(v.id)).map(v => (
+              {versionsForPicker.filter(v => installedVersionIds.includes(v.id)).map(v => (
                 <div key={v.id}
                   className="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all"
                   style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e1e1e" }}
@@ -786,9 +883,16 @@ export function MinecraftLauncher() {
                 </div>
               ))}
             </div>
-            <p style={{ color: "#666", fontSize: "11px", marginBottom: "10px" }}>NO INSTALADAS</p>
+            <p style={{ color: "#666", fontSize: "11px", marginBottom: "10px" }}>
+              NO INSTALADAS
+              {selectableVersions.length > MAX_VERSIONS_IN_UI && (
+                <span style={{ color: "#444", marginLeft: "8px" }}>
+                  (mostrando las {MAX_VERSIONS_IN_UI} más recientes del manifiesto)
+                </span>
+              )}
+            </p>
             <div className="flex flex-col gap-2">
-              {selectableVersions.filter(v => !installedVersionIds.includes(v.id)).map(v => (
+              {versionsForPicker.filter(v => !installedVersionIds.includes(v.id)).map(v => (
                 <div key={v.id}
                   className="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all"
                   style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e1e1e" }}
@@ -826,11 +930,11 @@ export function MinecraftLauncher() {
         )}
 
         {/* REGISTRO */}
-        {activeTab === "registro" && <RegistroTab />}
+        {activeTab === "registro" && <RegistroTab lines={launcherLogs} />}
       </div>
 
-      {/* ── Bottom Bar ── */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-3"
+      {/* ── Bottom Bar (z-[60] > overlay z-40 para que el desplegable de versión reciba clics) ── */}
+      <div className="relative z-[60] flex items-center justify-between px-5 py-3"
         style={{ background: "rgba(6,6,6,0.98)", borderTop: "1px solid #1a1a1a" }}>
 
         {/* Profile */}
@@ -882,6 +986,20 @@ export function MinecraftLauncher() {
                       onDeleteProfile={deleteSelectedProfile}
                       onSave={saveProfiles}
                       onPlay={() => { handlePlay(); setProfileOpen(false); }}
+                      versionLabels={versionLabels}
+                      onRefreshVersions={() => {
+                        if (!ensureBridge()) return;
+                        try {
+                          const raw = window.meacoreBridge?.getManifestVersions?.();
+                          if (typeof raw === "string" && raw.startsWith("[")) {
+                            applyManifestRows(JSON.parse(raw) as ManifestVersionRow[]);
+                          }
+                          const ins = window.meacoreBridge?.getInstalledVersionIds?.();
+                          if (typeof ins === "string" && ins.startsWith("[")) {
+                            setInstalledVersionIds(JSON.parse(ins) as string[]);
+                          }
+                        } catch { /* ignore */ }
+                      }}
                     />
                   )}
                 </div>
@@ -945,7 +1063,7 @@ export function MinecraftLauncher() {
             {versionOpen && (
               <div className="absolute bottom-full mb-1 left-0 w-52 rounded-lg overflow-hidden z-50"
                 style={{ background: "#0d0d0d", border: "1px solid #222", boxShadow: "0 -8px 24px rgba(0,0,0,0.7)" }}>
-                {selectableVersions.map(v => (
+                {versionsForPicker.map(v => (
                   <button
                     key={v.id}
                     onClick={() => { setSelectedVersion(v); setVersionOpen(false); }}

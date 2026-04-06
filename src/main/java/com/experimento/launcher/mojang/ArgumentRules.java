@@ -3,9 +3,10 @@ package com.experimento.launcher.mojang;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Evaluates {@code rules} on argument fragments: only rules whose OS/feature clauses match the host apply; then
- * the last matching applicable rule wins (allow/disallow). If no rule applies to the current host, the fragment
- * is allowed by default (Mojang-style manifests).
+ * Evaluates {@code rules} on argument fragments (Mojang version.json). Rules that match OS/features apply in
+ * order; the last matching rule wins. If <strong>no</strong> rule matches the host (e.g. only {@code allow} for
+ * {@code osx} on Linux), the fragment is <strong>excluded</strong> — except when every rule is {@code disallow}
+ * (then a non-matching OS means the disallow does not apply and the fragment stays included).
  */
 public final class ArgumentRules {
 
@@ -16,7 +17,8 @@ public final class ArgumentRules {
         if (rules == null || !rules.isArray() || rules.isEmpty()) {
             return true;
         }
-        Boolean allowed = null;
+        boolean matched = false;
+        boolean allowed = false;
         for (JsonNode rule : rules) {
             if (!osClauseMatches(rule, os)) {
                 continue;
@@ -24,6 +26,7 @@ public final class ArgumentRules {
             if (!featureClauseMatches(rule, features)) {
                 continue;
             }
+            matched = true;
             String action = rule.path("action").asText("allow");
             if ("allow".equals(action)) {
                 allowed = true;
@@ -31,8 +34,15 @@ public final class ArgumentRules {
                 allowed = false;
             }
         }
-        if (allowed == null) {
-            return true;
+        if (!matched) {
+            boolean allDisallow = true;
+            for (JsonNode rule : rules) {
+                if (!"disallow".equals(rule.path("action").asText("allow"))) {
+                    allDisallow = false;
+                    break;
+                }
+            }
+            return allDisallow;
         }
         return allowed;
     }

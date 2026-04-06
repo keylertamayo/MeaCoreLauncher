@@ -17,8 +17,10 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 public final class LauncherFacade {
 
@@ -61,6 +63,22 @@ public final class LauncherFacade {
         return MojangVersionResolver.versionEntriesFromManifest(manifest);
     }
 
+    /** Version folder names under {@code versions/} that contain {@code version.json} (installed). */
+    public List<String> listInstalledVersionIds() throws Exception {
+        dirs.ensureBaseDirs();
+        Path vdir = dirs.versionsDir();
+        if (!Files.isDirectory(vdir)) {
+            return List.of();
+        }
+        try (Stream<Path> stream = Files.list(vdir)) {
+            return stream
+                    .filter(p -> Files.isRegularFile(p.resolve("version.json")))
+                    .map(p -> p.getFileName().toString())
+                    .sorted(Comparator.reverseOrder())
+                    .toList();
+        }
+    }
+
     public void prepareInstance(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
         dirs.ensureBaseDirs();
         Path gameDir = gameDirFor(p);
@@ -70,6 +88,7 @@ public final class LauncherFacade {
     }
 
     public List<String> buildLaunchCommand(LauncherProfile p, long ramMiB) throws Exception {
+        Files.createDirectories(gameDirFor(p));
         String versionId = p.lastVersionId;
         Path mergedPath = dirs.versionsDir().resolve(versionId).resolve("version.json");
         if (!Files.isRegularFile(mergedPath)) {
@@ -100,14 +119,35 @@ public final class LauncherFacade {
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
         prepareInstance(p, ramMiB, log);
         List<String> cmd = buildLaunchCommand(p, ramMiB);
+        String joined = String.join(" ", cmd);
         log.accept(
-                "Comando: "
+                "Comando (inicio): "
                         + String.join(" ", cmd.subList(0, Math.min(6, cmd.size())))
                         + (cmd.size() > 6 ? " …" : ""));
+        if (joined.length() > 16000) {
+            log.accept("[Launcher] Comando completo (truncado): " + joined.substring(0, 16000) + "…");
+        } else {
+            log.accept("[Launcher] Comando completo: " + joined);
+        }
+        String javaBin = cmd.get(0);
+        if (!"java".equals(javaBin) && !Files.exists(Path.of(javaBin))) {
+            throw new IllegalStateException("Java no encontrado en: " + javaBin);
+        }
+        log.accept("[Launcher] Java: " + javaBin);
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(gameDirFor(p).toFile());
+        log.accept("[Launcher] GameDir: " + pb.directory());
+        log.accept("[Launcher] Versión: " + p.lastVersionId);
         pb.redirectErrorStream(true);
         Process proc = pb.start();
+
+        proc.onExit()
+                .thenAccept(
+                        ended -> {
+                            if (ended.exitValue() != 0) {
+                                log.accept("[MC] Proceso terminó con código: " + ended.exitValue());
+                            }
+                        });
 
         Thread reader =
                 new Thread(

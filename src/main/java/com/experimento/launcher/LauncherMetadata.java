@@ -13,7 +13,7 @@ public final class LauncherMetadata {
      */
     public static final String TECHNICAL_ID = "experimento-launcher";
 
-    public static final String VERSION = "0.1.0-pre.1";
+    public static final String VERSION = "1.1.0-pre.1";
 
     /** Titular del software (licencia propietaria; ver LICENSE en la raíz del proyecto). */
     public static final String VENDOR = "MeaCore-Enterprise";

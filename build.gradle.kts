@@ -6,7 +6,7 @@ plugins {
 
 group = "com.experimento"
 // Mantener alineado con com.experimento.launcher.LauncherMetadata.VERSION
-version = "0.1.0-pre.1"
+version = "1.1.0-pre.1"
 
 java {
     toolchain {

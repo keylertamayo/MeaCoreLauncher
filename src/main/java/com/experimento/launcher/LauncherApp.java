@@ -40,6 +40,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -82,6 +83,9 @@ public class LauncherApp extends Application {
     private Label aternosHint;
     private Label statusDot;
     private HttpServer frontendServer;
+
+    private static final int MAX_LOG_LINES = 2000;
+    private final ArrayDeque<String> logBuffer = new ArrayDeque<>();
 
     public static void main(String[] args) {
         launch(args);
@@ -721,6 +725,46 @@ public class LauncherApp extends Application {
     }
 
     public final class FrontendBridge {
+        /** JSON array of {id,type,label,releasedAtMs} — todas las versiones oficiales excepto snapshots. */
+        public String getManifestVersions() {
+            try {
+                List<ManifestVersionEntry> list = facade.fetchManifestVersions();
+                ArrayNode arr = mapper.createArrayNode();
+                for (ManifestVersionEntry e : list) {
+                    ObjectNode n = mapper.createObjectNode();
+                    n.put("id", e.id());
+                    n.put("type", e.type() == null ? "" : e.type());
+                    n.put("label", e.label());
+                    n.put("releasedAtMs", e.releasedAtMs());
+                    arr.add(n);
+                }
+                return mapper.writeValueAsString(arr);
+            } catch (Exception ex) {
+                return "[]";
+            }
+        }
+
+        /** JSON array of version folder names that have version.json (instaladas localmente). */
+        public String getInstalledVersionIds() {
+            try {
+                List<String> ids = facade.listInstalledVersionIds();
+                return mapper.writeValueAsString(ids);
+            } catch (Exception ex) {
+                return "[]";
+            }
+        }
+
+        /** Líneas de log recientes (misma salida que la consola / pestaña Registro JavaFX). */
+        public String getLauncherLogs() {
+            synchronized (logBuffer) {
+                try {
+                    return mapper.writeValueAsString(new ArrayList<>(logBuffer));
+                } catch (Exception ex) {
+                    return "[]";
+                }
+            }
+        }
+
         public String getProfiles() {
             try {
                 System.out.println("[Bridge] getProfiles()");
@@ -789,6 +833,17 @@ public class LauncherApp extends Application {
                 if (!OfflineUuid.uuidMatchesUsername(p.username, p.offlineUuid)) {
                     p.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(p.username));
                 }
+                System.out.println(
+                        "[Bridge] startGame perfil="
+                                + p.displayName
+                                + ", usuario="
+                                + p.username
+                                + ", uuid="
+                                + p.offlineUuid
+                                + ", versión="
+                                + p.lastVersionId
+                                + ", instanceId="
+                                + p.instanceId);
                 workers.submit(
                         () -> {
                             try {
@@ -798,13 +853,16 @@ public class LauncherApp extends Application {
                                                 .resolve(p.lastVersionId)
                                                 .resolve("version.json");
                                 if (!Files.isRegularFile(mergedPath)) {
-                                    log("Versión no instalada, instalando " + p.lastVersionId + "...");
+                                    log("[Bridge] Instalando versión " + p.lastVersionId + " (primera vez)...");
                                     facade.installVersion(p.lastVersionId, LauncherApp.this::log);
+                                    log("[Bridge] Instalación completada.");
                                 }
+                                log("[Bridge] Iniciando Minecraft " + p.lastVersionId + " como usuario: " + p.username);
                                 long ram = HardwareProbe.totalPhysicalRamMiB();
                                 facade.startGame(p, ram, LauncherApp.this::log);
                             } catch (Exception ex) {
-                                log("Error al lanzar desde frontend: " + ex.getMessage());
+                                log("[Bridge] ERROR al lanzar: " + ex.getMessage());
+                                ex.printStackTrace();
                             }
                         });
                 return "OK";
@@ -837,6 +895,7 @@ public class LauncherApp extends Application {
             }
         }
         n.set("servers", servers);
+        n.put("instanceId", p.instanceId != null && !p.instanceId.isBlank() ? p.instanceId : p.id);
         return n;
     }
 
@@ -887,18 +946,14 @@ public class LauncherApp extends Application {
             return "1.21.4";
         }
         String v = uiVersion.trim();
-        int firstSpace = v.indexOf(' ');
-        String firstToken = firstSpace > 0 ? v.substring(0, firstSpace) : v;
-        if (firstToken.matches("\\d+\\.\\d+(\\.\\d+)?")) {
-            return firstToken;
-        }
+        v = v.replaceAll("\\s*\\[.*?\\]\\s*", "").trim();
         if (v.toLowerCase().startsWith("forge ") || v.toLowerCase().startsWith("fabric ")) {
             String[] parts = v.split("\\s+");
-            if (parts.length >= 2 && parts[1].matches("\\d+\\.\\d+(\\.\\d+)?")) {
+            if (parts.length >= 2) {
                 return parts[1];
             }
         }
-        return firstToken.replace("[release]", "").replace("[snapshot]", "").trim();
+        return v;
     }
 
     private void loadVersionManifestAsync() {
@@ -1125,6 +1180,12 @@ public class LauncherApp extends Application {
     }
 
     private void log(String s) {
+        synchronized (logBuffer) {
+            while (logBuffer.size() >= MAX_LOG_LINES) {
+                logBuffer.pollFirst();
+            }
+            logBuffer.addLast(java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS) + " " + s);
+        }
         Platform.runLater(
                 () -> {
                     if (logArea != null) {

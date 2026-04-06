@@ -40,7 +40,12 @@ public final class GameLauncher {
         Path clientJar = versionRoot.resolve(versionId + ".jar");
         Path nativesDir = versionRoot.resolve("natives");
 
-        List<Path> classpath = buildClasspath(mergedVersion, clientJar);
+        if (!Files.exists(clientJar)) {
+            throw new IllegalStateException(
+                    "Client JAR no encontrado: " + clientJar + ". Ejecuta «Instalar versión» primero.");
+        }
+
+        List<Path> classpath = buildClasspath(mergedVersion, clientJar, versionId);
 
         String cpSep = File.pathSeparator;
         String classpathStr =
@@ -127,6 +132,7 @@ public final class GameLauncher {
         vars.put("game_directory", gameDir.toAbsolutePath().toString());
         vars.put("assets_root", assetsDir.toAbsolutePath().toString());
         vars.put("assets_index_name", assetIndexName);
+        // Offline / sin sesión Microsoft: userType legacy + UUID sin guiones (como launchers habituales).
         vars.put("auth_uuid", uuidString.replace("-", ""));
         vars.put("auth_access_token", "0");
         vars.put("clientid", "");
@@ -207,15 +213,27 @@ public final class GameLauncher {
         return "java";
     }
 
-    private List<Path> buildClasspath(JsonNode merged, Path clientJar) throws Exception {
+    private List<Path> buildClasspath(JsonNode merged, Path clientJar, String versionId) throws Exception {
         List<Path> cp = new ArrayList<>();
-        for (JsonNode lib : merged.get("libraries")) {
+        JsonNode libs = merged.get("libraries");
+        if (libs == null || !libs.isArray()) {
+            throw new IllegalStateException("version.json sin lista «libraries» válida.");
+        }
+        for (JsonNode lib : libs) {
             if (!RuleEvaluator.libraryAllowed(lib, os)) {
                 continue;
             }
             JsonNode downloads = lib.get("downloads");
             if (downloads != null && downloads.has("artifact")) {
                 Path dest = librariesDir.resolve(downloads.get("artifact").get("path").asText());
+                if (!Files.exists(dest)) {
+                    throw new IllegalStateException(
+                            "Falta una librería descargada: "
+                                    + dest
+                                    + ". Vuelve a instalar la versión "
+                                    + versionId
+                                    + " (Instalar) con conexión estable.");
+                }
                 cp.add(dest);
             }
         }
