@@ -198,14 +198,8 @@ public class LauncherApp extends Application {
         form.add(new Label("Nombre visible"), 0, r);
         form.add(displayNameField, 1, r);
         r++;
-        form.add(new Label("Usuario MC (offline)"), 0, r);
-        form.add(usernameField, 1, r);
-        r++;
-        form.add(new Label("UUID offline"), 0, r);
-        HBox uuidRow = new HBox(8, uuidField, syncUuidBtn);
-        HBox.setHgrow(uuidField, Priority.ALWAYS);
-        form.add(uuidRow, 1, r);
-        r++;
+        // Usuario MC y UUID se manejan internamente a partir de "Nombre visible".
+        // Se ocultan en la UI para simplificar la experiencia.
         form.add(new Label("Versión"), 0, r);
         HBox versionRow = new HBox(8, versionFilter, versionCombo, refreshManifestBtn);
         HBox.setHgrow(versionCombo, Priority.ALWAYS);

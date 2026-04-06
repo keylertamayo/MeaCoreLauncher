@@ -39,7 +39,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          name: Experimento Launcher ${{ github.ref_name }}
+          body_path: .github/release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}
           files: |
             build/libs/**
             build/distributions/**
