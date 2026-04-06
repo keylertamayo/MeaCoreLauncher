@@ -2,30 +2,31 @@ package com.experimento.launcher.mojang;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.Locale;
-
 public final class RuleEvaluator {
 
     private RuleEvaluator() {}
 
+    /**
+     * Mojang-style library rules: start denied; each matching rule flips allow/disallow. If no rule matches the
+     * host, the library stays excluded (e.g. Windows-only natives on Linux).
+     */
     public static boolean libraryAllowed(JsonNode library, OsContext os) {
         JsonNode rules = library.get("rules");
-        if (rules == null || !rules.isArray()) {
+        if (rules == null || !rules.isArray() || rules.isEmpty()) {
             return true;
         }
-        Boolean last = null;
+        boolean allowed = false;
         for (JsonNode rule : rules) {
             String action = text(rule, "action");
-            boolean matches = matchesRule(rule, os);
-            if ("allow".equals(action)) {
-                last = matches;
-            } else if ("disallow".equals(action)) {
-                if (matches) {
-                    last = false;
+            if (matchesRule(rule, os)) {
+                if ("allow".equals(action)) {
+                    allowed = true;
+                } else if ("disallow".equals(action)) {
+                    allowed = false;
                 }
             }
         }
-        return last == null || last;
+        return allowed;
     }
 
     private static boolean matchesRule(JsonNode rule, OsContext os) {

@@ -622,6 +622,9 @@ public class LauncherApp extends Application {
                                     try {
                                         JSObject window = (JSObject) webView.getEngine().executeScript("window");
                                         window.setMember("meacoreBridge", new FrontendBridge());
+                                        webView.getEngine()
+                                                .executeScript(
+                                                        "window.dispatchEvent(new CustomEvent('meacoreBridgeReady'));");
                                         System.out.println("[Bridge] meacoreBridge conectado en WebView.");
                                     } catch (Exception ex) {
                                         System.err.println("[Bridge] Error inyectando meacoreBridge: " + ex.getMessage());
@@ -849,6 +852,9 @@ public class LauncherApp extends Application {
         p.useGlobalMinecraftFolder = n.path("useGlobalMinecraft").asBoolean(false);
         p.lastVersionId = normalizeVersionId(n.path("version").asText("1.21.4"));
         p.instanceId = n.path("instanceId").asText(p.id);
+        if (p.instanceId == null || p.instanceId.isBlank()) {
+            p.instanceId = p.id;
+        }
         if (n.has("servers") && n.get("servers").isArray()) {
             p.servers = new ArrayList<>();
             for (JsonNode s : n.get("servers")) {
@@ -1121,8 +1127,12 @@ public class LauncherApp extends Application {
     private void log(String s) {
         Platform.runLater(
                 () -> {
-                    logArea.appendText(s + "\n");
-                    logArea.setScrollTop(Double.MAX_VALUE);
+                    if (logArea != null) {
+                        logArea.appendText(s + "\n");
+                        logArea.setScrollTop(Double.MAX_VALUE);
+                    } else {
+                        System.out.println(s);
+                    }
                 });
     }
 

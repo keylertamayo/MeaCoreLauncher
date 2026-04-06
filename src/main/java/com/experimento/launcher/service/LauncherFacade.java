@@ -12,6 +12,9 @@ import com.experimento.launcher.util.OfflineUuid;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -74,8 +77,12 @@ public final class LauncherFacade {
         }
         JsonNode merged = mapper.readTree(Files.readAllBytes(mergedPath));
         if (!OfflineUuid.uuidMatchesUsername(p.username, p.offlineUuid)) {
-            throw new IllegalStateException(
-                    "El UUID offline no coincide con el nombre; renombrar puede romper datos en servidor.");
+            try {
+                p.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(p.username));
+            } catch (Exception ignored) {
+                p.username = "Player";
+                p.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername("Player"));
+            }
         }
         Path gameDir = gameDirFor(p);
         List<String> jvm = JvmPresetService.argsFor(p, ramMiB);
@@ -93,11 +100,33 @@ public final class LauncherFacade {
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
         prepareInstance(p, ramMiB, log);
         List<String> cmd = buildLaunchCommand(p, ramMiB);
-        log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
+        log.accept(
+                "Comando: "
+                        + String.join(" ", cmd.subList(0, Math.min(6, cmd.size())))
+                        + (cmd.size() > 6 ? " …" : ""));
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(gameDirFor(p).toFile());
-        pb.inheritIO();
-        return pb.start();
+        pb.redirectErrorStream(true);
+        Process proc = pb.start();
+
+        Thread reader =
+                new Thread(
+                        () -> {
+                            try (BufferedReader br =
+                                    new BufferedReader(
+                                            new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+                                String line;
+                                while ((line = br.readLine()) != null) {
+                                    log.accept("[MC] " + line);
+                                }
+                            } catch (Exception ignored) {
+                            }
+                        },
+                        "mc-log-reader");
+        reader.setDaemon(true);
+        reader.start();
+
+        return proc;
     }
 
     /** Apply TLauncher JVM args as custom once (user can edit after). */

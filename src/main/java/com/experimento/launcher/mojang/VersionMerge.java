@@ -62,12 +62,15 @@ public final class VersionMerge {
     }
 
     private static ObjectNode mergeArguments(ObjectNode parentArgs, ObjectNode childArgs) {
-        ObjectNode out = M.createObjectNode();
         ObjectNode p =
                 parentArgs == null || parentArgs.isNull() ? M.createObjectNode() : parentArgs.deepCopy();
         if (childArgs == null || childArgs.isNull()) {
             return p;
         }
+        if (childArgs.isEmpty()) {
+            return p;
+        }
+        ObjectNode out = M.createObjectNode();
         for (String key : new String[] {"jvm", "game"}) {
             ArrayNode merged = M.createArrayNode();
             if (p.has(key) && p.get(key).isArray()) {

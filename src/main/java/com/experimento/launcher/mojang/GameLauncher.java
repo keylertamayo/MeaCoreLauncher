@@ -7,8 +7,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class GameLauncher {
@@ -44,9 +46,81 @@ public final class GameLauncher {
         String classpathStr =
                 classpath.stream().map(p -> p.toAbsolutePath().toString()).collect(Collectors.joining(cpSep));
 
-        JsonNode assetIndex = mergedVersion.get("assetIndex");
-        String assetIndexName = assetIndex.get("id").asText();
+        String assetIndexName = mergedVersion.path("assetIndex").path("id").asText("legacy");
 
+        Map<String, String> vars =
+                buildVars(
+                        versionId,
+                        gameDir,
+                        username,
+                        uuidString,
+                        assetIndexName,
+                        classpathStr,
+                        cpSep,
+                        nativesDir,
+                        mergedVersion,
+                        features);
+
+        Path logFile = resolveLogConfig(mergedVersion, versionRoot);
+        if (logFile != null) {
+            vars.put("path", logFile.toAbsolutePath().toString());
+        }
+
+        List<String> extras = new ArrayList<>();
+        List<String> cmd = new ArrayList<>();
+        cmd.add(resolveJavaBinary());
+        if (extraJvmArgs != null) {
+            for (String a : extraJvmArgs) {
+                if (a != null && !a.isBlank()) {
+                    cmd.add(a);
+                    extras.add(a);
+                }
+            }
+        }
+
+        JsonNode args = mergedVersion.get("arguments");
+        if (args != null && args.has("jvm")) {
+            List<String> versionJvm = new ArrayList<>();
+            for (String a : ArgumentFlattener.flatten(args, "jvm", os, features)) {
+                versionJvm.add(substitute(a, vars));
+            }
+            for (String a : deduplicateJvmArgs(extras, versionJvm)) {
+                cmd.add(a);
+            }
+        } else {
+            cmd.add("-Djava.library.path=" + nativesDir.toAbsolutePath());
+            cmd.add("-cp");
+            cmd.add(classpathStr);
+        }
+
+        String mainClass = mergedVersion.get("mainClass").asText("net.minecraft.client.main.Main");
+        cmd.add(mainClass);
+
+        if (args != null && args.has("game")) {
+            for (String a : ArgumentFlattener.flatten(args, "game", os, features)) {
+                cmd.add(substitute(a, vars));
+            }
+        } else {
+            String legacy = mergedVersion.path("minecraftArguments").asText("");
+            for (String part : splitMinecraftArguments(legacy)) {
+                cmd.add(substitute(part, vars));
+            }
+        }
+
+        return cmd;
+    }
+
+    private Map<String, String> buildVars(
+            String versionId,
+            Path gameDir,
+            String username,
+            String uuidString,
+            String assetIndexName,
+            String classpathStr,
+            String cpSep,
+            Path nativesDir,
+            JsonNode mergedVersion,
+            LaunchFeatures features) {
         Map<String, String> vars = new HashMap<>();
         vars.put("auth_player_name", username);
         vars.put("version_name", versionId);
@@ -73,51 +147,40 @@ public final class GameLauncher {
         vars.put("quickPlaySingleplayer", "");
         vars.put("quickPlayMultiplayer", "");
         vars.put("quickPlayRealms", "");
+        return vars;
+    }
 
-        Path logFile = resolveLogConfig(mergedVersion, versionRoot);
-        if (logFile != null) {
-            vars.put("path", logFile.toAbsolutePath().toString());
-        }
-
-        List<String> jvm = new ArrayList<>();
-        jvm.add(resolveJavaBinary());
-        if (extraJvmArgs != null) {
-            for (String a : extraJvmArgs) {
-                if (a != null && !a.isBlank()) {
-                    jvm.add(a);
-                }
+    /** When the profile preset already sets heap/GC flags, drop the same flags from version.json JVM args. */
+    private static List<String> deduplicateJvmArgs(List<String> extraArgs, List<String> versionArgs) {
+        Set<String> extraKeys = new HashSet<>();
+        for (String arg : extraArgs) {
+            String k = jvmConflictKey(arg);
+            if (k != null) {
+                extraKeys.add(k);
             }
         }
-        JsonNode args = mergedVersion.get("arguments");
-        if (args != null && args.has("jvm")) {
-            for (String a : ArgumentFlattener.flatten(args, "jvm", os, features)) {
-                jvm.add(substitute(a, vars));
+        List<String> filtered = new ArrayList<>();
+        for (String arg : versionArgs) {
+            String k = jvmConflictKey(arg);
+            if (k != null && extraKeys.contains(k)) {
+                continue;
             }
-        } else {
-            String legacyJvm = mergedVersion.path("minecraftArguments").asText("");
-            if (legacyJvm.isEmpty()) {
-                jvm.add("-Djava.library.path=" + nativesDir.toAbsolutePath());
-            }
+            filtered.add(arg);
         }
+        return filtered;
+    }
 
-        String mainClass = mergedVersion.get("mainClass").asText("net.minecraft.client.main.Main");
-        jvm.add(mainClass);
-
-        List<String> game = new ArrayList<>();
-        if (args != null && args.has("game")) {
-            for (String a : ArgumentFlattener.flatten(args, "game", os, features)) {
-                game.add(substitute(a, vars));
-            }
-        } else {
-            String legacy = mergedVersion.get("minecraftArguments").asText();
-            for (String part : splitMinecraftArguments(legacy)) {
-                game.add(substitute(part, vars));
-            }
+    private static String jvmConflictKey(String arg) {
+        if (arg.startsWith("-Xmx")) {
+            return "-Xmx";
         }
-
-        List<String> full = new ArrayList<>(jvm);
-        full.addAll(game);
-        return full;
+        if (arg.startsWith("-Xms")) {
+            return "-Xms";
+        }
+        if (arg.startsWith("-XX:MaxGCPauseMillis")) {
+            return "-XX:MaxGCPauseMillis";
+        }
+        return null;
     }
 
     private static Path resolveLogConfig(JsonNode merged, Path versionRoot) throws Exception {
@@ -166,7 +229,6 @@ public final class GameLauncher {
             out = out.replace("${" + e.getKey() + "}", e.getValue());
         }
         if (out.contains("${")) {
-            // Best-effort: leave remaining tokens empty to avoid broken launches on unknown placeholders
             out = out.replaceAll("\\$\\{[^}]+\\}", "");
         }
         return out;

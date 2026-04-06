@@ -478,15 +478,7 @@ function RegistroTab() {
 // ─── MAIN LAUNCHER ───────────────────────────────────────────────────────────
 export function MinecraftLauncher() {
   const [activeTab, setActiveTab] = useState("news");
-  const [profiles, setProfiles] = useState<Profile[]>(() => {
-    const persisted = localStorage.getItem("meacore_profiles");
-    if (!persisted) return initialProfiles;
-    try {
-      return JSON.parse(persisted) as Profile[];
-    } catch {
-      return initialProfiles;
-    }
-  });
+  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
   const [selectedId, setSelectedId] = useState("p1");
   const selectableVersions = useMemo(
     () => allVersions.filter(v => INSTALLABLE_TYPES.includes(v.type as (typeof INSTALLABLE_TYPES)[number])),
@@ -503,22 +495,30 @@ export function MinecraftLauncher() {
   const profile = profiles.find(p => p.id === selectedId) ?? profiles[0];
 
   useEffect(() => {
-    localStorage.setItem("meacore_profiles", JSON.stringify(profiles));
-  }, [profiles]);
-
-  useEffect(() => {
-    const raw = window.meacoreBridge?.getProfiles?.();
-    if (typeof raw === "string" && raw.startsWith("[")) {
+    const tryLoad = () => {
+      if (!window.meacoreBridge?.getProfiles) return;
       try {
-        const fromBackend = JSON.parse(raw) as Profile[];
-        if (fromBackend.length > 0) {
-          setProfiles(fromBackend);
-          setSelectedId(fromBackend[0].id);
+        const raw = window.meacoreBridge.getProfiles();
+        if (typeof raw === "string" && raw.startsWith("[")) {
+          const fromBackend = JSON.parse(raw) as Profile[];
+          if (fromBackend.length > 0) {
+            setProfiles(fromBackend);
+            setSelectedId(fromBackend[0].id);
+          }
         }
       } catch {
-        // ignore malformed payload and keep local fallback
+        /* keep initialProfiles */
       }
-    }
+    };
+    window.addEventListener("meacoreBridgeReady", tryLoad);
+    tryLoad();
+    const retry = window.setTimeout(tryLoad, 500);
+    const retry2 = window.setTimeout(tryLoad, 1500);
+    return () => {
+      window.removeEventListener("meacoreBridgeReady", tryLoad);
+      window.clearTimeout(retry);
+      window.clearTimeout(retry2);
+    };
   }, []);
 
   const ensureBridge = () => {
