@@ -1,0 +1,7 @@
+/.gradle/
+/build/
+/launcher-data/
+/instances/*/
+!instances/.gitkeep
+*.iml
+.idea/
