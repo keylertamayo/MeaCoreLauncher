@@ -5,3 +5,6 @@
 !instances/.gitkeep
 *.iml
 .idea/
+.cursor/
+/frontend/node_modules/
+/frontend/dist/

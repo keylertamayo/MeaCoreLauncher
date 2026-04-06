@@ -6,7 +6,7 @@ plugins {
 
 group = "com.experimento"
 // Mantener alineado con com.experimento.launcher.LauncherMetadata.VERSION
-version = "0.1.0"
+version = "0.1.0-pre.1"
 
 java {
     toolchain {
@@ -29,7 +29,7 @@ dependencies {
 
 javafx {
     version = "21.0.5"
-    modules("javafx.controls", "javafx.fxml")
+    modules("javafx.controls", "javafx.fxml", "javafx.web")
 }
 
 application {

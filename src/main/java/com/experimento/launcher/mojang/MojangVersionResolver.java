@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +38,25 @@ public final class MojangVersionResolver {
         }
         for (JsonNode v : versions) {
             String id = v.path("id").asText("");
-            if (id.isBlank()) continue;
+            if (id.isBlank()) {
+                continue;
+            }
             String type = v.path("type").asText("");
-            out.add(new ManifestVersionEntry(id, type));
+            if ("old_alpha".equalsIgnoreCase(type) || "old_beta".equalsIgnoreCase(type)) {
+                continue;
+            }
+            long releasedAtMs = 0L;
+            String releaseTime = v.path("releaseTime").asText("");
+            if (!releaseTime.isBlank()) {
+                try {
+                    releasedAtMs = Instant.parse(releaseTime).toEpochMilli();
+                } catch (Exception ignored) {
+                    releasedAtMs = 0L;
+                }
+            }
+            out.add(new ManifestVersionEntry(id, type, releasedAtMs));
         }
+        out.sort(Comparator.comparingLong(ManifestVersionEntry::releasedAtMs));
         return out;
     }
 

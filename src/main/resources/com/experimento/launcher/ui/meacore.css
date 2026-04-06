@@ -1,0 +1,86 @@
+.root {
+  -fx-font-family: "Segoe UI", "Noto Sans", sans-serif;
+  -fx-base: #0a0a0a;
+  -fx-background: #0a0a0a;
+}
+
+.meacore-topbar {
+  -fx-background-color: rgba(10,10,10,0.97);
+  -fx-border-color: #1a1a1a;
+  -fx-border-width: 0 0 1 0;
+}
+
+.meacore-navbar {
+  -fx-background-color: rgba(8,8,8,0.92);
+  -fx-border-color: #1c1c1c;
+  -fx-border-width: 0 0 1 0;
+}
+
+.meacore-sidebar {
+  -fx-background-color: rgba(6,6,6,0.85);
+  -fx-border-color: #1a1a1a;
+  -fx-border-width: 0 1 0 0;
+}
+
+.meacore-panel {
+  -fx-background-color: rgba(6,6,6,0.85);
+  -fx-border-color: #1a1a1a;
+  -fx-border-width: 1 1 1 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.meacore-accent {
+  -fx-text-fill: #cc0000;
+}
+
+.meacore-muted {
+  -fx-text-fill: #777;
+}
+
+.meacore-input, .text-field, .text-area, .combo-box-base {
+  -fx-background-color: rgba(255,255,255,0.04);
+  -fx-border-color: #2a2a2a;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+  -fx-text-fill: #ccc;
+}
+
+.meacore-button {
+  -fx-background-color: rgba(255,255,255,0.06);
+  -fx-border-color: #2a2a2a;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+  -fx-text-fill: #aaa;
+}
+
+.meacore-button:hover {
+  -fx-background-color: rgba(255,255,255,0.12);
+}
+
+.meacore-primary {
+  -fx-background-color: #cc0000;
+  -fx-border-color: #ff2222;
+  -fx-text-fill: white;
+}
+
+.meacore-primary:hover {
+  -fx-background-color: #e00000;
+}
+
+.tab-pane .tab-header-area {
+  -fx-background-color: rgba(8,8,8,0.92);
+  -fx-border-color: #1c1c1c;
+  -fx-border-width: 0 0 1 0;
+}
+
+.tab-pane .tab-header-area .tab {
+  -fx-background-color: transparent;
+  -fx-text-base-color: #555;
+}
+
+.tab-pane .tab-header-area .tab:selected {
+  -fx-text-base-color: white;
+  -fx-border-color: transparent transparent #cc0000 transparent;
+  -fx-border-width: 0 0 2 0;
+}

@@ -1,6 +1,7 @@
 package com.experimento.launcher.service;
 
 import com.experimento.launcher.model.LauncherProfile;
+import com.experimento.launcher.model.JvmPresetKind;
 import com.experimento.launcher.util.OfflineUuid;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +37,9 @@ public final class ProfileStore {
             }
             if (p.instanceId == null || p.instanceId.isBlank()) {
                 p.instanceId = p.id;
+            }
+            if (p.jvmPreset == null) {
+                p.jvmPreset = JvmPresetKind.AUTO;
             }
         }
         return list;
