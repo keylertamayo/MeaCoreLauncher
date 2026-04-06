@@ -3,8 +3,9 @@ package com.experimento.launcher.mojang;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Evaluates {@code rules} on argument fragments: only rules whose OS clause matches the host apply; then
- * last matching applicable rule wins (allow/disallow), matching Mojang-style launcher behaviour.
+ * Evaluates {@code rules} on argument fragments: only rules whose OS/feature clauses match the host apply; then
+ * the last matching applicable rule wins (allow/disallow). If no rule applies to the current host, the fragment
+ * is allowed by default (Mojang-style manifests).
  */
 public final class ArgumentRules {
 
@@ -31,7 +32,7 @@ public final class ArgumentRules {
             }
         }
         if (allowed == null) {
-            return false;
+            return true;
         }
         return allowed;
     }
