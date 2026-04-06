@@ -35,6 +35,7 @@ public class LauncherApp extends Application {
     private final ExecutorService workers = Executors.newCachedThreadPool();
     private final List<ManifestVersionEntry> allManifestEntries = new ArrayList<>();
     private boolean syncingVersionUi;
+    private boolean syncingIdentityUi;
 
     private LauncherFacade facade;
     private List<LauncherProfile> profiles;
@@ -144,8 +145,9 @@ public class LauncherApp extends Application {
                 .textProperty()
                 .addListener(
                         (obs, o, n) -> {
-                            if (selected != null) {
+                            if (selected != null && !syncingIdentityUi) {
                                 selected.displayName = n;
+                                syncIdentityFromDisplayName(n);
                             }
                             profileList.refresh();
                         });
@@ -153,8 +155,9 @@ public class LauncherApp extends Application {
                 .textProperty()
                 .addListener(
                         (obs, o, n) -> {
-                            if (selected != null) {
+                            if (selected != null && !syncingIdentityUi) {
                                 selected.username = n;
+                                syncUuidFromUsername();
                             }
                         });
         uuidField
@@ -524,9 +527,14 @@ public class LauncherApp extends Application {
             }
             return;
         }
-        displayNameField.setText(p.displayName);
-        usernameField.setText(p.username);
-        uuidField.setText(p.offlineUuid);
+        syncingIdentityUi = true;
+        try {
+            displayNameField.setText(p.displayName);
+            usernameField.setText(p.username);
+            uuidField.setText(p.offlineUuid);
+        } finally {
+            syncingIdentityUi = false;
+        }
         presetCombo.setValue(p.jvmPreset);
         jvmArea.setText(p.customJvmArgs == null ? "" : p.customJvmArgs);
         globalMcCheck.setSelected(p.useGlobalMinecraftFolder);
@@ -535,7 +543,25 @@ public class LauncherApp extends Application {
         }
         serverTable.setItems(FXCollections.observableList(p.servers));
         applyVersionFilter();
+        if (p.offlineUuid == null || p.offlineUuid.isBlank()) {
+            syncUuidFromUsername();
+        }
         refreshHints();
+    }
+
+    private void syncIdentityFromDisplayName(String displayName) {
+        if (selected == null) {
+            return;
+        }
+        String normalized = displayName == null ? "" : displayName.trim();
+        syncingIdentityUi = true;
+        try {
+            selected.username = normalized;
+            usernameField.setText(normalized);
+        } finally {
+            syncingIdentityUi = false;
+        }
+        syncUuidFromUsername();
     }
 
     private void refreshAternosRowHint(ServerEntry se) {
