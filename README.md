@@ -35,6 +35,54 @@ chmod +x run.sh
 
 El WebView carga `http://127.0.0.1:<puerto>/` sirviendo `frontend/dist/`.
 
+## Instalar desde el paquete `.tar` (distribución Gradle)
+
+Genera el archivo en tu máquina (o descarga el `.tar` de una release, si se publica):
+
+```bash
+./gradlew distTar
+```
+
+El archivo queda en:
+
+`build/distributions/experimento-launcher-<versión>.tar`
+
+**Linux / macOS**
+
+```bash
+cd build/distributions   # o la carpeta donde descargaste el .tar
+tar -xvf experimento-launcher-*.tar
+cd experimento-launcher-*
+chmod +x bin/experimento-launcher
+./bin/experimento-launcher
+```
+
+- Necesitas **Java 21** en el `PATH` (`java -version`).
+- Ejecuta el script **desde la carpeta del paquete** (usa rutas relativas a `lib/`).
+- Coloca **`frontend/dist/`** compilado junto al directorio de trabajo del proceso si quieres la UI web (misma regla que al desarrollar).
+
+**Windows:** descomprime el `.zip` equivalente (`distZip`) y usa `bin\experimento-launcher.bat`.
+
+## Instalar / ejecutar el `.jar`
+
+Hay dos casos distintos:
+
+### 1) `.jar` “fino” (`./gradlew jar`)
+
+Salida típica: `build/libs/experimento-launcher-<versión>.jar`.
+
+Ese JAR **no incluye dependencias ni JavaFX empaquetadas**: **no** es un `java -jar` usable solo. Para ejecutar el proyecto usa **`./gradlew run`**, el **`.tar`** de arriba o un instalador que ya traiga el classpath.
+
+### 2) `.jar` ejecutable “todo en uno” (fat / sombra)
+
+Si una **release** publica un único `.jar` ejecutable (dependencias embebidas), instala **JDK 21**, coloca el `.jar` donde quieras y:
+
+```bash
+java -jar experimento-launcher-<versión>.jar
+```
+
+(Solo aplica a ese tipo de artefacto; el build por defecto del repo no genera fat-jar.)
+
 ## Pruebas
 
 ```bash
