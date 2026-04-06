@@ -52,12 +52,14 @@ El archivo queda en:
 ```bash
 cd build/distributions   # o la carpeta donde descargaste el .tar
 tar -xvf experimento-launcher-*.tar
-cd experimento-launcher-*
+cd experimento-launcher-<versión>   # nombre exacto de la carpeta (p. ej. experimento-launcher-1.1.0-pre.1)
 chmod +x bin/experimento-launcher
 ./bin/experimento-launcher
 ```
 
-- Necesitas **Java 21** en el `PATH` (`java -version`).
+Si `cd experimento-launcher-*` devuelve «demasiados argumentos», en esa carpeta hay **varias** carpetas que coinciden con el patrón; entra con el nombre concreto que mostró `tar` (tabulador ayuda).
+
+- Necesitas **Java 21** en el `PATH` (`java -version`). OpenJFX va en `lib/` y el script de `bin/` ya arranca el JVM con `--module-path` / `--add-modules`; **no** hace falta instalar JavaFX aparte del JDK.
 - Ejecuta el script **desde la carpeta del paquete** (usa rutas relativas a `lib/`).
 - Coloca **`frontend/dist/`** compilado junto al directorio de trabajo del proceso si quieres la UI web (misma regla que al desarrollar).
 
