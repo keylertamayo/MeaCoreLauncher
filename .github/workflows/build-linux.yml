@@ -33,7 +33,7 @@ jobs:
           jpackage --name MeaCoreLauncher \
             --input build/libs \
             --main-jar meacore-launcher-1.1.0-alpha.1.jar \
-            --main-class com.experimento.launcher.LauncherApp \
+            --main-class com.experimento.launcher.Main \
             --type deb \
             --icon icon.png \
             --linux-shortcut \

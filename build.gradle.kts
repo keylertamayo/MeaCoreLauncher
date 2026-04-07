@@ -33,7 +33,7 @@ javafx {
 }
 
 application {
-    mainClass.set("com.experimento.launcher.LauncherApp")
+    mainClass.set("com.experimento.launcher.Main")
 }
 
 tasks.test {
@@ -49,7 +49,12 @@ val copyDependencies by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("libs"))
 }
 
-tasks.named("jar") {
+tasks.named<Jar>("jar") {
     dependsOn(copyDependencies)
+    manifest {
+        attributes["Main-Class"] = "com.experimento.launcher.Main"
+        // Crea el Class-Path del manifiesto uniendo los nombres de todas las dependencias
+        attributes["Class-Path"] = configurations.runtimeClasspath.get().files.joinToString(" ") { it.name }
+    }
 }
 
