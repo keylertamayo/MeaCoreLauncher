@@ -22,5 +22,25 @@ Se caracteriza por:
 
 ---
 
+## Descarga e Instalación (Alfa 1.1.0)
+
+¡Ya puedes descargar e instalar **MeaCore Launcher** de forma nativa! Los instaladores se generan automáticamente tras cada actualización importante.
+
+### 🐧 Linux (Ubuntu/Debian)
+1. Descarga el archivo `.deb` desde la sección de **Releases**.
+2. Abre una terminal en la carpeta de descarga.
+3. Instala usando el siguiente comando:
+   ```bash
+   sudo apt install ./MeaCoreLauncher-1.1.0-alpha.1.deb
+   ```
+4. Busca "MeaCore Launcher" en tu menú de aplicaciones e inícialo.
+
+### 🪟 Windows
+1. Descarga el archivo `.msi` desde la sección de **Releases**.
+2. Haz doble clic en el instalador y sigue las instrucciones del asistente.
+3. El launcher creará un acceso directo en tu Escritorio y en el Menú de Inicio.
+
+---
+
 ## Mejoras de Rendimiento (Auto-Optimización)
-MeaCore no solo lanza el juego, sino que analiza la memoria del equipo subyacente para elegir el motor de *Garbage Collection* de Java adecuado, alojando dinámicamente recursos avanzados (como Generational ZGC) para reducir la asfixia de memoria en las versiones más modernas como la 1.21.
+MeaCore no solo lanza el juego, sino que analiza la memoria del equipo subyacente para elegir el motor de *Garbage Collection* de Java adecuado, alojando dinámicamente recursos avanzados (como **ZGC Generacional** o **Aikar's Flags**) para reducir drásticamente el lag en versiones modernas de Minecraft (1.21+).
