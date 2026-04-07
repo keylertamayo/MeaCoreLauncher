@@ -6,14 +6,14 @@ package com.experimento.launcher;
 public final class LauncherMetadata {
 
     /** Título de ventana y nombre visible para el usuario. */
-    public static final String DISPLAY_NAME = "Experimento Launcher";
+    public static final String DISPLAY_NAME = "MeaCore Launcher";
 
     /**
      * Identificador corto sin espacios (p. ej. variable {@code launcher_name} que envía el cliente a Mojang).
      */
-    public static final String TECHNICAL_ID = "experimento-launcher";
+    public static final String TECHNICAL_ID = "meacore-launcher";
 
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "1.1.0-alpha.1";
 
     /** Titular del software (licencia propietaria; ver LICENSE en la raíz del proyecto). */
     public static final String VENDOR = "MeaCore-Enterprise";

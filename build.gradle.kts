@@ -6,7 +6,7 @@ plugins {
 
 group = "com.experimento"
 // Mantener alineado con com.experimento.launcher.LauncherMetadata.VERSION
-version = "0.1.0"
+version = "1.1.0-alpha.1"
 
 java {
     toolchain {
@@ -43,3 +43,13 @@ tasks.test {
 tasks.named<JavaCompile>("compileJava") {
     options.encoding = "UTF-8"
 }
+
+val copyDependencies by tasks.registering(Copy::class) {
+    from(configurations.runtimeClasspath)
+    into(layout.buildDirectory.dir("libs"))
+}
+
+tasks.named("jar") {
+    dependsOn(copyDependencies)
+}
+

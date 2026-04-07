@@ -1,4 +1,4 @@
-name: Tag Build
+name: Tag Build (Installers)
 
 on:
   push:
@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build Installer for ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -23,23 +27,53 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Build and test
-        run: ./gradlew clean build --no-daemon
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
 
-      - name: Upload distribution files
+      - name: Create Installer (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p build/dist
+          jpackage --name MeaCoreLauncher \
+            --input build/libs \
+            --main-jar MeaCoreLauncher-1.1.0-alpha.1.jar \
+            --main-class com.experimento.launcher.LauncherApp \
+            --type deb \
+            --icon icon.png \
+            --linux-shortcut \
+            --app-version 1.1.0 \
+            --vendor MeaCore-Enterprise \
+            --dest build/dist
+
+      - name: Create Installer (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build/dist
+          # Intentamos usar el PNG directamente, jpackage en versiones recientes puede convertirlo 
+          # o fallará elegantemente pidiendo un .ico.
+          jpackage --name MeaCoreLauncher `
+            --input build/libs `
+            --main-jar MeaCoreLauncher-1.1.0-alpha.1.jar `
+            --main-class com.experimento.launcher.LauncherApp `
+            --type msi `
+            --icon icon.png `
+            --win-shortcut --win-menu --win-dir-chooser `
+            --app-version 1.1.0 `
+            --vendor MeaCore-Enterprise `
+            --dest build/dist
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: launcher-dist-${{ github.ref_name }}
-          path: |
-            build/libs/**
-            build/distributions/**
-          if-no-files-found: warn
+          name: MeaCoreLauncher-${{ matrix.os }}
+          path: build/dist/*
+          if-no-files-found: error
 
       - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: |
-            build/libs/**
-            build/distributions/**
+          files: build/dist/*

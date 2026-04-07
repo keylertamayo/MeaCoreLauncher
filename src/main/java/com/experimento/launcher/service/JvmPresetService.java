@@ -48,22 +48,41 @@ public final class JvmPresetService {
     }
 
     public static List<String> balancedPreset(long totalRamMiB) {
-        String mx = totalRamMiB >= 12 * 1024 ? "4G" : "3G";
-        return List.of(
-                "-Xms1G",
-                "-Xmx" + mx,
-                "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=100",
-                "-XX:+UnlockExperimentalVMOptions");
-    }
-
-    public static List<String> highPreset(long totalRamMiB) {
-        String mx = totalRamMiB >= 16 * 1024 ? "6G" : "4G";
+        String mx = totalRamMiB >= 12 * 1024 ? "4G" : (totalRamMiB >= 8 * 1024 ? "3G" : "2G");
         return List.of(
                 "-Xms2G",
                 "-Xmx" + mx,
                 "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=100",
-                "-XX:+UnlockExperimentalVMOptions");
+                "-XX:+ParallelRefProcEnabled",
+                "-XX:MaxGCPauseMillis=200",
+                "-XX:+UnlockExperimentalVMOptions",
+                "-XX:+DisableExplicitGC",
+                "-XX:+AlwaysPreTouch",
+                "-XX:G1NewSizePercent=30",
+                "-XX:G1MaxNewSizePercent=40",
+                "-XX:G1HeapRegionSize=8M",
+                "-XX:G1ReservePercent=20",
+                "-XX:G1HeapWastePercent=5",
+                "-XX:G1MixedGCCountTarget=4",
+                "-XX:InitiatingHeapOccupancyPercent=15",
+                "-XX:G1MixedGCLiveThresholdPercent=90",
+                "-XX:G1RSetUpdatingPauseTimePercent=5",
+                "-XX:SurvivorRatio=32",
+                "-XX:+PerfDisableSharedMem",
+                "-XX:MaxTenuringThreshold=1");
+    }
+
+    public static List<String> highPreset(long totalRamMiB) {
+        // En configuraciones al máximo para 1.21+, 4-6GB ahogan el GC. Permitimos mas respiro si el PC tiene RAM,
+        // usando El Garbage Collector Z (Generacional) nativo de Java 21+ para latencia inferior al milisegundo.
+        String mx = totalRamMiB >= 16 * 1024 ? "8G" : "6G";
+        return List.of(
+                "-Xms3G",
+                "-Xmx" + mx,
+                "-XX:+UseZGC",
+                "-XX:+ZGenerational",
+                "-XX:+AlwaysPreTouch",
+                "-XX:+DisableExplicitGC",
+                "-XX:+PerfDisableSharedMem");
     }
 }
