@@ -1,33 +1,30 @@
 package com.experimento.launcher;
 
-import com.experimento.launcher.model.JvmPresetKind;
-import com.experimento.launcher.model.LauncherProfile;
-import com.experimento.launcher.model.ServerEntry;
-import com.experimento.launcher.mojang.ManifestVersionEntry;
-import com.experimento.launcher.paths.LauncherDirectories;
-import com.experimento.launcher.service.AutoOptimizerService;
-import com.experimento.launcher.service.HardwareProbe;
-import com.experimento.launcher.service.JvmPresetService;
-import com.experimento.launcher.service.LauncherFacade;
+import com.experimento.launcher.model.*;
+import com.experimento.launcher.mojang.*;
+import com.experimento.launcher.paths.*;
+import com.experimento.launcher.service.*;
 import com.experimento.launcher.util.OfflineUuid;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -42,6 +39,13 @@ public class LauncherApp extends Application {
     private LauncherFacade facade;
     private List<LauncherProfile> profiles;
     private LauncherProfile selected;
+
+    private final Map<String, Process> activeProcesses = new HashMap<>();
+    private final Map<String, BooleanProperty> runningState = new HashMap<>();
+    
+    private BorderPane root;
+    private VBox dashboardView;
+    private VBox settingsView;
 
     // Componentes UI
     private ListView<LauncherProfile> profileList;
@@ -72,9 +76,12 @@ public class LauncherApp extends Application {
     public void start(Stage stage) throws Exception {
         initData();
         
-        BorderPane root = new BorderPane();
+        root = new BorderPane();
+        dashboardView = createMainContent();
+        settingsView = createSettingsView();
+        
         root.setLeft(createProfileSidebar());
-        root.setCenter(createMainContent());
+        root.setCenter(dashboardView);
         root.setBottom(createActionAndLogSection());
         
         BorderPane.setMargin(root.getCenter(), new Insets(8));
@@ -98,22 +105,116 @@ public class LauncherApp extends Application {
         profiles = new ArrayList<>(facade.profiles().loadOrCreateDefault());
         for (LauncherProfile p : profiles) {
             LauncherFacade.maybeImportTlauncherJvm(p);
+            runningState.put(p.id, new SimpleBooleanProperty(false));
         }
         facade.profiles().save(profiles);
+        
+        // Recopilación de datos (Telemetría Inicial)
+        SystemInfoService.collectTelemetry(dirs.launcherData().resolve("telemetry.log"));
     }
 
-    private ListView<LauncherProfile> createProfileSidebar() {
+    private VBox createProfileSidebar() {
         profileList = new ListView<>(FXCollections.observableList(profiles));
         profileList.setPrefWidth(240);
         profileList.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(LauncherProfile item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName + " (" + item.username + ")");
+                if (empty || item == null) {
+                    setGraphic(null);
+                    setText(null);
+                } else {
+                    HBox box = new HBox(8);
+                    box.setAlignment(Pos.CENTER_LEFT);
+                    Circle indicator = new Circle(4);
+                    indicator.setFill(Color.TRANSPARENT);
+                    
+                    BooleanProperty running = runningState.get(item.id);
+                    if (running != null) {
+                        indicator.fillProperty().bind(javafx.beans.binding.Bindings.when(running)
+                            .then(Color.LIMEGREEN)
+                            .otherwise(Color.TRANSPARENT));
+                    }
+                    
+                    Label name = new Label(item.displayName + " (" + item.username + ")");
+                    box.getChildren().addAll(indicator, name);
+                    setGraphic(box);
+                }
             }
         });
         profileList.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> bindProfile(n));
-        return profileList;
+
+        Button settingsBtn = new Button("⚙ Configuración");
+        settingsBtn.setMaxWidth(Double.MAX_VALUE);
+        settingsBtn.setOnAction(e -> showSettings());
+
+        VBox sidebar = new VBox(5, new Label("  Perfiles"), profileList, settingsBtn);
+        VBox.setVgrow(profileList, Priority.ALWAYS);
+        return sidebar;
+    }
+
+    private void showSettings() {
+        root.setCenter(settingsView);
+    }
+
+    private void showDashboard() {
+        root.setCenter(dashboardView);
+    }
+
+    private VBox createSettingsView() {
+        VBox view = new VBox(15);
+        view.setPadding(new Insets(20));
+        view.setStyle("-fx-background-color: #f4f4f4;");
+
+        Button backBtn = new Button("◀ Volver");
+        backBtn.setOnAction(e -> showDashboard());
+
+        Label title = new Label("Diagnóstico del Sistema y Rendimiento");
+        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        SystemInfoService.HardwareInfo info = SystemInfoService.getInfo();
+        
+        GridPane infoGrid = new GridPane();
+        infoGrid.setHgap(20); infoGrid.setVgap(15);
+        
+        int r = 0;
+        infoGrid.add(new Label("Sistema Operativo:"), 0, r);
+        infoGrid.add(new Label(info.osName()), 1, r++);
+        
+        infoGrid.add(new Label("Procesador:"), 0, r);
+        infoGrid.add(new Label(info.cpuName() + " (" + info.physicalCores() + " físicos)"), 1, r++);
+        
+        // RAM
+        double ramUsedPercent = 1.0 - ((double)info.availableRamBytes() / info.totalRamBytes());
+        ProgressBar ramBar = new ProgressBar(ramUsedPercent);
+        ramBar.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(ramBar, Priority.ALWAYS);
+        Label ramLabel = new Label(String.format("%.1f GB de %.1f GB usados", 
+            (info.totalRamBytes() - info.availableRamBytes()) / 1e9, info.totalRamBytes() / 1e9));
+        
+        infoGrid.add(new Label("Memoria RAM:"), 0, r);
+        infoGrid.add(new VBox(5, ramBar, ramLabel), 1, r++);
+        
+        // Disco
+        double diskUsedPercent = 1.0 - ((double)info.diskFreeBytes() / info.diskTotalBytes());
+        ProgressBar diskBar = new ProgressBar(diskUsedPercent);
+        diskBar.setMaxWidth(Double.MAX_VALUE);
+        Label diskLabel = new Label(String.format("%.1f GB libres de %.1f GB", 
+            info.diskFreeBytes() / 1e9, info.diskTotalBytes() / 1e9));
+        
+        infoGrid.add(new Label("Espacio en Disco:"), 0, r);
+        infoGrid.add(new VBox(5, diskBar, diskLabel), 1, r++);
+
+        Label warningLabel = new Label();
+        if (info.availableRamBytes() < 512 * 1024 * 1024) {
+            warningLabel.setText("⚠️ ADVERTENCIA: Te queda muy poca RAM libre (< 512MB). " +
+                               "\nLanzar el juego ahora podría provocar un pantallazo azul en tu sistema.");
+            warningLabel.setTextFill(Color.RED);
+            warningLabel.setStyle("-fx-font-weight: bold;");
+        }
+
+        view.getChildren().addAll(backBtn, title, new Separator(), infoGrid, warningLabel);
+        return view;
     }
 
     private VBox createMainContent() {
@@ -345,6 +446,7 @@ public class LauncherApp extends Application {
     private void createNewProfile() {
         LauncherProfile p = LauncherProfile.createDefault();
         profiles.add(p);
+        runningState.put(p.id, new SimpleBooleanProperty(false));
         profileList.setItems(FXCollections.observableList(profiles));
         profileList.getSelectionModel().select(p);
         saveProfiles();
@@ -387,7 +489,22 @@ public class LauncherApp extends Application {
                 }
                 updateMessage("Iniciando Minecraft...");
                 long ram = HardwareProbe.totalPhysicalRamMiB();
-                facade.startGame(selected, ram, s -> Platform.runLater(() -> log(s)));
+                
+                String pId = selected.id;
+                Process proc = facade.startGame(selected, ram, s -> Platform.runLater(() -> log(s)));
+                
+                Platform.runLater(() -> {
+                    activeProcesses.put(pId, proc);
+                    runningState.get(pId).set(true);
+                    log("Instancia [" + selected.displayName + "] iniciada.");
+                });
+                
+                proc.onExit().thenAccept(p -> Platform.runLater(() -> {
+                    activeProcesses.remove(pId);
+                    if (runningState.containsKey(pId)) runningState.get(pId).set(false);
+                    log("Instancia [" + pId + "] cerrada.");
+                }));
+
                 return null;
             }
             @Override protected void failed() {

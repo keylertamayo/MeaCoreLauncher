@@ -43,7 +43,8 @@ public final class JvmPresetService {
                 "-Xms512M",
                 "-Xmx2G",
                 "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=100",
+                "-XX:MaxGCPauseMillis=40", // Más agresivo para estabilidad
+                "-XX:+UseStringDeduplication",
                 "-XX:+UnlockExperimentalVMOptions");
     }
 
@@ -53,8 +54,9 @@ public final class JvmPresetService {
                 "-Xms2G",
                 "-Xmx" + mx,
                 "-XX:+UseG1GC",
+                "-XX:+UseStringDeduplication", // Ahorro de RAM
                 "-XX:+ParallelRefProcEnabled",
-                "-XX:MaxGCPauseMillis=200",
+                "-XX:MaxGCPauseMillis=20", // Target 60 FPS
                 "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+DisableExplicitGC",
                 "-XX:+AlwaysPreTouch",
@@ -81,6 +83,8 @@ public final class JvmPresetService {
                 "-Xmx" + mx,
                 "-XX:+UseZGC",
                 "-XX:+ZGenerational",
+                "-XX:MaxGCPauseMillis=15", // Ultra latencia
+                "-XX:+UseStringDeduplication",
                 "-XX:+AlwaysPreTouch",
                 "-XX:+DisableExplicitGC",
                 "-XX:+PerfDisableSharedMem");

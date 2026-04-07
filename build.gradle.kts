@@ -21,6 +21,10 @@ repositories {
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     implementation("net.kyori:adventure-nbt:4.17.0")
+    
+    // Diagnóstico de Hardware
+    implementation("com.github.oshi:oshi-core:6.6.3")
+    implementation("net.java.dev.jna:jna:5.14.0")
 
     val junit = "5.10.3"
     testImplementation("org.junit.jupiter:junit-jupiter:$junit")
