@@ -339,13 +339,15 @@ public class LauncherApp extends Application {
         colName.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().name));
         colName.setCellFactory(TextFieldTableCell.forTableColumn());
         colName.setOnEditCommit(ev -> { if(ev.getRowValue() != null) ev.getRowValue().name = ev.getNewValue(); });
+        colName.setPrefWidth(180);
 
         TableColumn<ServerEntry, String> colAddr = new TableColumn<>("IP:Puerto");
         colAddr.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().address));
         colAddr.setCellFactory(TextFieldTableCell.forTableColumn());
         colAddr.setOnEditCommit(ev -> { if(ev.getRowValue() != null) ev.getRowValue().address = ev.getNewValue(); });
+        colAddr.setPrefWidth(220);
 
-        TableColumn<ServerEntry, Boolean> colCracked = new TableColumn<>("Cracked/Aternos");
+        TableColumn<ServerEntry, Boolean> colCracked = new TableColumn<>("Skins/Aternos");
         colCracked.setCellFactory(cd -> new TableCell<>() {
             @Override protected void updateItem(Boolean item, boolean empty) {
                 super.updateItem(item, empty);

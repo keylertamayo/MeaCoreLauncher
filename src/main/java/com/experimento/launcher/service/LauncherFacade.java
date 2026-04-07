@@ -63,6 +63,7 @@ public final class LauncherFacade {
         Path gameDir = gameDirFor(p);
         AutoOptimizerService.applyOptionsTxt(gameDir, p, ramMiB);
         ServersDatService.writeServers(gameDir, p.servers);
+        log.accept("[LAUNCHER] Servidores sincronizados (" + (p.servers != null ? p.servers.size() : 0) + ")");
         log.accept("Instancia lista en: " + gameDir);
     }
 
