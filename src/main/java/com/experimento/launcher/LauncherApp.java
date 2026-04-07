@@ -67,6 +67,7 @@ public class LauncherApp extends Application {
     private Button playBtn;
     private Button saveBtn;
     private Button newProfileBtn;
+    private Button deleteProfileBtn;
 
     public static void main(String[] args) {
         launch(args);
@@ -389,6 +390,10 @@ public class LauncherApp extends Application {
     private VBox createActionAndLogSection() {
         newProfileBtn = new Button("Nuevo Perfil");
         newProfileBtn.setOnAction(e -> createNewProfile());
+        
+        deleteProfileBtn = new Button("Eliminar Perfil");
+        deleteProfileBtn.setStyle("-fx-text-fill: #d32f2f;");
+        deleteProfileBtn.setOnAction(e -> deleteSelectedProfile());
 
         saveBtn = new Button("Guardar");
         saveBtn.setOnAction(e -> saveProfiles());
@@ -401,7 +406,7 @@ public class LauncherApp extends Application {
         playBtn.setStyle("-fx-base: #2d8134;");
         playBtn.setOnAction(e -> runTask(createLaunchTask()));
 
-        HBox topButtons = new HBox(10, newProfileBtn, saveBtn, installBtn, playBtn);
+        HBox topButtons = new HBox(10, newProfileBtn, deleteProfileBtn, saveBtn, installBtn, playBtn);
         topButtons.setPadding(new Insets(10));
 
         logArea = new TextArea();
@@ -415,6 +420,7 @@ public class LauncherApp extends Application {
 
     private void bindProfile(LauncherProfile p) {
         selected = p;
+        deleteProfileBtn.setDisable(p == null);
         if (p == null) {
             clearFields();
             return;
@@ -462,6 +468,29 @@ public class LauncherApp extends Application {
         profileList.setItems(FXCollections.observableList(profiles));
         profileList.getSelectionModel().select(p);
         saveProfiles();
+    }
+
+    private void deleteSelectedProfile() {
+        if (selected == null) return;
+        
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Borrar Perfil");
+        alert.setHeaderText("¿Estás seguro de eliminar el perfil '" + selected.displayName + "'?");
+        alert.setContentText("⚠️ ADVERTENCIA: Los mundos, mods y configuraciones se borrarán PERMANENTEMENTE del disco.");
+        
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    facade.fullDeleteProfile(selected, profiles);
+                    profileList.setItems(FXCollections.observableList(profiles));
+                    profileList.getSelectionModel().clearSelection();
+                    bindProfile(null);
+                    log("Perfil eliminado permanentemente.");
+                } catch (Exception ex) {
+                    log("Error al borrar perfil: " + ex.getMessage());
+                }
+            }
+        });
     }
 
     private void saveProfiles() {

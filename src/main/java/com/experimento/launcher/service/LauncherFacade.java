@@ -131,6 +131,28 @@ public final class LauncherFacade {
         return process;
     }
 
+    public void fullDeleteProfile(LauncherProfile p, List<LauncherProfile> allProfiles) throws Exception {
+        // 1. Quitar de la lista y persistir en el JSON
+        allProfiles.remove(p);
+        profiles.save(allProfiles);
+
+        // 2. Borrar permanentemente los archivos físicos si es una instancia aislada
+        if (!p.useGlobalMinecraftFolder) {
+            Path gameDir = gameDirFor(p);
+            if (Files.exists(gameDir)) {
+                deleteDirectoryRecursively(gameDir);
+            }
+        }
+    }
+
+    private void deleteDirectoryRecursively(Path path) throws Exception {
+        try (var stream = Files.walk(path)) {
+            stream.sorted(java.util.Comparator.reverseOrder())
+                  .map(Path::toFile)
+                  .forEach(java.io.File::delete);
+        }
+    }
+
     /** Apply TLauncher JVM args as custom once (user can edit after). */
     public static void maybeImportTlauncherJvm(LauncherProfile p) {
         if (p.customJvmArgs != null && !p.customJvmArgs.isBlank()) {
