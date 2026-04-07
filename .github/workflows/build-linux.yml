@@ -27,13 +27,19 @@ jobs:
       - name: Build Gradle (Skip Tests)
         run: ./gradlew build --no-daemon -x test
 
+      - name: Extract Version
+        id: vars
+        run: |
+          VERSION=$(grep 'version=' src/main/resources/version.properties | cut -d'=' -f2 | sed 's/-alpha//' | sed 's/-alfa//')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Create .deb with jpackage
         run: |
           mkdir -p build/dist
           MAIN_JAR=$(ls build/libs/meacore-launcher-*.jar | head -n 1)
           JAR_NAME=$(basename $MAIN_JAR)
           echo "Using JAR: $JAR_NAME"
-          jpackage --name MeaCoreLauncher \
+          jpackage --name meacorelauncher \
             --input build/libs \
             --main-jar $JAR_NAME \
             --main-class com.experimento.launcher.Main \
@@ -41,7 +47,7 @@ jobs:
             --icon icon.png \
             --linux-shortcut \
             --linux-app-category Game \
-            --app-version 1.1.2 \
+            --app-version ${{ env.VERSION }} \
             --vendor MeaCore-Enterprise \
             --dest build/dist
 

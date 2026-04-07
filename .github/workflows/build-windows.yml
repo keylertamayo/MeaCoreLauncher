@@ -27,6 +27,15 @@ jobs:
       - name: Build Gradle (Skip Tests)
         run: ./gradlew build --no-daemon -x test
 
+      - name: Extract Version
+        id: vars
+        shell: pwsh
+        run: |
+          $content = Get-Content src/main/resources/version.properties
+          $versionStr = ($content | Select-String "version=").ToString().Split("=")[1].Trim()
+          $cleanVersion = $versionStr -replace "-alpha", "" -replace "-alfa", ""
+          echo "VERSION=$cleanVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Create .msi with jpackage
         shell: pwsh
         run: |
@@ -34,14 +43,14 @@ jobs:
           $MainJar = Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs | Select-Object -First 1
           $JarName = $MainJar.Name
           Write-Host "Using JAR: $JarName"
-          jpackage --name MeaCoreLauncher `
+          jpackage --name meacorelauncher `
             --input build/libs `
             --main-jar $JarName `
             --main-class com.experimento.launcher.Main `
             --type msi `
             --icon icon.png `
             --win-shortcut --win-menu --win-dir-chooser `
-            --app-version 1.1.2 `
+            --app-version ${{ env.VERSION }} `
             --vendor MeaCore-Enterprise `
             --dest build/dist
 
