@@ -1,0 +1,55 @@
+name: Release Linux Installer
+
+on:
+  push:
+    tags:
+      - "bat-*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build .deb (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build Gradle (Skip Tests)
+        run: ./gradlew build --no-daemon -x test
+
+      - name: Create .deb with jpackage
+        run: |
+          mkdir -p build/dist
+          jpackage --name MeaCoreLauncher \
+            --input build/libs \
+            --main-jar meacore-launcher-1.1.0-alpha.1.jar \
+            --main-class com.experimento.launcher.LauncherApp \
+            --type deb \
+            --icon icon.png \
+            --linux-shortcut \
+            --app-version 1.1.0 \
+            --vendor MeaCore-Enterprise \
+            --dest build/dist
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeaCoreLauncher-Linux
+          path: build/dist/*.deb
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: build/dist/*.deb
+          generate_release_notes: true
