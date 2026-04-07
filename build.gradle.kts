@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     java
     application
@@ -5,8 +7,10 @@ plugins {
 }
 
 group = "com.experimento"
-// Mantener alineado con com.experimento.launcher.LauncherMetadata.VERSION
-version = "1.1.0-alpha.1"
+
+val versionProps = Properties()
+file("src/main/resources/version.properties").inputStream().use { versionProps.load(it) }
+version = versionProps.getProperty("version")
 
 java {
     toolchain {

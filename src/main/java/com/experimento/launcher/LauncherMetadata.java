@@ -13,7 +13,19 @@ public final class LauncherMetadata {
      */
     public static final String TECHNICAL_ID = "meacore-launcher";
 
-    public static final String VERSION = "1.1.0-alpha.1";
+    public static final String VERSION;
+
+    static {
+        String v = "unknown";
+        try (var in = LauncherMetadata.class.getResourceAsStream("/version.properties")) {
+            if (in != null) {
+                java.util.Properties p = new java.util.Properties();
+                p.load(in);
+                v = p.getProperty("version", "unknown");
+            }
+        } catch (Exception ignored) {}
+        VERSION = v;
+    }
 
     /** Titular del software (licencia propietaria; ver LICENSE en la raíz del proyecto). */
     public static final String VENDOR = "MeaCore-Enterprise";

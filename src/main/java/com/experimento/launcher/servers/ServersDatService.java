@@ -39,7 +39,7 @@ public final class ServersDatService {
         // Minecraft expects TAG_List with element type TAG_Compound (10), not an inferred type.
         List<BinaryTag> elements = new ArrayList<>(compounds.size());
         elements.addAll(compounds);
-        ListBinaryTag list = ListBinaryTag.of(BinaryTagTypes.COMPOUND, elements);
+        ListBinaryTag list = ListBinaryTag.listBinaryTag(BinaryTagTypes.COMPOUND, elements);
         CompoundBinaryTag root = CompoundBinaryTag.builder().put("servers", list).build();
         BinaryTagIO.writer().write(root, dest, BinaryTagIO.Compression.GZIP);
     }

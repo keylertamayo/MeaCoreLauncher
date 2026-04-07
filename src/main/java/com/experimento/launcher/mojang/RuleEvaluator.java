@@ -2,7 +2,6 @@ package com.experimento.launcher.mojang;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.Locale;
 
 public final class RuleEvaluator {
 

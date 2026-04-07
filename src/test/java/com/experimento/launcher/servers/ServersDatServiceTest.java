@@ -21,8 +21,7 @@ class ServersDatServiceTest {
             List<ServerEntry> entries = List.of(new ServerEntry("Test", "host.example:25565"));
             ServersDatService.writeServers(dir, entries);
 
-            CompoundBinaryTag root =
-                    BinaryTagIO.readCompressedPath(ServersDatService.serversDatPath(dir));
+            CompoundBinaryTag root = (CompoundBinaryTag) BinaryTagIO.reader().read(ServersDatService.serversDatPath(dir), BinaryTagIO.Compression.GZIP);
             ListBinaryTag servers = root.getList("servers");
             assertEquals(BinaryTagTypes.COMPOUND, servers.elementType());
             assertEquals(1, servers.size());
