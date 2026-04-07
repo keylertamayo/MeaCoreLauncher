@@ -188,6 +188,9 @@ public class LauncherApp extends Application {
 
         setupFieldListeners();
 
+        // Estilo para corregir legibilidad en Linux
+        grid.setStyle("-fx-font-family: 'Segoe UI', Helvetica, Arial, sans-serif;");
+        
         return grid;
     }
 
@@ -410,13 +413,17 @@ public class LauncherApp extends Application {
     }
 
     private void setupVersionComboCellFactories() {
-        ListCell<ManifestVersionEntry> cellFactory = new ListCell<>() {
+        versionCombo.setCellFactory(lv -> new ListCell<>() {
             @Override protected void updateItem(ManifestVersionEntry item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.label());
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.label());
+                    setStyle("-fx-text-fill: #333333; -fx-background-color: white;"); // Forzar visibilidad en Linux
+                }
             }
-        };
-        versionCombo.setCellFactory(lv -> cellFactory);
+        });
         versionCombo.setButtonCell(new ListCell<>() {
              @Override protected void updateItem(ManifestVersionEntry item, boolean empty) {
                 super.updateItem(item, empty);
@@ -511,11 +518,19 @@ public class LauncherApp extends Application {
 
     private void syncUuidFromUsername() {
         if (selected == null) return;
+        String name = selected.username == null ? "" : selected.username.trim();
+        if (name.isEmpty()) {
+            uuidField.clear();
+            return;
+        }
         try {
-            selected.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(selected.username == null ? "Player" : selected.username));
+            selected.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(name));
             uuidField.setText(selected.offlineUuid);
         } catch (Exception ex) {
-            log("Usuario inválido: " + ex.getMessage());
+            // Solo loguear si el nombre tiene contenido pero es inválido tecnicamente
+            if (name.length() > 0) {
+                log("Aviso: " + name + " no es un nombre técnico estándar.");
+            }
         }
     }
 
