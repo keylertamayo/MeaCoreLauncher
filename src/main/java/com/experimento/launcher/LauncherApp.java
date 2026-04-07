@@ -84,7 +84,7 @@ public class LauncherApp extends Application {
                 .getSelectionModel()
                 .selectedItemProperty()
                 .addListener((obs, o, n) -> bindProfile(n));
-        profileList.getSelectionModel().selectFirst();
+
 
         displayNameField = new TextField();
         usernameField = new TextField();
@@ -407,6 +407,10 @@ public class LauncherApp extends Application {
         Scene scene = new Scene(root, 980, 720);
         stage.setTitle(LauncherMetadata.DISPLAY_NAME);
         stage.setScene(scene);
+        
+        // Select the first profile after all UI elements are initialized to prevent NPE
+        profileList.getSelectionModel().selectFirst();
+        
         stage.show();
 
         loadVersionManifestAsync();
