@@ -363,6 +363,8 @@ public class LauncherApp extends Application {
         });
 
         serverTable.getColumns().addAll(List.of(colName, colAddr, colCracked));
+        serverTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        serverTable.setPlaceholder(new Label("⚠️ Pulsa 'Añadir' para sincronizar servidores con Minecraft"));
         
         Button addSrv = new Button("➕ Añadir");
         addSrv.setOnAction(e -> addServerToSelected());

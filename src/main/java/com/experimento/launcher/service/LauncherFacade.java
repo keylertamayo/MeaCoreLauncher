@@ -96,8 +96,13 @@ public final class LauncherFacade {
         try {
             var hw = SystemInfoService.getInfo();
             long totalMiB = hw.totalRamBytes() / (1024 * 1024);
+            long availableMiB = hw.availableRamBytes() / (1024 * 1024);
+            
             if (ramMiB > totalMiB) {
                 log.accept("[LAUNCHER] ADVERTENCIA: Asignados " + ramMiB + "MB. RAM Total: " + totalMiB + "MB. (Posible crasheo)");
+            }
+            if (ramMiB > availableMiB) {
+                log.accept("[LAUNCHER] OJO: Tienes solo " + availableMiB + "MB libres. Recomendamos cerrar otras apps.");
             }
         } catch (Exception ignored) {}
 

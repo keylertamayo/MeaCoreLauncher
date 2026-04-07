@@ -8,6 +8,7 @@ public class Main {
     public static void main(String[] args) {
         // Fix para el dock de Linux: asocia la ventana al nombre del binario MeaCoreLauncher
         System.setProperty("com.sun.javafx.wm.class", "MeaCoreLauncher");
+        System.setProperty("glass.gtk.wm_class", "MeaCoreLauncher");
         LauncherApp.main(args);
     }
 }
