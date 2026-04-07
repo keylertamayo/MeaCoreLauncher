@@ -29,6 +29,8 @@ dependencies {
     // Diagnóstico de Hardware
     implementation("com.github.oshi:oshi-core:6.6.3")
     implementation("net.java.dev.jna:jna:5.14.0")
+    implementation("net.java.dev.jna:jna-platform:5.14.0")
+    implementation("org.slf4j:slf4j-simple:2.0.16")
 
     val junit = "5.10.3"
     testImplementation("org.junit.jupiter:junit-jupiter:$junit")

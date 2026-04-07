@@ -63,6 +63,8 @@ public final class SystemInfoService {
             Files.writeString(logPath, logEntry, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (Exception e) {
             System.err.println("Error al recopilar telemetría: " + e.getMessage());
+        } finally {
+            System.out.println("[MeaCore] Recopilación de hardware completada.");
         }
     }
 }
