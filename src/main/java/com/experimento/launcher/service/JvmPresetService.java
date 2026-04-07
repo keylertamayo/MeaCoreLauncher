@@ -32,7 +32,24 @@ public final class JvmPresetService {
                 };
         List<String> out = new ArrayList<>(base);
         if (p.customJvmArgs != null && !p.customJvmArgs.isBlank()) {
-            out.addAll(Arrays.asList(p.customJvmArgs.trim().split("\\s+")));
+            String custom = p.customJvmArgs.trim();
+
+            // 1. Evitar 'Multiple garbage collectors selected'
+            // Si el usuario ya definió un GC, quitamos el del preset automático
+            if (custom.contains("-XX:+UseG1GC") || custom.contains("-XX:+UseZGC") || 
+                custom.contains("-XX:+UseShenandoahGC") || custom.contains("-XX:+UseParallelGC")) {
+                out.removeIf(arg -> arg.contains("-XX:+UseG1GC") || arg.contains("-XX:+UseZGC"));
+            }
+
+            // 2. Si el usuario define memoria manual, quitamos la automática
+            if (custom.contains("-Xmx")) {
+                out.removeIf(arg -> arg.startsWith("-Xmx"));
+            }
+            if (custom.contains("-Xms")) {
+                out.removeIf(arg -> arg.startsWith("-Xms"));
+            }
+
+            out.addAll(Arrays.asList(custom.split("\\s+")));
         }
         return out;
     }

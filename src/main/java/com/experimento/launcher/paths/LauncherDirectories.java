@@ -45,7 +45,7 @@ public final class LauncherDirectories {
     }
 
     public Path instancesDir() {
-        return root.resolve("instances");
+        return profilesDir();
     }
 
     public Path instanceGameDir(String instanceId) {
@@ -57,7 +57,6 @@ public final class LauncherDirectories {
         Files.createDirectories(versionsDir());
         Files.createDirectories(librariesDir());
         Files.createDirectories(assetsDir());
-        Files.createDirectories(instancesDir());
     }
 
     private static String safeSegment(String id) {
