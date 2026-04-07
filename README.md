@@ -105,4 +105,4 @@ Ver [LICENSE](LICENSE). Metadatos del producto en `LauncherMetadata.java`.
 
 ## Más
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — cómo colaborar e informar de errores.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — cómo colaborar, informar de errores y **qué rama usar** (`Estable` vs `Beta`).

@@ -2,6 +2,26 @@
 
 Gracias por interesarte en mejorar el proyecto.
 
+## Ramas: Estable y Beta
+
+El repositorio usa dos ramas de trabajo; **elige la rama al clonar, al hacer `pull` y al abrir el PR** según el tipo de cambio.
+
+| Rama | Propósito |
+|------|-----------|
+| **`Estable`** | Línea principal (equivalente a lo que antes era `main`): launcher **funcional** y pulido, mejoras de **compatibilidad** (por ejemplo Forge u otros loaders), ajustes seguros que no implican reescribir la UI React ni el flujo de juego inestable. |
+| **`Beta`** | Trabajo sobre **inestabilidades** del cliente: UI **React** / WebView, integración con **Minecraft**, corrección y **estabilización** hacia versiones pre (por ejemplo **1.1.0**) cuando el código actual se considera experimental o problemático. |
+
+**Ejemplos:** un cambio pensado para compatibilidad con Forge → PR hacia **`Estable`**. Un arreglo de estabilidad del launcher 1.1.0 o del stack React/Minecraft → PR hacia **`Beta`**.
+
+Tras `git clone`, entra en la rama que vayas a usar:
+
+```bash
+git fetch origin
+git checkout Estable   # o: git checkout Beta
+```
+
+Si ya tenías el repo, actualiza la rama elegida con `git pull origin Estable` o `git pull origin Beta`.
+
 ## Cómo reportar errores (Issues)
 
 1. **Busca** si ya existe un issue similar.
