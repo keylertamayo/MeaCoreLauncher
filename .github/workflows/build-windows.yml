@@ -31,14 +31,17 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build/dist
+          $MainJar = Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs | Select-Object -First 1
+          $JarName = $MainJar.Name
+          Write-Host "Using JAR: $JarName"
           jpackage --name MeaCoreLauncher `
             --input build/libs `
-            --main-jar meacore-launcher-1.1.0-alpha.1.jar `
+            --main-jar $JarName `
             --main-class com.experimento.launcher.Main `
             --type msi `
             --icon icon.png `
             --win-shortcut --win-menu --win-dir-chooser `
-            --app-version 1.1.0 `
+            --app-version 1.1.2 `
             --vendor MeaCore-Enterprise `
             --dest build/dist
 

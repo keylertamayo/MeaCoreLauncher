@@ -88,6 +88,14 @@ public class LauncherApp extends Application {
 
         Scene scene = new Scene(root, 980, 720);
         stage.setTitle(LauncherMetadata.DISPLAY_NAME);
+        // Cargar icono para la ventana (ayuda a GNOME a asociar el proceso)
+        try {
+            var iconStream = LauncherApp.class.getResourceAsStream("/icon.png");
+            if (iconStream != null) {
+                stage.getIcons().add(new javafx.scene.image.Image(iconStream));
+            }
+        } catch (Exception ignored) {}
+        
         stage.setScene(scene);
         
         // Inicialización post-UI
@@ -665,7 +673,7 @@ public class LauncherApp extends Application {
     private void log(String s) {
         Platform.runLater(() -> {
             logArea.appendText(s + "\n");
-            logArea.setScrollTop(Double.MAX_VALUE);
+            logArea.selectPositionCaret(logArea.getLength());
         });
     }
 

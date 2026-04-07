@@ -30,14 +30,18 @@ jobs:
       - name: Create .deb with jpackage
         run: |
           mkdir -p build/dist
+          MAIN_JAR=$(ls build/libs/meacore-launcher-*.jar | head -n 1)
+          JAR_NAME=$(basename $MAIN_JAR)
+          echo "Using JAR: $JAR_NAME"
           jpackage --name MeaCoreLauncher \
             --input build/libs \
-            --main-jar meacore-launcher-1.1.0-alpha.1.jar \
+            --main-jar $JAR_NAME \
             --main-class com.experimento.launcher.Main \
             --type deb \
             --icon icon.png \
             --linux-shortcut \
-            --app-version 1.1.0 \
+            --linux-app-category Game \
+            --app-version 1.1.2 \
             --vendor MeaCore-Enterprise \
             --dest build/dist
 

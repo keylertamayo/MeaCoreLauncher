@@ -96,8 +96,24 @@ public final class LauncherFacade {
         log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(gameDirFor(p).toFile());
-        pb.inheritIO();
-        return pb.start();
+        // Redirigir errorStream al inputStream para leer todo en un solo hilo
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        
+        // Hilo de lectura de consola del juego
+        new Thread(() -> {
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    final String captured = line;
+                    log.accept("[GAME] " + captured);
+                }
+            } catch (Exception e) {
+                log.accept("[LAUNCHER] Error leyendo consola del juego: " + e.getMessage());
+            }
+        }).start();
+
+        return process;
     }
 
     /** Apply TLauncher JVM args as custom once (user can edit after). */

@@ -53,12 +53,13 @@ public final class SystemInfoService {
         try {
             HardwareInfo info = getInfo();
             String logEntry = String.format(
-                "[%s] Telemetría de Inicio:\n- CPU: %s (%d nucleos)\n- RAM: %.2f GB / %.2f GB\n- Disco: %.2f GB Libres de %.2f GB\n- SO: %s\n------------------------\n",
+                "[%s] Telemetría de Inicio:\n- CPU: %s (%d nucleos)\n- RAM: %.2f GB / %.2f GB\n- Disco: %.2f GB Libres de %.2f GB\n- SO: %s\n- Java: %s %s\n------------------------\n",
                 LocalDateTime.now(),
                 info.cpuName(), info.physicalCores(),
                 (info.totalRamBytes() - info.availableRamBytes()) / 1e9, info.totalRamBytes() / 1e9,
                 info.diskFreeBytes() / 1e9, info.diskTotalBytes() / 1e9,
-                info.osName()
+                info.osName(),
+                System.getProperty("java.version"), System.getProperty("java.vendor")
             );
             Files.writeString(logPath, logEntry, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (Exception e) {
