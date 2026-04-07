@@ -27,13 +27,14 @@ Se caracteriza por:
 ¡Ya puedes descargar e instalar **MeaCore Launcher** de forma nativa! Los instaladores se generan automáticamente tras cada actualización importante.
 
 ### 🐧 Linux (Ubuntu/Debian)
-1. Descarga el archivo `.deb` desde la sección de **Releases**.
-2. Abre una terminal en la carpeta de descarga.
-3. Instala usando el siguiente comando:
-   ```bash
-   sudo apt install ./MeaCoreLauncher-1.1.0-alpha.1.deb
-   ```
-4. Busca "MeaCore Launcher" en tu menú de aplicaciones e inícialo.
+1. Descarga el archivo `.deb` desde la sección de **Releases** (si viene en un `.zip`, descomprímelo primero).
+2. Tienes dos opciones de instalación:
+   - **Fácil**: Haz doble clic sobre el archivo `.deb` y pulsa "Instalar" en el Centro de Software.
+   - **Terminal**: Abre una terminal en la carpeta y usa:
+     ```bash
+     sudo apt install ./meacorelauncher_1.1.0-1_amd64.deb
+     ```
+3. Busca "MeaCore Launcher" en tu menú de aplicaciones e inícialo.
 
 ### 🪟 Windows
 1. Descarga el archivo `.msi` desde la sección de **Releases**.
