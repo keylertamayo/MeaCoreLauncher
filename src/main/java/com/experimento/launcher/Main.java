@@ -6,6 +6,8 @@ package com.experimento.launcher;
  */
 public class Main {
     public static void main(String[] args) {
+        // Fix para el dock de Linux: asocia la ventana al nombre del binario MeaCoreLauncher
+        System.setProperty("com.sun.javafx.wm.class", "MeaCoreLauncher");
         LauncherApp.main(args);
     }
 }

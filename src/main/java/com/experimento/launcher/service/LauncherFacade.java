@@ -91,6 +91,15 @@ public final class LauncherFacade {
     }
 
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
+        // Alerta informativa sobre RAM total (sin bloqueos ni límites forzados)
+        try {
+            var hw = SystemInfoService.getInfo();
+            long totalMiB = hw.totalRamBytes() / (1024 * 1024);
+            if (ramMiB > totalMiB) {
+                log.accept("[LAUNCHER] ADVERTENCIA: Asignados " + ramMiB + "MB. RAM Total: " + totalMiB + "MB. (Posible crasheo)");
+            }
+        } catch (Exception ignored) {}
+
         prepareInstance(p, ramMiB, log);
         List<String> cmd = buildLaunchCommand(p, ramMiB);
         log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
