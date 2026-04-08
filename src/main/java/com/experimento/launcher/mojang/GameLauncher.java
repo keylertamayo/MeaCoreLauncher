@@ -31,6 +31,7 @@ public final class GameLauncher {
             String username,
             String uuidString,
             List<String> extraJvmArgs,
+            String customJavaPath,
             LaunchFeatures features)
             throws Exception {
 
@@ -80,7 +81,7 @@ public final class GameLauncher {
         }
 
         List<String> jvm = new ArrayList<>();
-        jvm.add(resolveJavaBinary());
+        jvm.add(customJavaPath != null && !customJavaPath.isBlank() ? customJavaPath : resolveJavaBinary());
         if (extraJvmArgs != null) {
             for (String a : extraJvmArgs) {
                 if (a != null && !a.isBlank()) {
@@ -94,10 +95,9 @@ public final class GameLauncher {
                 jvm.add(substitute(a, vars));
             }
         } else {
-            String legacyJvm = mergedVersion.path("minecraftArguments").asText("");
-            if (legacyJvm.isEmpty()) {
-                jvm.add("-Djava.library.path=" + nativesDir.toAbsolutePath());
-            }
+            jvm.add("-Djava.library.path=" + nativesDir.toAbsolutePath());
+            jvm.add("-cp");
+            jvm.add(classpathStr);
         }
 
         String mainClass = mergedVersion.get("mainClass").asText("net.minecraft.client.main.Main");

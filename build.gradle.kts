@@ -46,6 +46,10 @@ application {
     mainClass.set("com.experimento.launcher.Main")
 }
 
+tasks.withType<JavaExec> {
+    jvmArgs("-Dcom.sun.javafx.wm.class=meacorelauncher", "-Dglass.gtk.wm_class=meacorelauncher", "-Djdk.gtk.wm_class=meacorelauncher")
+}
+
 tasks.test {
     useJUnitPlatform()
 }

@@ -18,6 +18,7 @@ public class LauncherProfile {
     public String instanceId = "";
     public JvmPresetKind jvmPreset = JvmPresetKind.AUTO;
     public String customJvmArgs = "";
+    public String javaExecutable = "";
     public boolean useGlobalMinecraftFolder = false;
     public List<ServerEntry> servers = new ArrayList<>();
 

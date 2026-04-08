@@ -41,6 +41,6 @@ public final class ServersDatService {
         elements.addAll(compounds);
         ListBinaryTag list = ListBinaryTag.listBinaryTag(BinaryTagTypes.COMPOUND, elements);
         CompoundBinaryTag root = CompoundBinaryTag.builder().put("servers", list).build();
-        BinaryTagIO.writer().write(root, dest, BinaryTagIO.Compression.GZIP);
+        BinaryTagIO.writer().write(root, dest, BinaryTagIO.Compression.NONE);
     }
 }

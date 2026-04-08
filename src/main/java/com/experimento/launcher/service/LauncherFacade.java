@@ -55,7 +55,27 @@ public final class LauncherFacade {
         dirs.ensureBaseDirs();
         var resolver = new MojangVersionResolver(dirs.versionsDir());
         JsonNode manifest = resolver.loadManifest();
-        return MojangVersionResolver.versionEntriesFromManifest(manifest);
+        List<ManifestVersionEntry> mojangVersions = MojangVersionResolver.versionEntriesFromManifest(manifest);
+        
+        List<ManifestVersionEntry> allVersions = new java.util.ArrayList<>();
+        if (Files.isDirectory(dirs.versionsDir())) {
+            try (var stream = Files.list(dirs.versionsDir())) {
+                stream.filter(Files::isDirectory).forEach(p -> {
+                    String id = p.getFileName().toString();
+                    if (Files.isRegularFile(p.resolve(id + ".json"))) {
+                        if (mojangVersions.stream().noneMatch(v -> v.id().equals(id))) {
+                            allVersions.add(new ManifestVersionEntry(id, "híbrido/custom"));
+                        }
+                    }
+                });
+            } catch (Exception ignored) {}
+        }
+        
+        // Orden alfabético simple para las versiones custom al principio
+        allVersions.sort((a, b) -> a.id().compareToIgnoreCase(b.id()));
+        allVersions.addAll(mojangVersions);
+        
+        return allVersions;
     }
 
     public void prepareInstance(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
@@ -88,6 +108,7 @@ public final class LauncherFacade {
                 p.username,
                 p.offlineUuid,
                 jvm,
+                p.javaExecutable,
                 LaunchFeatures.defaults());
     }
 

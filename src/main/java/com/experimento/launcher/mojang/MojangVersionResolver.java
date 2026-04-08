@@ -76,12 +76,26 @@ public final class MojangVersionResolver {
         if (memo.containsKey(versionId)) {
             return memo.get(versionId);
         }
-        String url = findVersionUrl(manifest, versionId);
-        String sha1 = findVersionSha1(manifest, versionId);
-        Path raw = versionsDir.resolve(versionId).resolve("version-original.json");
-        Files.createDirectories(raw.getParent());
-        HttpFiles.downloadIfHashMismatch(url, raw, sha1);
-        JsonNode node = M.readTree(Files.readAllBytes(raw));
+        JsonNode node = null;
+        try {
+            String url = findVersionUrl(manifest, versionId);
+            String sha1 = findVersionSha1(manifest, versionId);
+            Path raw = versionsDir.resolve(versionId).resolve("version-original.json");
+            Files.createDirectories(raw.getParent());
+            HttpFiles.downloadIfHashMismatch(url, raw, sha1);
+            node = M.readTree(Files.readAllBytes(raw));
+        } catch (IllegalArgumentException ex) {
+            Path localJson = versionsDir.resolve(versionId).resolve(versionId + ".json");
+            if (!Files.exists(localJson)) {
+                localJson = versionsDir.resolve(versionId).resolve("version.json");
+            }
+            if (Files.exists(localJson)) {
+                node = M.readTree(Files.readAllBytes(localJson));
+            } else {
+                throw ex;
+            }
+        }
+        
         JsonNode merged;
         if (node.has("inheritsFrom") && !node.get("inheritsFrom").isNull()) {
             String parentId = node.get("inheritsFrom").asText();
@@ -91,7 +105,9 @@ public final class MojangVersionResolver {
             merged = node;
         }
         Path mergedPath = versionsDir.resolve(versionId).resolve("version.json");
-        Files.writeString(mergedPath, M.writerWithDefaultPrettyPrinter().writeValueAsString(merged));
+        String content = M.writerWithDefaultPrettyPrinter().writeValueAsString(merged);
+        Files.writeString(mergedPath, content);
+        Files.writeString(versionsDir.resolve(versionId).resolve(versionId + ".json"), content);
         memo.put(versionId, merged);
         return merged;
     }

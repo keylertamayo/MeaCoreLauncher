@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MeaCore Launcher
+Comment=Tu plataforma definitiva para inyectar mods de Minecraft
+Exec="/opt/meacore-launcher/bin/MeaCore Launcher"
+Icon=/opt/meacore-launcher/lib/MeaCore_Launcher.png
+Terminal=false
+Type=Application
+Categories=Game
+MimeType=
+StartupWMClass=com.experimento.launcher.LauncherApp

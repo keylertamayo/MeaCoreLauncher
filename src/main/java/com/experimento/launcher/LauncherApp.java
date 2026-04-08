@@ -4,6 +4,8 @@ import com.experimento.launcher.model.*;
 import com.experimento.launcher.mojang.*;
 import com.experimento.launcher.paths.*;
 import com.experimento.launcher.service.*;
+import java.nio.file.Path;
+import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -14,6 +16,7 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.*;
@@ -43,9 +46,8 @@ public class LauncherApp extends Application {
     private final Map<String, Process> activeProcesses = new HashMap<>();
     private final Map<String, BooleanProperty> runningState = new HashMap<>();
     
-    private BorderPane root;
-    private VBox dashboardView;
-    private VBox settingsView;
+    private StackPane contentStack;
+    private final Map<String, Node> views = new HashMap<>();
 
     // Componentes UI
     private ListView<LauncherProfile> profileList;
@@ -56,11 +58,13 @@ public class LauncherApp extends Application {
     private ComboBox<String> versionFilter;
     private ComboBox<JvmPresetKind> presetCombo;
     private TextArea jvmArea;
+    private TextField javaPathField;
     private CheckBox globalMcCheck;
     private TableView<ServerEntry> serverTable;
     private TextArea logArea;
     private Label modHintLabel;
     private Label aternosHint;
+    private Label navViewTitle;
 
     // Botones (para deshabilitar durante procesos)
     private Button installBtn;
@@ -77,34 +81,57 @@ public class LauncherApp extends Application {
     public void start(Stage stage) throws Exception {
         initData();
         
-        root = new BorderPane();
-        dashboardView = createMainContent();
-        settingsView = createSettingsView();
+        VBox sidebarArea = new VBox();
+        sidebarArea.setPrefWidth(260);
+        sidebarArea.setStyle("-fx-background-color: #1e1e1e;"); // Carbón Premium
         
-        root.setLeft(createProfileSidebar());
-        root.setCenter(dashboardView);
-        root.setBottom(createActionAndLogSection());
+        Label brandLabel = new Label(" MeaCore Launcher ");
+        brandLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 20 10;");
         
-        BorderPane.setMargin(root.getCenter(), new Insets(8));
+        sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu());
+        VBox.setVgrow(profileList, Priority.SOMETIMES);
 
-        Scene scene = new Scene(root, 980, 720);
+        contentStack = new StackPane();
+        contentStack.setPadding(new Insets(20));
+        
+        initializeViews();
+        setupFieldListeners();
+        
+        navViewTitle = new Label("General");
+        navViewTitle.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333333; -fx-padding: 20 0 15 20;");
+
+
+
+        VBox rightArea = new VBox();
+        rightArea.getChildren().addAll(navViewTitle, contentStack, createPersistentFooter());
+        VBox.setVgrow(contentStack, Priority.ALWAYS);
+
+        HBox mainLayout = new HBox(sidebarArea, rightArea);
+        HBox.setHgrow(rightArea, Priority.ALWAYS);
+
+        Scene scene = new Scene(mainLayout, 1080, 720);
         stage.setTitle(LauncherMetadata.DISPLAY_NAME);
-        // Cargar icono para la ventana (ayuda a GNOME a asociar el proceso)
+        stage.getProperties().put("glass.gtk.wm_class", "meacorelauncher");
         try {
-            var iconStream = LauncherApp.class.getResourceAsStream("/icon.png");
-            if (iconStream != null) {
-                stage.getIcons().add(new javafx.scene.image.Image(iconStream));
+            for (String s : new String[]{"/icon-256.png", "/icon-128.png", "/icon.png"}) {
+                var stream = LauncherApp.class.getResourceAsStream(s);
+                if (stream != null) stage.getIcons().add(new javafx.scene.image.Image(stream));
             }
         } catch (Exception ignored) {}
         
         stage.setScene(scene);
+        showView("General");
         
         // Inicialización post-UI
         profileList.getSelectionModel().selectFirst();
         stage.show();
         loadVersionManifestAsync();
 
-        stage.setOnCloseRequest(ev -> workers.shutdownNow());
+        stage.setOnCloseRequest(ev -> {
+            workers.shutdownNow();
+            Platform.exit();
+            System.exit(0);
+        });
     }
 
     private void initData() throws Exception {
@@ -125,13 +152,17 @@ public class LauncherApp extends Application {
     private VBox createProfileSidebar() {
         profileList = new ListView<>(FXCollections.observableList(profiles));
         profileList.setPrefWidth(240);
+        profileList.setStyle("-fx-background-color: #1e1e1e; -fx-background: #1e1e1e; -fx-control-inner-background: #1e1e1e; -fx-border-color: #333333; -fx-border-width: 0 0 0 0;");
         profileList.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(LauncherProfile item, boolean empty) {
                 super.updateItem(item, empty);
+                // Fondo oscuro siempre
+                setStyle(isSelected()
+                    ? "-fx-background-color: #3a3a3a; -fx-text-fill: white;"
+                    : "-fx-background-color: #1e1e1e; -fx-text-fill: #cccccc;");
                 if (empty || item == null) {
-                    setGraphic(null);
-                    setText(null);
+                    setGraphic(null); setText(null);
                 } else {
                     HBox box = new HBox(8);
                     box.setAlignment(Pos.CENTER_LEFT);
@@ -146,163 +177,213 @@ public class LauncherApp extends Application {
                     }
                     
                     Label name = new Label(item.displayName + " (" + item.username + ")");
+                    name.setStyle("-fx-text-fill: inherit;");
                     box.getChildren().addAll(indicator, name);
                     setGraphic(box);
                 }
             }
+            @Override
+            public void updateSelected(boolean selected) {
+                super.updateSelected(selected);
+                setStyle(selected
+                    ? "-fx-background-color: #3a3a3a; -fx-text-fill: white;"
+                    : "-fx-background-color: #1e1e1e; -fx-text-fill: #cccccc;");
+            }
         });
         profileList.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> bindProfile(n));
 
-        Button settingsBtn = new Button("⚙ Configuración");
-        settingsBtn.setMaxWidth(Double.MAX_VALUE);
-        settingsBtn.setOnAction(e -> showSettings());
-
-        VBox sidebar = new VBox(5, new Label("  Perfiles"), profileList, settingsBtn);
+        Label perfilesLabel = new Label("  Perfiles");
+        perfilesLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 10 0 4 0;");
+        
+        VBox sidebar = new VBox(0, perfilesLabel, profileList);
         VBox.setVgrow(profileList, Priority.ALWAYS);
         return sidebar;
     }
+    private VBox createNavigationMenu() {
+        VBox menu = new VBox(10);
+        menu.setPadding(new Insets(20, 10, 20, 10));
+        menu.setAlignment(Pos.TOP_LEFT);
 
-    private void showSettings() {
-        root.setCenter(settingsView);
-    }
-
-    private void showDashboard() {
-        root.setCenter(dashboardView);
-    }
-
-    private VBox createSettingsView() {
-        VBox view = new VBox(15);
-        view.setPadding(new Insets(20));
-        view.setStyle("-fx-background-color: #f4f4f4;");
-
-        Button backBtn = new Button("◀ Volver");
-        backBtn.setOnAction(e -> showDashboard());
-
-        Label title = new Label("Diagnóstico del Sistema y Rendimiento");
-        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        SystemInfoService.HardwareInfo info = SystemInfoService.getInfo();
-        
-        GridPane infoGrid = new GridPane();
-        infoGrid.setHgap(20); infoGrid.setVgap(15);
-        
-        int r = 0;
-        infoGrid.add(new Label("Sistema Operativo:"), 0, r);
-        infoGrid.add(new Label(info.osName()), 1, r++);
-        
-        infoGrid.add(new Label("Procesador:"), 0, r);
-        infoGrid.add(new Label(info.cpuName() + " (" + info.physicalCores() + " físicos)"), 1, r++);
-        
-        // RAM
-        double ramUsedPercent = 1.0 - ((double)info.availableRamBytes() / info.totalRamBytes());
-        ProgressBar ramBar = new ProgressBar(ramUsedPercent);
-        ramBar.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(ramBar, Priority.ALWAYS);
-        Label ramLabel = new Label(String.format("%.1f GB de %.1f GB usados", 
-            (info.totalRamBytes() - info.availableRamBytes()) / 1e9, info.totalRamBytes() / 1e9));
-        
-        infoGrid.add(new Label("Memoria RAM:"), 0, r);
-        infoGrid.add(new VBox(5, ramBar, ramLabel), 1, r++);
-        
-        // Disco
-        double diskUsedPercent = 1.0 - ((double)info.diskFreeBytes() / info.diskTotalBytes());
-        ProgressBar diskBar = new ProgressBar(diskUsedPercent);
-        diskBar.setMaxWidth(Double.MAX_VALUE);
-        Label diskLabel = new Label(String.format("%.1f GB libres de %.1f GB", 
-            info.diskFreeBytes() / 1e9, info.diskTotalBytes() / 1e9));
-        
-        infoGrid.add(new Label("Espacio en Disco:"), 0, r);
-        infoGrid.add(new VBox(5, diskBar, diskLabel), 1, r++);
-
-        Label warningLabel = new Label();
-        if (info.availableRamBytes() < 512 * 1024 * 1024) {
-            warningLabel.setText("⚠️ ADVERTENCIA: Te queda muy poca RAM libre (< 512MB). " +
-                               "\nLanzar el juego ahora podría provocar un pantallazo azul en tu sistema.");
-            warningLabel.setTextFill(Color.RED);
-            warningLabel.setStyle("-fx-font-weight: bold;");
-        }
-
-        view.getChildren().addAll(backBtn, title, new Separator(), infoGrid, warningLabel);
-        return view;
-    }
-
-    private VBox createMainContent() {
-        VBox container = new VBox(12);
-        container.setPadding(new Insets(10));
-        
-        VBox centerContent = new VBox(8, 
-            createFormSection(), 
-            new Separator(), 
-            new Label("Servidores (NBT Gzip)"), 
-            createServerTableSection(),
-            createHintSection()
+        menu.getChildren().addAll(
+            createNavButton("🏠 General", "General"),
+            createNavButton("🛠 Modding", "Modding"),
+            createNavButton("⚙ Config. Java", "Java"),
+            createNavButton("🌐 Servidores", "Servers"),
+            createNavButton("📜 Consola", "Log")
         );
-        
-        container.getChildren().add(centerContent);
-        VBox.setVgrow(centerContent, Priority.ALWAYS);
-        return container;
+
+        return menu;
     }
 
-    private GridPane createFormSection() {
+    private Button createNavButton(String text, String viewId) {
+        Button btn = new Button(text);
+        btn.setMaxWidth(Double.MAX_VALUE);
+        btn.setAlignment(Pos.CENTER_LEFT);
+        btn.setId("nav-" + viewId); // Para identificarlo fácilmente
+        
+        btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cccccc; -fx-font-size: 14px; -fx-padding: 10 15; -fx-cursor: hand; -fx-background-radius: 5;");
+        
+        btn.setOnMouseEntered(e -> {
+            if (!navViewTitle.getText().equals(viewId)) {
+                btn.setStyle("-fx-background-color: #333333; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 15; -fx-cursor: hand; -fx-background-radius: 5;");
+            }
+        });
+        
+        btn.setOnMouseExited(e -> updateNavButtonStyle(btn, viewId));
+
+        btn.setOnAction(e -> showView(viewId));
+        return btn;
+    }
+
+    private void updateNavButtonStyle(Button btn, String viewId) {
+        if (navViewTitle.getText().equals(viewId)) {
+            btn.setStyle("-fx-background-color: #3d3d3d; -fx-text-fill: #4CAF50; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 15; -fx-background-radius: 5;");
+        } else {
+            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cccccc; -fx-font-size: 14px; -fx-padding: 10 15; -fx-background-radius: 5;");
+        }
+    }
+
+    private void showView(String viewId) {
+        Node view = views.get(viewId);
+        if (view != null) {
+            contentStack.getChildren().setAll(view);
+            navViewTitle.setText(viewId);
+            
+            // Solo intentamos actualizar botones si la UI ya está "viva"
+            if (contentStack.getScene() != null && contentStack.getScene().getRoot() instanceof HBox mainRoot) {
+                VBox sidebar = (VBox) mainRoot.getChildren().get(0);
+                VBox menu = (VBox) sidebar.getChildren().get(3);
+                for (Node n : menu.getChildren()) {
+                    if (n instanceof Button b) {
+                        String id = b.getId();
+                        if (id != null && id.startsWith("nav-")) {
+                            updateNavButtonStyle(b, id.substring(4));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void initializeViews() {
+        logArea = new TextArea();
+        logArea.setEditable(false);
+        logArea.setPrefRowCount(20);
+
+        jvmArea = new TextArea();
+        jvmArea.setPrefRowCount(3);
+        
+        javaPathField = new TextField();
+        javaPathField.setPromptText("(Opcional) Ruta completa a Java 8");
+        
+        globalMcCheck = new CheckBox("Usar ~/.minecraft global (avanzado)");
+        presetCombo = new ComboBox<>(FXCollections.observableArrayList(JvmPresetKind.values()));
+        presetCombo.setOnAction(e -> handlePresetChange());
+
+        views.put("General", createGeneralView());
+        views.put("Modding", createModdingView());
+        views.put("Java", createJavaView());
+        views.put("Servers", createServersView());
+        views.put("Log", createLogAreaView());
+    }
+
+    private VBox createGeneralView() {
+        return new VBox(15, new Label("Ajustes de Identidad"), createIdentitySection(), new Separator(), new Label("Versión del Juego"), createVersionSection());
+    }
+
+    private VBox createModdingView() {
+        Button installModloaderBtn = new Button("✨ Inyectar Forge / Fabric");
+        installModloaderBtn.setStyle("-fx-font-size: 16px; -fx-padding: 10 20;");
+        installModloaderBtn.setOnAction(e -> handleInstallModloader());
+        
+        VBox modding = new VBox(20, 
+            new Label("Gestión de Modloaders"),
+            new Label("Desde aquí puedes inyectar automáticamente Forge o Fabric en tu versión de Minecraft."),
+            installModloaderBtn
+        );
+        modding.setAlignment(Pos.TOP_CENTER);
+        return modding;
+    }
+
+    private VBox createJavaView() {
+        GridPane grid = new GridPane();
+        grid.setHgap(10); grid.setVgap(15);
+        int r = 0;
+        grid.add(new Label("Optimización RAM:"), 0, r); grid.add(presetCombo, 1, r++);
+        grid.add(new Label("Argumentos JVM:"), 0, r); grid.add(jvmArea, 1, r++);
+        grid.add(new Label("Java Path (Old Forge):"), 0, r); grid.add(javaPathField, 1, r++);
+        grid.add(globalMcCheck, 1, r++);
+        
+        return new VBox(15, new Label("Motor de Ejecución Java"), grid, new Separator(), createHintSection());
+    }
+
+    private VBox createServersView() {
+        return new VBox(10, new Label("Lista de Servidores Multijugador"), createServerTableSection());
+    }
+
+    private VBox createLogAreaView() {
+        return new VBox(10, new Label("Consola de Diagnóstico en Vivo"), logArea);
+    }
+
+    private HBox createPersistentFooter() {
+        saveBtn = new Button("💾 Guardar");
+        saveBtn.setOnAction(e -> saveProfiles());
+
+        installBtn = new Button("📥 Instalar");
+        installBtn.setOnAction(e -> runTask(createInstallTask()));
+
+        playBtn = new Button("▶ ¡JUGAR!");
+        playBtn.setDefaultButton(true);
+        playBtn.setStyle("-fx-background-color: #2d8134; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 10 40;");
+        playBtn.setOnAction(e -> runTask(createLaunchTask()));
+
+        newProfileBtn = new Button("➕ Nuevo");
+        newProfileBtn.setOnAction(e -> createNewProfile());
+
+        deleteProfileBtn = new Button("🗑 Borrar");
+        deleteProfileBtn.setStyle("-fx-text-fill: #d32f2f;");
+        deleteProfileBtn.setOnAction(e -> deleteSelectedProfile());
+
+        HBox footer = new HBox(15, newProfileBtn, deleteProfileBtn, new Region(), saveBtn, installBtn, playBtn);
+        HBox.setHgrow(footer.getChildren().get(2), Priority.ALWAYS);
+        footer.setPadding(new Insets(15, 25, 15, 25));
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
+        return footer;
+    }
+
+    private GridPane createIdentitySection() {
         displayNameField = new TextField();
         usernameField = new TextField();
         uuidField = new TextField();
-        uuidField.setPromptText("UUID offline");
-        uuidField.setEditable(false); // Recomendado para evitar inconsistencias manuales
+        uuidField.setEditable(false);
+        Button syncUuidBtn = new Button("🔄 Sync");
+        syncUuidBtn.setOnAction(e -> syncUuidFromUsername());
 
-        versionFilter = new ComboBox<>(FXCollections.observableArrayList(
-                "Todas", "Solo releases", "Solo snapshots", "Clásicas (beta/alpha)"));
+        GridPane grid = new GridPane();
+        grid.setHgap(10); grid.setVgap(10);
+        grid.add(new Label("Nombre Perfil:"), 0, 0); grid.add(displayNameField, 1, 0);
+        grid.add(new Label("Usuario (Offline):"), 0, 1); grid.add(usernameField, 1, 1);
+        grid.add(new Label("UUID:"), 0, 2); grid.add(new HBox(8, uuidField, syncUuidBtn), 1, 2);
+        return grid;
+    }
+
+    private VBox createVersionSection() {
+        versionFilter = new ComboBox<>(FXCollections.observableArrayList("Todas", "Solo releases", "Solo snapshots", "Clásicas (beta/alpha)"));
         versionFilter.setValue("Todas");
         versionFilter.setOnAction(e -> applyVersionFilter());
 
         versionCombo = new ComboBox<>();
         versionCombo.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(versionCombo, Priority.ALWAYS);
         setupVersionComboCellFactories();
 
-        presetCombo = new ComboBox<>(FXCollections.observableArrayList(JvmPresetKind.values()));
-        presetCombo.setOnAction(e -> handlePresetChange());
-
-        jvmArea = new TextArea();
-        jvmArea.setPrefRowCount(2);
-        
-        globalMcCheck = new CheckBox("Usar ~/.minecraft global (avanzado)");
-        globalMcCheck.setOnAction(e -> { if(selected != null) selected.useGlobalMinecraftFolder = globalMcCheck.isSelected(); });
-
-        Button syncUuidBtn = new Button("🔄 Sync UUID");
-        syncUuidBtn.setOnAction(e -> syncUuidFromUsername());
-
-        Button refreshManifestBtn = new Button("Actualizar lista");
+        Button refreshManifestBtn = new Button("Actualizar");
         refreshManifestBtn.setOnAction(e -> loadVersionManifestAsync());
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10);
-        
-        int r = 0;
-        grid.add(new Label("Nombre Perfil:"), 0, r); grid.add(displayNameField, 1, r);
-        r++;
-        grid.add(new Label("Usuario (Offline):"), 0, r); grid.add(usernameField, 1, r);
-        r++;
-        grid.add(new Label("UUID:"), 0, r); grid.add(new HBox(8, uuidField, syncUuidBtn), 1, r);
-        r++;
-        grid.add(new Label("Versión Juego:"), 0, r); grid.add(new HBox(8, versionFilter, versionCombo, refreshManifestBtn), 1, r);
-        r++;
-        grid.add(new Label("Optimización:"), 0, r); grid.add(presetCombo, 1, r);
-        grid.add(new Label("Argumentos Java:"), 0, r+1); grid.add(jvmArea, 1, r+1);
-        grid.add(globalMcCheck, 1, r+2);
-
-        ColumnConstraints col1 = new ColumnConstraints(130);
-        ColumnConstraints col2 = new ColumnConstraints();
-        col2.setHgrow(Priority.ALWAYS);
-        grid.getColumnConstraints().addAll(col1, col2);
-
-        setupFieldListeners();
-
-        // Estilo para corregir legibilidad en Linux
-        grid.setStyle("-fx-font-family: 'Segoe UI', Helvetica, Arial, sans-serif;");
-        
-        return grid;
+        return new VBox(10, new HBox(10, versionFilter, versionCombo, refreshManifestBtn));
     }
+
+
 
     private void setupFieldListeners() {
         displayNameField.textProperty().addListener((obs, o, n) -> {
@@ -322,6 +403,10 @@ public class LauncherApp extends Application {
 
         jvmArea.textProperty().addListener((obs, o, n) -> {
             if (selected != null) selected.customJvmArgs = n;
+        });
+
+        javaPathField.textProperty().addListener((obs, o, n) -> {
+            if (selected != null) selected.javaExecutable = n;
         });
 
         versionCombo.valueProperty().addListener((obs, o, n) -> {
@@ -387,34 +472,7 @@ public class LauncherApp extends Application {
         return new VBox(8, aternosHint, modHintLabel);
     }
 
-    private VBox createActionAndLogSection() {
-        newProfileBtn = new Button("Nuevo Perfil");
-        newProfileBtn.setOnAction(e -> createNewProfile());
-        
-        deleteProfileBtn = new Button("Eliminar Perfil");
-        deleteProfileBtn.setStyle("-fx-text-fill: #d32f2f;");
-        deleteProfileBtn.setOnAction(e -> deleteSelectedProfile());
 
-        saveBtn = new Button("Guardar");
-        saveBtn.setOnAction(e -> saveProfiles());
-
-        installBtn = new Button("Instalar");
-        installBtn.setOnAction(e -> runTask(createInstallTask()));
-
-        playBtn = new Button("¡Jugar!");
-        playBtn.setDefaultButton(true);
-        playBtn.setStyle("-fx-base: #2d8134;");
-        playBtn.setOnAction(e -> runTask(createLaunchTask()));
-
-        HBox topButtons = new HBox(10, newProfileBtn, deleteProfileBtn, saveBtn, installBtn, playBtn);
-        topButtons.setPadding(new Insets(10));
-
-        logArea = new TextArea();
-        logArea.setEditable(false);
-        logArea.setPrefRowCount(6);
-
-        return new VBox(topButtons, new Label("  Consola de Registro"), logArea);
-    }
 
     // --- Lógica de Negocio y Helpers ---
 
@@ -437,6 +495,7 @@ public class LauncherApp extends Application {
 
         presetCombo.setValue(p.jvmPreset);
         jvmArea.setText(p.customJvmArgs != null ? p.customJvmArgs : "");
+        javaPathField.setText(p.javaExecutable != null ? p.javaExecutable : "");
         globalMcCheck.setSelected(p.useGlobalMinecraftFolder);
         
         if (p.servers == null) p.servers = new ArrayList<>();
@@ -451,6 +510,7 @@ public class LauncherApp extends Application {
         displayNameField.clear();
         usernameField.clear();
         uuidField.clear();
+        javaPathField.clear();
         versionCombo.setItems(FXCollections.emptyObservableList());
     }
 
@@ -490,6 +550,45 @@ public class LauncherApp extends Application {
                     log("Error al borrar perfil: " + ex.getMessage());
                 }
             }
+        });
+    }
+
+    private void handleInstallModloader() {
+        if (selected == null || selected.lastVersionId == null || selected.lastVersionId.isBlank()) {
+            log("[ERROR] Selecciona primero una versión Vanilla desde el desplegable 'Versión Juego' antes de instalar Forge/Fabric.");
+            return;
+        }
+        
+        List<String> choices = new ArrayList<>();
+        choices.add("Forge");
+        choices.add("Fabric");
+        
+        ChoiceDialog<String> dialog = new ChoiceDialog<>("Forge", choices);
+        dialog.setTitle("Instalar Modloader Automático");
+        dialog.setHeaderText("Inyección de Modloader para " + selected.lastVersionId);
+        dialog.setContentText("Elige el motor de mods a instalar. Se descargará automáticamente:");
+        
+        dialog.showAndWait().ifPresent(choice -> {
+            String mcVersion = selected.lastVersionId;
+            Path baseDir = facade.directories().launcherData();
+            log("Iniciando instalación automática de " + choice + " para " + mcVersion + "...");
+            
+            workers.submit(() -> {
+                try {
+                    if ("Forge".equals(choice)) {
+                        ModloaderInstallerService.installForge(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                    } else if ("Fabric".equals(choice)) {
+                        ModloaderInstallerService.installFabric(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                    }
+                    
+                    Platform.runLater(() -> {
+                        log("¡Terminado! Actualizando lista de versiones...");
+                        loadVersionManifestAsync();
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> log("[CRITICAL] Falló la instalación: " + ex.getMessage()));
+                }
+            });
         });
     }
 

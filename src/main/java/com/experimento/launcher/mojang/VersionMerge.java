@@ -44,14 +44,14 @@ public final class VersionMerge {
             for (JsonNode lib : parentLibs) {
                 String n = lib.path("name").asText("");
                 if (!n.isBlank()) {
-                    byName.put(n, lib);
+                    byName.put(extractLibraryKey(n), lib);
                 }
             }
         }
         for (JsonNode lib : childLibs) {
             String n = lib.path("name").asText("");
             if (!n.isBlank()) {
-                byName.put(n, lib);
+                byName.put(extractLibraryKey(n), lib);
             } else {
                 byName.put("__anon_" + byName.size(), lib);
             }
@@ -59,6 +59,23 @@ public final class VersionMerge {
         ArrayNode arr = M.createArrayNode();
         byName.values().forEach(arr::add);
         return arr;
+    }
+
+    private static String extractLibraryKey(String name) {
+        String[] parts = name.split(":");
+        if (parts.length >= 3) {
+            String key = parts[0] + ":" + parts[1];
+            if (parts.length > 3) {
+                // If there is a classifier or extension, append it to the key.
+                StringBuilder sb = new StringBuilder(key);
+                for (int i = 3; i < parts.length; i++) {
+                    sb.append(":").append(parts[i]);
+                }
+                return sb.toString();
+            }
+            return key;
+        }
+        return name; // Fallback to exact name if format is unusual
     }
 
     private static ObjectNode mergeArguments(ObjectNode parentArgs, ObjectNode childArgs) {

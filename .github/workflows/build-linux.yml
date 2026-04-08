@@ -33,22 +33,35 @@ jobs:
           VERSION=$(grep 'version=' src/main/resources/version.properties | cut -d'=' -f2 | sed 's/-alpha//' | sed 's/-alfa//')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Resize Icons
+        run: |
+          convert icon.png -resize 48x48   icon-48.png
+          convert icon.png -resize 128x128 icon-128.png
+          convert icon.png -resize 256x256 icon-256.png
+          cp icon-48.png  src/main/resources/
+          cp icon-128.png src/main/resources/
+          cp icon-256.png src/main/resources/
+
       - name: Create .deb with jpackage
         run: |
           mkdir -p build/dist
           MAIN_JAR=$(ls build/libs/meacore-launcher-*.jar | head -n 1)
           JAR_NAME=$(basename $MAIN_JAR)
-          echo "Using JAR: $JAR_NAME"
-          jpackage --name meacorelauncher \
+          jpackage --name "MeaCore Launcher" \
+            --linux-package-name meacore-launcher \
+            --vendor "MeaCore" \
+            --app-version ${{ env.VERSION }} \
             --input build/libs \
             --main-jar $JAR_NAME \
             --main-class com.experimento.launcher.Main \
             --type deb \
-            --icon icon.png \
+            --icon icon-256.png \
+            --resource-dir src/main/resources \
             --linux-shortcut \
             --linux-app-category Game \
-            --app-version ${{ env.VERSION }} \
-            --vendor MeaCore-Enterprise \
             --dest build/dist
 
       - name: Upload Linux Artifact
