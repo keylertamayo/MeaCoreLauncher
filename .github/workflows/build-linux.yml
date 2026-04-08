@@ -72,8 +72,10 @@ jobs:
           DEB=$(ls build/dist/*.deb)
           mkdir -p /tmp/debpatch
           dpkg-deb -R $DEB /tmp/debpatch
-          DESKTOP=$(find /tmp/debpatch -name "*.desktop")
-          cat > $DESKTOP << 'EOF'
+          # Buscar SOLO el .desktop de la aplicación, ignorando los de legal/runtime
+          DESKTOP=$(find /tmp/debpatch/opt -maxdepth 3 -name "*.desktop" | head -n 1)
+          echo "Parcheando: $DESKTOP"
+          cat > "$DESKTOP" << 'EOF'
           [Desktop Entry]
           Name=MeaCore Launcher
           Comment=Tu plataforma definitiva para inyectar mods de Minecraft
