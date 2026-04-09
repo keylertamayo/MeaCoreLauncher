@@ -182,9 +182,12 @@ public final class LauncherFacade {
             // Validación extra de "intrusos": Si hay un mod de v1.20 en una v1.12
             validateModsForVersion(modsDir, currentVersion, log);
 
+            // Asegurar que el directorio exista antes de escribir el archivo de versión
+            Files.createDirectories(profileDir);
             Files.writeString(versionFile, currentVersion);
         } catch (Exception e) {
-            log.accept("[LAUNCHER] ⚠️ Error en aislamiento de mods: " + e.getMessage());
+            // Usar un mensaje descriptivo en lugar de solo el mensaje de la excepción (que suele ser sólo la ruta)
+            log.accept("[LAUNCHER] ⚠️ Error en aislamiento de mods: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -217,15 +220,6 @@ public final class LauncherFacade {
         if (!Files.isDirectory(path)) return false;
         try (var stream = Files.list(path)) {
             return stream.findAny().isPresent();
-        }
-    }
-
-    private void deleteDirectory(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        try (var stream = Files.walk(path)) {
-            stream.sorted(java.util.Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(java.io.File::delete);
         }
     }
 

@@ -40,42 +40,32 @@ public final class VersionMerge {
 
     private static ArrayNode mergeLibraries(JsonNode parentLibs, ArrayNode childLibs) {
         Map<String, JsonNode> byName = new LinkedHashMap<>();
-        if (parentLibs != null && parentLibs.isArray()) {
-            for (JsonNode lib : parentLibs) {
-                String n = lib.path("name").asText("");
-                if (!n.isBlank()) {
-                    byName.put(extractLibraryKey(n), lib);
-                }
-            }
-        }
+
+        // Las librerías del hijo van primero (mayor prioridad en el classpath)
+        // Clave = nombre completo incluyendo versión, para que versiones distintas del mismo
+        // artefacto coexistan (ej: lwjgl:2.9.2 de Forge para macOS + lwjgl:2.9.4 del vanilla para Linux/Windows)
         for (JsonNode lib : childLibs) {
             String n = lib.path("name").asText("");
             if (!n.isBlank()) {
-                byName.put(extractLibraryKey(n), lib);
+                byName.put(n, lib);
             } else {
                 byName.put("__anon_" + byName.size(), lib);
             }
         }
+
+        // Las librerías del padre se agregan sólo si no están ya presentes con el mismo nombre exacto
+        if (parentLibs != null && parentLibs.isArray()) {
+            for (JsonNode lib : parentLibs) {
+                String n = lib.path("name").asText("");
+                if (!n.isBlank() && !byName.containsKey(n)) {
+                    byName.put(n, lib);
+                }
+            }
+        }
+
         ArrayNode arr = M.createArrayNode();
         byName.values().forEach(arr::add);
         return arr;
-    }
-
-    private static String extractLibraryKey(String name) {
-        String[] parts = name.split(":");
-        if (parts.length >= 3) {
-            String key = parts[0] + ":" + parts[1];
-            if (parts.length > 3) {
-                // If there is a classifier or extension, append it to the key.
-                StringBuilder sb = new StringBuilder(key);
-                for (int i = 3; i < parts.length; i++) {
-                    sb.append(":").append(parts[i]);
-                }
-                return sb.toString();
-            }
-            return key;
-        }
-        return name; // Fallback to exact name if format is unusual
     }
 
     private static ObjectNode mergeArguments(ObjectNode parentArgs, ObjectNode childArgs) {

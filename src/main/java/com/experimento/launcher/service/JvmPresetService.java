@@ -59,12 +59,12 @@ public final class JvmPresetService {
         return List.of(
                 "-Xms512M",
                 "-Xmx2G",
+                "-XX:+UnlockExperimentalVMOptions", // Debe preceder a todos los flags experimentales
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=35", // Más suave para reducir el stuttering en F3
                 "-XX:G1NewSizePercent=25",
                 "-XX:G1MaxNewSizePercent=35",
-                "-XX:+UseStringDeduplication",
-                "-XX:+UnlockExperimentalVMOptions");
+                "-XX:+UseStringDeduplication");
     }
 
     public static List<String> balancedPreset(long totalRamMiB) {
@@ -72,11 +72,11 @@ public final class JvmPresetService {
         return List.of(
                 "-Xms2G",
                 "-Xmx" + mx,
+                "-XX:+UnlockExperimentalVMOptions", // Debe preceder a todos los flags experimentales
                 "-XX:+UseG1GC",
                 "-XX:+UseStringDeduplication", // Ahorro de RAM
                 "-XX:+ParallelRefProcEnabled",
                 "-XX:MaxGCPauseMillis=20", // Target 60 FPS
-                "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+DisableExplicitGC",
                 "-XX:+AlwaysPreTouch",
                 "-XX:G1NewSizePercent=30",

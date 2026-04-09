@@ -8,12 +8,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
+
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -203,13 +198,14 @@ public final class GameFilesInstaller {
 
         String[] mirrors = {
             "https://libraries.minecraft.net/",
-            "https://maven.minecraftforge.net/"
+            "https://maven.minecraftforge.net/",
+            "https://repo1.maven.org/maven2/"
         };
 
         for (String mirror : mirrors) {
             try {
                 HttpFiles.downloadIfHashMismatch(mirror + path, dest, null);
-                if (Files.exists(dest)) break;
+                if (Files.exists(dest)) return;
             } catch (Exception ignored) {}
         }
     }

@@ -163,11 +163,12 @@ public final class GameLauncher {
                 }
 
                 if (libPath != null) {
-                    if (libPath.toString().contains("text2speech")) {
-                        // El usuario pidió quitar el narrador para ahorrar recursos
-                        continue;
+                    // Solo añadir al classpath si el archivo realmente existe en disco
+                    // NOTA: text2speech SÍ debe estar en el classpath — Minecraft 1.12.2 referencia
+                    // com.mojang.text2speech.Narrator estáticamente y sin el JAR la JVM crashea.
+                    if (Files.exists(libPath)) {
+                        cp.add(libPath);
                     }
-                    cp.add(libPath);
                 }
             }
         }
