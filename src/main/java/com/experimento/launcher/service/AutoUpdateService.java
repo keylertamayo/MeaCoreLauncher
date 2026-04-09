@@ -124,12 +124,10 @@ public class AutoUpdateService {
             // 3. apt instala el .deb.
             // 4. meacorelauncher reinicia la app (asumiendo que está en el PATH tras instalar el .deb).
             String deb = debPath.toAbsolutePath().toString();
-            String innerCmd = String.format("sleep 1; pkexec apt install -y %s && meacorelauncher", deb);
+            // Usamos setsid y nohup para que el nuevo proceso sea totalmente independiente de este bash y de pkexec
+            String innerCmd = String.format("sleep 1; pkexec apt install -y %s && setsid nohup meacorelauncher > /dev/null 2>&1 &", deb);
             
-            // Ejecutamos en una sub-shell desvinculada (disown) para que no muera con el padre
-            String wrapperCmd = String.format("((%s) & disown) &", innerCmd);
-            
-            ProcessBuilder pb = new ProcessBuilder("bash", "-c", wrapperCmd);
+            ProcessBuilder pb = new ProcessBuilder("bash", "-c", innerCmd);
             pb.start();
             
             // IMPORTANTE: Un pequeño delay antes del exit ayuda a que OS/PolicyKit 

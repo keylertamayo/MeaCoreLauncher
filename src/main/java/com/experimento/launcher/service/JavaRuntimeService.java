@@ -26,29 +26,25 @@ public final class JavaRuntimeService {
     }
 
     public Path getJava8Executable() {
-        Path j8 = runtimeDir.resolve("java8").resolve("bin").resolve("java");
-        if (Files.exists(j8)) return j8;
+        if (!Files.exists(runtimeDir)) return null;
         
-        // Comprobar si está un nivel más profundo (Adoptium suele meter una carpeta raíz)
-        try {
-            if (Files.exists(runtimeDir.resolve("java8"))) {
-                try (var stream = Files.list(runtimeDir.resolve("java8"))) {
-                    for (Path p : stream.toList()) {
-                        Path deep = p.resolve("bin").resolve("java");
-                        if (Files.exists(deep)) return deep;
-                    }
-                }
-            }
-        } catch (IOException ignored) {}
-        
-        return null;
+        try (var stream = Files.walk(runtimeDir)) {
+            return stream
+                .filter(p -> p.getFileName().toString().equals("java"))
+                .filter(p -> p.getParent().getFileName().toString().equals("bin"))
+                .filter(p -> Files.isExecutable(p))
+                .findFirst()
+                .orElse(null);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     public void downloadJava8Async(Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
         new Thread(() -> {
             try {
                 Files.createDirectories(runtimeDir);
-                Path zipFile = runtimeDir.resolve("java8.zip");
+                Path tarFile = runtimeDir.resolve("java8.tar.gz");
                 Path extractDir = runtimeDir.resolve("java8");
                 
                 if (Files.exists(extractDir)) {
@@ -57,19 +53,25 @@ public final class JavaRuntimeService {
                 Files.createDirectories(extractDir);
 
                 // Descarga con progreso
-                downloadWithProgress(ADOPTIUM_API, zipFile, progress);
+                downloadWithProgress(ADOPTIUM_API, tarFile, progress);
 
-                // Extracción
-                extractZip(zipFile, extractDir);
-                Files.deleteIfExists(zipFile);
+                // Extracción nativa (preserva permisos y maneja tar.gz)
+                ProcessBuilder pb = new ProcessBuilder("tar", "-xzf", tarFile.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
+                Process p = pb.start();
+                int code = p.waitFor();
+                
+                Files.deleteIfExists(tarFile);
 
-                Path exe = getJava8Executable();
-                if (exe != null) {
-                    // Dar permisos de ejecución en Linux
-                    exe.toFile().setExecutable(true);
-                    onResult.accept(exe);
+                if (code == 0) {
+                    Path exe = getJava8Executable();
+                    if (exe != null) {
+                        exe.toFile().setExecutable(true);
+                        onResult.accept(exe);
+                    } else {
+                        onError.accept("No se encontró el ejecutable tras la extracción.");
+                    }
                 } else {
-                    onError.accept("No se encontró el ejecutable tras la extracción.");
+                    onError.accept("Error al extraer el archivo tar.gz (Código " + code + ").");
                 }
 
             } catch (Exception e) {

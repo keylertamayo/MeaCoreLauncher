@@ -64,6 +64,22 @@
             </ul>
         </div>
 
+        <!-- v1.2.7 -->
+        <div class="version-entry">
+            <div class="version-header">
+                <span class="version-tag">v1.2.7</span>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
+            <div class="version-notes">
+                <p><strong>Fixes de Infraestructura y AutoUpdate:</strong></p>
+                <ul>
+                    <li><strong>Extracción Nativa:</strong> Ahora el motor Java 8 se extrae usando <code>tar</code>, lo que garantiza soporte para <code>.tar.gz</code> y mantiene los permisos de ejecución.</li>
+                    <li><strong>Reinicio Robusto:</strong> Se corrigió el AutoUpdate para que el launcher se abra automáticamente tras la instalación mediante <code>setsid</code>.</li>
+                    <li><strong>Búsqueda Inteligente:</strong> Mejorada la localización del ejecutable Java independientemente de la estructura del paquete descargado.</li>
+                </ul>
+            </div>
+        </div>
+
         <div class="version-entry">
             <div class="version-header">
                 <span class="version-tag">v1.2.6</span>
