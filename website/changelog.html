@@ -46,10 +46,25 @@
     </div>
 
     <div class="timeline">
+        <!-- v1.3.5 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.3.5 - Legacy Engine & Classpath Polish 🔧 (Actual)</h3>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
+            <p><strong>Compatibilidad y Core System:</strong></p>
+            <ul>
+                <li><strong>Fix de Classpath (LWJGL):</strong> Solucionado un conflicto crítico al cargar Forge en 1.12.2 que provocaba <code>ClassNotFoundException</code> debido a un merge incorrecto de versiones entre plataformas.</li>
+                <li><strong>Arrancador Robusto:</strong> Reparado el crasheo en caliente (<code>NoClassDefFoundError</code>) del Narrador en versiones antiguas. Ahora Minecraft 1.12.2 inicia exitosamente la GUI principal.</li>
+                <li><strong>Optimización de JVM:</strong> Reordenados los argumentos experimentales (G1GC) para evitar rechazos tempranos del motor de Java.</li>
+                <li><strong>FileSystem Seguro:</strong> Prevención de errores de escritura durante el aislamiento de versiones mediante la precreación proactiva de directorios.</li>
+            </ul>
+        </div>
+
         <!-- v1.3.4 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.3.4 - Survival Update 🛡️ (Actual)</h3>
+                <h3>v1.3.4 - Survival Update 🛡️</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Estabilidad y Aislamiento Crítico:</strong></p>
