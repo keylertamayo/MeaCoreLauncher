@@ -22,10 +22,12 @@ public final class LauncherFacade {
     private final LauncherDirectories dirs;
     private final ProfileStore profiles;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final JavaRuntimeService runtimeService;
 
     public LauncherFacade(LauncherDirectories dirs) {
         this.dirs = dirs;
         this.profiles = new ProfileStore(dirs.launcherData());
+        this.runtimeService = new JavaRuntimeService(dirs.launcherData());
     }
 
     public LauncherDirectories directories() {
@@ -34,6 +36,10 @@ public final class LauncherFacade {
 
     public ProfileStore profiles() {
         return profiles;
+    }
+
+    public JavaRuntimeService runtime() {
+        return runtimeService;
     }
 
     public Path gameDirFor(LauncherProfile p) {
@@ -109,6 +115,19 @@ public final class LauncherFacade {
         }
         Path gameDir = gameDirFor(p);
         List<String> jvm = JvmPresetService.argsFor(p, ramMiB);
+        
+        String effectiveJava = p.javaExecutable;
+        
+        // Detección de necesidad de Java 8
+        if (effectiveJava == null || effectiveJava.isBlank()) {
+            if (isJava8Required(merged)) {
+                Path portable8 = runtimeService.getJava8Executable();
+                if (portable8 != null) {
+                    effectiveJava = portable8.toAbsolutePath().toString();
+                }
+            }
+        }
+
         var launcher = new GameLauncher(dirs.librariesDir(), dirs.assetsDir(), dirs.versionsDir());
         return launcher.buildCommand(
                 merged,
@@ -117,8 +136,18 @@ public final class LauncherFacade {
                 p.username,
                 p.offlineUuid,
                 jvm,
-                p.javaExecutable,
+                effectiveJava,
                 LaunchFeatures.defaults());
+    }
+
+    private boolean isJava8Required(JsonNode merged) {
+        if (merged.has("javaVersion")) {
+            int major = merged.get("javaVersion").path("majorVersion").asInt(0);
+            return major == 8;
+        }
+        // Fallback: Si no tiene el campo, pero tiene LaunchWrapper (versiones muy viejas)
+        String mainClass = merged.path("mainClass").asText("");
+        return mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.Launch");
     }
 
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {

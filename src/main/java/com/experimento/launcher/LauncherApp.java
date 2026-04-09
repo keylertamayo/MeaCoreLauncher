@@ -5,6 +5,8 @@ import com.experimento.launcher.mojang.*;
 import com.experimento.launcher.paths.*;
 import com.experimento.launcher.service.*;
 import com.experimento.launcher.store.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
@@ -76,6 +78,10 @@ public class LauncherApp extends Application {
     private ProgressBar updateProgress;
     private Label updateStatus;
     private Button updateBtn;
+    private final Map<String, Button> navButtons = new HashMap<>();
+    private StackPane javaDownloadOverlay;
+    private ProgressBar javaProgress;
+    private Label javaStatus;
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -177,7 +183,9 @@ public class LauncherApp extends Application {
         modloaderOverlay.setVisible(false);
         updateOverlay = buildUpdateOverlay();
         updateOverlay.setVisible(false);
-        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, updateOverlay);
+        javaDownloadOverlay = buildJavaDownloadOverlay();
+        javaDownloadOverlay.setVisible(false);
+        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, updateOverlay, javaDownloadOverlay);
 
         Scene scene = new Scene(rootPane, 1080, 720);
         stage.setMinWidth(1080);
@@ -351,6 +359,7 @@ public class LauncherApp extends Application {
         btn.setOnMouseExited(e -> updateNavButtonStyle(btn, viewId));
 
         btn.setOnAction(e -> showView(viewId));
+        navButtons.put(viewId, btn);
         return btn;
     }
 
@@ -358,7 +367,7 @@ public class LauncherApp extends Application {
 
     private void updateNavButtonStyle(Button btn, String viewId) {
         if (viewId.equals(currentViewId)) {
-            btn.setStyle("-fx-background-color: #3d3d3d; -fx-text-fill: #4CAF50; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 15; -fx-background-radius: 5;");
+            btn.setStyle("-fx-background-color: #3d3d3d; -fx-text-fill: #0E639C; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 15; -fx-background-radius: 5;");
         } else {
             btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cccccc; -fx-font-size: 14px; -fx-padding: 10 15; -fx-background-radius: 5;");
         }
@@ -368,23 +377,17 @@ public class LauncherApp extends Application {
         Node view = views.get(viewId);
         if (view != null) {
             contentStack.getChildren().setAll(view);
+            String oldViewId = currentViewId;
             currentViewId = viewId;
             currentViewTitle = viewId;
             updateHeaderTitle();
             
-            // Solo intentamos actualizar botones si la UI ya está "viva"
-            if (contentStack.getScene() != null && contentStack.getScene().getRoot() instanceof HBox mainRoot) {
-                VBox sidebar = (VBox) mainRoot.getChildren().get(0);
-                VBox menu = (VBox) sidebar.getChildren().get(3);
-                for (Node n : menu.getChildren()) {
-                    if (n instanceof Button b) {
-                        String id = b.getId();
-                        if (id != null && id.startsWith("nav-")) {
-                            updateNavButtonStyle(b, id.substring(4));
-                        }
-                    }
-                }
-            }
+            // Actualización instantánea de botones sin recorrer el árbol
+            Button oldBtn = navButtons.get(oldViewId);
+            if (oldBtn != null) updateNavButtonStyle(oldBtn, oldViewId);
+            
+            Button newBtn = navButtons.get(viewId);
+            if (newBtn != null) updateNavButtonStyle(newBtn, viewId);
         }
     }
 
@@ -604,7 +607,7 @@ public class LauncherApp extends Application {
         playBtn = new Button("▶ ¡JUGAR!");
         playBtn.setDefaultButton(true);
         playBtn.getStyleClass().add("btn-play");
-        playBtn.setOnAction(e -> runTask(createLaunchTask()));
+        playBtn.setOnAction(e -> handlePlayClick());
 
         newProfileBtn = new Button("➕ Nuevo");
         newProfileBtn.setOnAction(e -> createNewProfile());
@@ -1106,6 +1109,114 @@ public class LauncherApp extends Application {
         bottom.setAlignment(Pos.CENTER_RIGHT);
 
         card.getChildren().addAll(title, updateStatus, updateProgress, note, new Separator(), updateBtn, bottom);
+        dim.getChildren().add(card);
+        return dim;
+    }
+
+    private void handlePlayClick() {
+        if (selected == null) return;
+        
+        // Desactivar UI mientras validamos
+        playBtn.setDisable(true);
+        playBtn.setText("Validando...");
+        
+        workers.submit(() -> {
+            try {
+                // 1. Cargar el version.json para ver si requiere Java 8
+                Path jsonPath = facade.directories().versionsDir().resolve(selected.lastVersionId).resolve("version.json");
+                if (!java.nio.file.Files.exists(jsonPath)) {
+                    // Si no existe, tenemos que instalar la versión primero
+                    Platform.runLater(() -> {
+                        playBtn.setDisable(false);
+                        playBtn.setText("▶ ¡JUGAR!");
+                        runTask(createLaunchTask());
+                    });
+                    return;
+                }
+                
+                JsonNode merged = new ObjectMapper().readTree(java.nio.file.Files.readAllBytes(jsonPath));
+                boolean needsJ8 = false;
+                if (merged.has("javaVersion")) {
+                    needsJ8 = merged.get("javaVersion").path("majorVersion").asInt(0) == 8;
+                } else {
+                    String main = merged.path("mainClass").asText("");
+                    needsJ8 = main.contains("launchwrapper");
+                }
+
+                if (needsJ8 && (selected.javaExecutable == null || selected.javaExecutable.isBlank())) {
+                    if (facade.runtime().getJava8Executable() == null) {
+                        Platform.runLater(() -> {
+                            javaStatus.setText("Esta versión requiere Java 8 para funcionar correctamente.");
+                            javaProgress.setProgress(0);
+                            javaDownloadOverlay.setVisible(true);
+                            playBtn.setDisable(false);
+                            playBtn.setText("▶ ¡JUGAR!");
+                        });
+                        return;
+                    }
+                }
+
+                Platform.runLater(() -> {
+                    playBtn.setDisable(false);
+                    playBtn.setText("▶ ¡JUGAR!");
+                    runTask(createLaunchTask());
+                });
+
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    log("Error verificando Java: " + ex.getMessage());
+                    playBtn.setDisable(false);
+                    playBtn.setText("▶ ¡JUGAR!");
+                });
+            }
+        });
+    }
+
+    /** Construye el overlay de descarga de Java. */
+    private StackPane buildJavaDownloadOverlay() {
+        StackPane dim = new StackPane();
+        dim.setStyle("-fx-background-color: rgba(0,0,0,0.65);");
+
+        VBox card = new VBox(20);
+        card.setMaxWidth(480);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.getStyleClass().add("mc-card");
+        card.setStyle(card.getStyle() + "; -fx-border-color: #0E639C; -fx-border-width: 2;");
+
+        Label title = new Label("☕ Motor Java 8 Requerido");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;");
+
+        javaStatus = new Label("Detectamos que esta versión de Minecraft necesita Java 8.");
+        javaStatus.setWrapText(true);
+        javaStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 14px;");
+
+        javaProgress = new ProgressBar(0);
+        javaProgress.setMaxWidth(Double.MAX_VALUE);
+        javaProgress.setStyle("-fx-accent: #0E639C;");
+
+        Button downloadBtn = new Button("🚀 Descargar Java Portátil (Recomendado)");
+        downloadBtn.setMaxWidth(Double.MAX_VALUE);
+        downloadBtn.setOnAction(e -> {
+            downloadBtn.setDisable(true);
+            facade.runtime().downloadJava8Async(
+                p -> Platform.runLater(() -> javaProgress.setProgress(p)),
+                path -> Platform.runLater(() -> {
+                    javaDownloadOverlay.setVisible(false);
+                    log("Java 8 Portable instalado en: " + path);
+                    handlePlayClick(); // Reintentar
+                }),
+                err -> Platform.runLater(() -> {
+                    downloadBtn.setDisable(false);
+                    javaStatus.setText("❌ Error: " + err);
+                })
+            );
+        });
+
+        Button closeBtn = new Button("Cancelar");
+        closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888;");
+        closeBtn.setOnAction(e -> javaDownloadOverlay.setVisible(false));
+
+        card.getChildren().addAll(title, javaStatus, javaProgress, downloadBtn, closeBtn);
         dim.getChildren().add(card);
         return dim;
     }
