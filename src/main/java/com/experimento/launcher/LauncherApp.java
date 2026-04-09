@@ -159,7 +159,7 @@ public class LauncherApp extends Application {
         headerProfileVersion = new Label("");
         headerProfileVersion.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 16px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 3, 0, 0, 1);");
 
-        VBox headerTextInfo = new VBox(5, headerProfileName);
+        VBox headerTextInfo = new VBox(5, headerProfileName, headerProfileVersion);
         headerTextInfo.setAlignment(Pos.CENTER_LEFT);
         headerTextInfo.setPadding(new Insets(0, 0, 0, 30));
 
@@ -675,7 +675,12 @@ public class LauncherApp extends Application {
 
         versionCombo.valueProperty().addListener((obs, o, n) -> {
             if (!syncingVersionUi && selected != null && n != null) {
-                selected.lastVersionId = n.id();
+                // Validación: Solo cambiar si realmente es una selección manual del usuario
+                if (!n.id().equals(selected.lastVersionId)) {
+                    selected.lastVersionId = n.id();
+                    headerProfileVersion.setText(n.id());
+                    profileList.refresh();
+                }
             }
         });
     }
@@ -743,10 +748,12 @@ public class LauncherApp extends Application {
     private void updateHeaderTitle() {
         if (selected == null) {
             headerProfileName.setText("Ningún perfil");
+            headerProfileVersion.setText("");
             return;
         }
         String name = selected.displayName != null && !selected.displayName.isBlank() ? selected.displayName : (selected.username != null ? selected.username : "Perfil Nuevo");
-        headerProfileName.setText(name + " | " + currentViewTitle);
+        headerProfileName.setText(name);
+        headerProfileVersion.setText(selected.lastVersionId != null ? selected.lastVersionId : "");
     }
 
     private void bindProfile(LauncherProfile p) {
@@ -776,7 +783,22 @@ public class LauncherApp extends Application {
         if (p.servers == null) p.servers = new ArrayList<>();
         serverTable.setItems(FXCollections.observableList(p.servers));
         
-        applyVersionFilter();
+        syncingVersionUi = true;
+        try {
+            applyVersionFilter();
+            // Restaurar selección exacta del perfil
+            if (p.lastVersionId != null) {
+                for (ManifestVersionEntry mve : versionCombo.getItems()) {
+                    if (mve.id().equals(p.lastVersionId)) {
+                        versionCombo.getSelectionModel().select(mve);
+                        break;
+                    }
+                }
+            }
+        } finally {
+            syncingVersionUi = false;
+        }
+        
         if (p.offlineUuid == null || p.offlineUuid.isBlank()) syncUuidFromUsername();
         refreshHints();
         refreshStatusCard();

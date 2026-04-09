@@ -148,31 +148,80 @@ public final class LauncherFacade {
     }
 
     private void enforceVersionIsolation(Path profileDir, String currentVersion, Consumer<String> log) {
+        if (currentVersion == null || currentVersion.isBlank()) return;
         try {
             Path versionFile = profileDir.resolve(".meacore_version");
             Path modsDir = profileDir.resolve("mods");
             
+            // Si el archivo de versión no existe pero hay mods, significa que venimos de una versión 
+            // del launcher que no trackeaba aislamiento, o el usuario los puso a mano.
+            // Backup preventivo radical.
+            boolean versionMissing = !Files.exists(versionFile);
             String lastVersion = Files.exists(versionFile) ? Files.readString(versionFile).trim() : null;
             
-            if (lastVersion != null && !lastVersion.equals(currentVersion) && Files.exists(modsDir)) {
-                log.accept("[LAUNCHER] Detectado cambio de versión: " + lastVersion + " -> " + currentVersion);
-                log.accept("[LAUNCHER] Limpiando carpeta 'mods' para evitar conflictos...");
+            boolean versionChanged = lastVersion != null && !lastVersion.equals(currentVersion);
+            boolean hasMods = Files.exists(modsDir) && isDirectoryNotEmpty(modsDir);
+
+            if ((versionChanged || (versionMissing && hasMods))) {
+                String reason = versionChanged ? "cambio de versión (" + lastVersion + " -> " + currentVersion + ")" 
+                                               : "detección de mods sin trackear";
                 
-                Path backupDir = profileDir.resolve("mods_backup_" + lastVersion.replace(".", "_"));
+                log.accept("[LAUNCHER] 🛡️ Protector de Instancia: Detectado " + reason);
+                log.accept("[LAUNCHER] Resguardando carpeta 'mods' para evitar crasheos...");
+                
+                String suffix = (lastVersion != null ? lastVersion : "untracked").replace(".", "_");
+                Path backupDir = profileDir.resolve("mods_backup_" + suffix + "_" + System.currentTimeMillis());
+                
                 if (Files.exists(modsDir)) {
-                    if (Files.exists(backupDir)) deleteDirectory(backupDir);
                     Files.move(modsDir, backupDir);
+                    log.accept("[LAUNCHER] ✅ Mods antiguos movidos a: " + backupDir.getFileName());
                 }
                 Files.createDirectories(modsDir);
             }
             
+            // Validación extra de "intrusos": Si hay un mod de v1.20 en una v1.12
+            validateModsForVersion(modsDir, currentVersion, log);
+
             Files.writeString(versionFile, currentVersion);
         } catch (Exception e) {
-            log.accept("[LAUNCHER] Error en aislamiento de mods: " + e.getMessage());
+            log.accept("[LAUNCHER] ⚠️ Error en aislamiento de mods: " + e.getMessage());
+        }
+    }
+
+    private void validateModsForVersion(Path modsDir, String mcVersion, Consumer<String> log) {
+        if (!Files.exists(modsDir)) return;
+        try (var stream = Files.list(modsDir)) {
+            stream.filter(p -> p.toString().toLowerCase().endsWith(".jar")).forEach(p -> {
+                String name = p.getFileName().toString().toLowerCase();
+                // Reglas simples pero efectivas basadas en nombres comunes
+                boolean incompatible = false;
+                if (mcVersion.contains("1.12") && (name.contains("1.18") || name.contains("1.19") || name.contains("1.20") || name.contains("1.21"))) {
+                    incompatible = true;
+                } else if (mcVersion.contains("1.20") && (name.contains("1.12") || name.contains("1.8"))) {
+                    incompatible = true;
+                }
+                
+                if (incompatible) {
+                    try {
+                        Path incompatibleDir = modsDir.resolve("incompatible_detectado");
+                        Files.createDirectories(incompatibleDir);
+                        Files.move(p, incompatibleDir.resolve(p.getFileName()));
+                        log.accept("[LAUNCHER] 🚫 Mod incompatible detectado y movido: " + p.getFileName());
+                    } catch (IOException ignored) {}
+                }
+            });
+        } catch (Exception ignored) {}
+    }
+
+    private boolean isDirectoryNotEmpty(Path path) throws IOException {
+        if (!Files.isDirectory(path)) return false;
+        try (var stream = Files.list(path)) {
+            return stream.findAny().isPresent();
         }
     }
 
     private void deleteDirectory(Path path) throws IOException {
+        if (!Files.exists(path)) return;
         try (var stream = Files.walk(path)) {
             stream.sorted(java.util.Comparator.reverseOrder())
                     .map(Path::toFile)
