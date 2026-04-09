@@ -14,7 +14,10 @@ import java.time.Duration;
 public final class HttpFiles {
 
     private static final HttpClient HTTP =
-            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
+            HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.ALWAYS)
+                    .connectTimeout(Duration.ofSeconds(30))
+                    .build();
 
     private HttpFiles() {}
 
