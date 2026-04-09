@@ -65,8 +65,11 @@ public class LauncherApp extends Application {
     private TextArea logArea;
     private Label modHintLabel;
     private Label aternosHint;
+    @SuppressWarnings("FieldCanBeLocal")
     private Stage stage;
     private String currentViewTitle = "General";
+    private StackPane deleteConfirmOverlay;
+    private Label deleteConfirmMsg;
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -161,7 +164,12 @@ public class LauncherApp extends Application {
         HBox mainLayout = new HBox(sidebarArea, rightArea);
         HBox.setHgrow(rightArea, Priority.ALWAYS);
 
-        Scene scene = new Scene(mainLayout, 1080, 720);
+        // Overlay de confirmacion interno (sin ventana secundaria)
+        deleteConfirmOverlay = buildDeleteOverlay();
+        deleteConfirmOverlay.setVisible(false);
+        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay);
+
+        Scene scene = new Scene(rootPane, 1080, 720);
         stage.setMinWidth(1080);
         stage.setMinHeight(720);
         try {
@@ -751,35 +759,85 @@ public class LauncherApp extends Application {
         saveProfiles();
     }
 
+    /** Muestra el overlay de confirmación sin abrir ninguna ventana secundaria. */
     private void deleteSelectedProfile() {
         if (selected == null) return;
-        
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.initOwner(stage);
-        alert.setTitle("Borrar Perfil");
-        alert.setHeaderText("¿Estás seguro de eliminar el perfil '" + selected.displayName + "'?");
-        alert.setContentText("⚠️ ADVERTENCIA: Los mundos, mods y configuraciones se borrarán PERMANENTEMENTE del disco.");
-        
-        alert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                deleteProfileBtn.setDisable(true);
-                final LauncherProfile toDelete = selected;
-                workers.submit(() -> {
-                    try {
-                        facade.fullDeleteProfile(toDelete, profiles);
-                        Platform.runLater(() -> {
-                            profileList.setItems(FXCollections.observableList(profiles));
-                            profileList.getSelectionModel().clearSelection();
-                            bindProfile(null);
-                            log("Perfil eliminado permanentemente.");
-                            deleteProfileBtn.setDisable(false);
-                        });
-                    } catch (Exception ex) {
-                        Platform.runLater(() -> {
-                            log("Error al borrar perfil: " + ex.getMessage());
-                            deleteProfileBtn.setDisable(false);
-                        });
+        deleteConfirmMsg.setText("¿Estás seguro de eliminar el perfil '" + selected.displayName + "'?");
+        deleteConfirmOverlay.setVisible(true);
+    }
+
+    /** Construye el overlay interno de confirmación (reemplaza Alert nativo). */
+    private StackPane buildDeleteOverlay() {
+        StackPane dim = new StackPane();
+        dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+
+        VBox card = new VBox(16);
+        card.setMaxWidth(460);
+        card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
+                + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
+                + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 6);");
+
+        deleteConfirmMsg = new Label();
+        deleteConfirmMsg.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        deleteConfirmMsg.setWrapText(true);
+
+        Label warning = new Label("⚠️ ADVERTENCIA: Los mundos, mods y configuraciones se borrarán PERMANENTEMENTE del disco.");
+        warning.setWrapText(true);
+        warning.setStyle("-fx-text-fill: #f0a0a0; -fx-font-size: 12px;");
+
+        Button acceptBtn = new Button("🗑 Eliminar Permanentemente");
+        acceptBtn.setStyle("-fx-background-color: #d32f2f; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 9 20; -fx-background-radius: 5;");
+        acceptBtn.setOnAction(e -> {
+            deleteConfirmOverlay.setVisible(false);
+            executeDeleteCurrentProfile();
+        });
+
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 9 20;");
+        cancelBtn.setOnAction(e -> deleteConfirmOverlay.setVisible(false));
+
+        HBox buttons = new HBox(12, cancelBtn, acceptBtn);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        card.getChildren().addAll(deleteConfirmMsg, warning, new Separator(), buttons);
+        dim.getChildren().add(card);
+        return dim;
+    }
+
+    /** Lógica real de borrado, llamada tras confirmar en el overlay. */
+    private void executeDeleteCurrentProfile() {
+        if (selected == null) return;
+        final LauncherProfile toDelete = selected;
+
+        profiles.remove(toDelete);
+        selected = null;
+        deleteProfileBtn.setDisable(true);
+        profileList.getSelectionModel().clearSelection();
+        profileList.setItems(FXCollections.observableArrayList(profiles));
+        bindProfile(null);
+        headerProfileName.setText("Ningún perfil");
+
+        workers.submit(() -> {
+            try {
+                facade.profiles().save(profiles);
+                if (!toDelete.useGlobalMinecraftFolder) {
+                    java.nio.file.Path dir = facade.gameDirFor(toDelete);
+                    if (java.nio.file.Files.exists(dir)) {
+                        try (var stream = java.nio.file.Files.walk(dir)) {
+                            stream.sorted(java.util.Comparator.reverseOrder())
+                                  .map(java.nio.file.Path::toFile)
+                                  .forEach(java.io.File::delete);
+                        }
                     }
+                }
+                Platform.runLater(() -> {
+                    log("Perfil '" + toDelete.displayName + "' eliminado permanentemente.");
+                    deleteProfileBtn.setDisable(false);
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    log("Error al borrar perfil: " + ex.getMessage());
+                    deleteProfileBtn.setDisable(false);
                 });
             }
         });
@@ -796,7 +854,6 @@ public class LauncherApp extends Application {
         choices.add("Fabric");
         
         ChoiceDialog<String> dialog = new ChoiceDialog<>("Forge", choices);
-        dialog.initOwner(stage);
         dialog.setTitle("Instalar Modloader Automático");
         dialog.setHeaderText("Inyección de Modloader para " + selected.lastVersionId);
         dialog.setContentText("Elige el motor de mods a instalar. Se descargará automáticamente:");

@@ -77,39 +77,53 @@ public final class StoreDownloader {
     }
 
     private static void installMrPack(Path mrPackPath, Path gameDir, Consumer<String> progress) throws Exception {
-        // Descomprimir overrides y parsear index json
+        // === Paso 1: Extraer el modrinth.index.json y los overrides/ ===
+        byte[] indexBytes = null;
+
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(mrPackPath))) {
             ZipEntry e;
-            JsonNode index = null;
-
             while ((e = zis.getNextEntry()) != null) {
-                if (e.isDirectory()) continue;
+                if (e.isDirectory()) { zis.closeEntry(); continue; }
                 String name = e.getName();
 
                 if (name.equals("modrinth.index.json")) {
-                    index = M.readTree(zis);
+                    // Leemos como bytes primero para NO cerrar el ZipInputStream
+                    indexBytes = zis.readAllBytes();
                 } else if (name.startsWith("overrides/")) {
                     Path dest = gameDir.resolve(name.substring("overrides/".length()));
                     Files.createDirectories(dest.getParent());
                     Files.copy(zis, dest, StandardCopyOption.REPLACE_EXISTING);
                 }
+                zis.closeEntry();
             }
+        }
 
-            if (index != null) {
-                JsonNode files = index.path("files");
-                int total = files.size();
-                int current = 0;
-                for (JsonNode file : files) {
-                    current++;
-                    String pathStr = file.path("path").asText();
-                    String downloadUrl = file.path("downloads").get(0).asText(); // Asumimos al menos 1 url
+        // === Paso 2: Procesar el índice y descargar los mods listados ===
+        if (indexBytes != null) {
+            JsonNode index = M.readTree(indexBytes);
+            JsonNode files = index.path("files");
+            int total = files.size();
+            int current = 0;
+            for (JsonNode file : files) {
+                current++;
+                String pathStr = file.path("path").asText();
+                JsonNode downloads = file.path("downloads");
+                if (downloads.isEmpty()) continue;
+                String downloadUrl = downloads.get(0).asText();
 
-                    Path out = gameDir.resolve(pathStr);
-                    Files.createDirectories(out.getParent());
+                Path out = gameDir.resolve(pathStr);
+                Files.createDirectories(out.getParent());
 
-                    progress.accept("Descargando archivo " + current + "/" + total + " (" + out.getFileName() + ")...");
-                    HttpFiles.downloadIfHashMismatch(downloadUrl, out, null);
+                progress.accept("Descargando archivo " + current + "/" + total + " (" + out.getFileName() + ")...");
+
+                // Obtener hash esperado si está disponible
+                String expectedSha1 = null;
+                JsonNode hashes = file.path("hashes");
+                if (hashes.has("sha1")) {
+                    expectedSha1 = hashes.get("sha1").asText();
                 }
+
+                HttpFiles.downloadIfHashMismatch(downloadUrl, out, expectedSha1);
             }
         }
     }

@@ -90,10 +90,18 @@ public final class GameFilesInstaller {
             objects.fields().forEachRemaining(e -> {
                 String assetKey = e.getKey();
                 
-                // Filtrar idiomas (ahorrar espacio y tiempo)
-                // Conservar solo español (es_*) y el bloque pack.mcmeta o fallback
+                // Filtrar idiomas para conservar solo los seleccionados:
+                // Inglés (en_us, en_gb) + 7 variantes de Español específicas
                 if (assetKey.startsWith("minecraft/lang/")) {
-                    if (!assetKey.contains("/es_") && !assetKey.contains("/en_")) {
+                    boolean keep = assetKey.contains("/en_us") || assetKey.contains("/en_gb")
+                               || assetKey.contains("/es_ar")  // Español (Argentina)
+                               || assetKey.contains("/es_cl")  // Español (Chile)
+                               || assetKey.contains("/es_ec")  // Español (Ecuador)
+                               || assetKey.contains("/es_es")  // Español (España)
+                               || assetKey.contains("/es_mx")  // Español (México)
+                               || assetKey.contains("/es_uy")  // Español (Uruguay)
+                               || assetKey.contains("/es_ve"); // Español (Venezuela)
+                    if (!keep) {
                         int c = done.incrementAndGet();
                         if (c % 500 == 0) {
                             progress.log("Assets: " + c + "/" + total);
