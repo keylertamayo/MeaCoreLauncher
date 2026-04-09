@@ -146,18 +146,43 @@ public final class GameLauncher {
 
     private List<Path> buildClasspath(JsonNode merged, Path clientJar) throws Exception {
         List<Path> cp = new ArrayList<>();
-        for (JsonNode lib : merged.get("libraries")) {
-            if (!RuleEvaluator.libraryAllowed(lib, os)) {
-                continue;
-            }
-            JsonNode downloads = lib.get("downloads");
-            if (downloads != null && downloads.has("artifact")) {
-                Path dest = librariesDir.resolve(downloads.get("artifact").get("path").asText());
-                cp.add(dest);
+        if (merged.has("libraries")) {
+            for (JsonNode lib : merged.get("libraries")) {
+                if (!RuleEvaluator.libraryAllowed(lib, os)) {
+                    continue;
+                }
+                
+                Path libPath = null;
+                JsonNode downloads = lib.get("downloads");
+                
+                if (downloads != null && downloads.has("artifact")) {
+                    libPath = librariesDir.resolve(downloads.get("artifact").get("path").asText());
+                } else if (lib.has("name")) {
+                    // Fallback: Resolver por nombre Maven (necesario para Forge 1.12.2 y librerías viejas)
+                    libPath = librariesDir.resolve(nameToPath(lib.get("name").asText()));
+                }
+
+                if (libPath != null) {
+                    cp.add(libPath);
+                }
             }
         }
         cp.add(clientJar);
         return cp;
+    }
+
+    /** Convierte un nombre Maven (g:a:v) en una ruta de archivo. */
+    private static String nameToPath(String name) {
+        String[] parts = name.split(":");
+        if (parts.length < 3) return name.replace(":", "_") + ".jar";
+
+        String group = parts[0].replace(".", "/");
+        String artifact = parts[1];
+        String version = parts[2];
+        String classifier = parts.length > 3 ? parts[3] : null;
+
+        String filename = artifact + "-" + version + (classifier != null ? "-" + classifier : "") + ".jar";
+        return group + "/" + artifact + "/" + version + "/" + filename;
     }
 
     private static String substitute(String s, Map<String, String> vars) {

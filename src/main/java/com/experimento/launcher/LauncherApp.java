@@ -61,7 +61,6 @@ public class LauncherApp extends Application {
     private ComboBox<String> versionFilter;
     private ComboBox<JvmPresetKind> presetCombo;
     private TextArea jvmArea;
-    private TextField javaPathField;
     private CheckBox globalMcCheck;
     private TableView<ServerEntry> serverTable;
     private TextArea logArea;
@@ -399,9 +398,6 @@ public class LauncherApp extends Application {
         jvmArea = new TextArea();
         jvmArea.setPrefRowCount(3);
         
-        javaPathField = new TextField();
-        javaPathField.setPromptText("(Opcional) Ruta completa a Java 8");
-        
         globalMcCheck = new CheckBox("Usar ~/.minecraft global (avanzado)");
         presetCombo = new ComboBox<>(FXCollections.observableArrayList(JvmPresetKind.values()));
         presetCombo.setOnAction(e -> handlePresetChange());
@@ -581,7 +577,6 @@ public class LauncherApp extends Application {
         int r = 0;
         grid.add(new Label("Optimización RAM:"), 0, r); grid.add(presetCombo, 1, r++);
         grid.add(new Label("Argumentos JVM:"), 0, r); grid.add(jvmArea, 1, r++);
-        grid.add(new Label("Java Path (Old Forge):"), 0, r); grid.add(javaPathField, 1, r++);
         grid.add(globalMcCheck, 1, r++);
         
         return new VBox(15, new Label("Motor de Ejecución Java"), grid, new Separator(), createHintSection());
@@ -675,10 +670,6 @@ public class LauncherApp extends Application {
 
         jvmArea.textProperty().addListener((obs, o, n) -> {
             if (selected != null) selected.customJvmArgs = n;
-        });
-
-        javaPathField.textProperty().addListener((obs, o, n) -> {
-            if (selected != null) selected.javaExecutable = n;
         });
 
         versionCombo.valueProperty().addListener((obs, o, n) -> {
@@ -779,7 +770,6 @@ public class LauncherApp extends Application {
 
         presetCombo.setValue(p.jvmPreset);
         jvmArea.setText(p.customJvmArgs != null ? p.customJvmArgs : "");
-        javaPathField.setText(p.javaExecutable != null ? p.javaExecutable : "");
         globalMcCheck.setSelected(p.useGlobalMinecraftFolder);
         
         if (p.servers == null) p.servers = new ArrayList<>();
@@ -799,7 +789,6 @@ public class LauncherApp extends Application {
         displayNameField.clear();
         usernameField.clear();
         uuidField.clear();
-        javaPathField.clear();
         versionCombo.setItems(FXCollections.emptyObservableList());
     }
 
@@ -1139,11 +1128,12 @@ public class LauncherApp extends Application {
                 if (merged.has("javaVersion")) {
                     needsJ8 = merged.get("javaVersion").path("majorVersion").asInt(0) == 8;
                 } else {
-                    String main = merged.path("mainClass").asText("");
-                    needsJ8 = main.contains("launchwrapper");
+                    String main = merged.path("mainClass").asText("").toLowerCase();
+                    // Detección agresiva para Forge y Legacy
+                    needsJ8 = main.contains("launchwrapper") || main.contains("fml") || main.contains("forge") || selected.lastVersionId.toLowerCase().contains("1.12.2");
                 }
 
-                if (needsJ8 && (selected.javaExecutable == null || selected.javaExecutable.isBlank())) {
+                if (needsJ8) {
                     if (facade.runtime().getJava8Executable() == null) {
                         Platform.runLater(() -> {
                             javaStatus.setText("Esta versión requiere Java 8 para funcionar correctamente.");
