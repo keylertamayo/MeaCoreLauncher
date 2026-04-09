@@ -5,7 +5,6 @@ import com.experimento.launcher.mojang.*;
 import com.experimento.launcher.paths.*;
 import com.experimento.launcher.service.*;
 import com.experimento.launcher.store.*;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
@@ -66,7 +65,8 @@ public class LauncherApp extends Application {
     private TextArea logArea;
     private Label modHintLabel;
     private Label aternosHint;
-    private Label navViewTitle;
+    private Stage stage;
+    private String currentViewTitle = "General";
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -132,7 +132,6 @@ public class LauncherApp extends Application {
         brandLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 20 10;");
         
         sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu());
-        VBox.setVgrow(profileList, Priority.SOMETIMES);
 
         contentStack = new StackPane();
         contentStack.setPadding(new Insets(20));
@@ -163,6 +162,8 @@ public class LauncherApp extends Application {
         HBox.setHgrow(rightArea, Priority.ALWAYS);
 
         Scene scene = new Scene(mainLayout, 1080, 720);
+        stage.setMinWidth(1080);
+        stage.setMinHeight(720);
         try {
             java.net.URL cssUrl = LauncherApp.class.getResource("/com/experimento/launcher/ui/meacore.css");
             if (cssUrl != null) scene.getStylesheets().add(cssUrl.toExternalForm());
@@ -178,8 +179,10 @@ public class LauncherApp extends Application {
         } catch (Exception ignored) {}
         
         stage.setScene(scene);
+        stage.centerOnScreen();
         
         // Inicialización post-UI
+        showView("General");
         profileList.getSelectionModel().selectFirst();
 
         stage.setOnCloseRequest(ev -> {
@@ -724,13 +727,6 @@ public class LauncherApp extends Application {
         // Redundante, el cuadro fue eliminado pero mantendremos el hook dummy si algun proceso lo llama
     }
 
-    private String getAvatarColor(String username) {
-        if (username == null || username.isBlank()) return "#555555";
-        String[] colors = {"#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50", "#ff9800", "#ff5722", "#795548"};
-        int hash = Math.abs(username.hashCode());
-        return colors[hash % colors.length];
-    }
-
     private void clearFields() {
         displayNameField.clear();
         usernameField.clear();
@@ -759,21 +755,32 @@ public class LauncherApp extends Application {
         if (selected == null) return;
         
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(stage);
         alert.setTitle("Borrar Perfil");
         alert.setHeaderText("¿Estás seguro de eliminar el perfil '" + selected.displayName + "'?");
         alert.setContentText("⚠️ ADVERTENCIA: Los mundos, mods y configuraciones se borrarán PERMANENTEMENTE del disco.");
         
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                try {
-                    facade.fullDeleteProfile(selected, profiles);
-                    profileList.setItems(FXCollections.observableList(profiles));
-                    profileList.getSelectionModel().clearSelection();
-                    bindProfile(null);
-                    log("Perfil eliminado permanentemente.");
-                } catch (Exception ex) {
-                    log("Error al borrar perfil: " + ex.getMessage());
-                }
+                deleteProfileBtn.setDisable(true);
+                final LauncherProfile toDelete = selected;
+                workers.submit(() -> {
+                    try {
+                        facade.fullDeleteProfile(toDelete, profiles);
+                        Platform.runLater(() -> {
+                            profileList.setItems(FXCollections.observableList(profiles));
+                            profileList.getSelectionModel().clearSelection();
+                            bindProfile(null);
+                            log("Perfil eliminado permanentemente.");
+                            deleteProfileBtn.setDisable(false);
+                        });
+                    } catch (Exception ex) {
+                        Platform.runLater(() -> {
+                            log("Error al borrar perfil: " + ex.getMessage());
+                            deleteProfileBtn.setDisable(false);
+                        });
+                    }
+                });
             }
         });
     }
@@ -789,6 +796,7 @@ public class LauncherApp extends Application {
         choices.add("Fabric");
         
         ChoiceDialog<String> dialog = new ChoiceDialog<>("Forge", choices);
+        dialog.initOwner(stage);
         dialog.setTitle("Instalar Modloader Automático");
         dialog.setHeaderText("Inyección de Modloader para " + selected.lastVersionId);
         dialog.setContentText("Elige el motor de mods a instalar. Se descargará automáticamente:");
