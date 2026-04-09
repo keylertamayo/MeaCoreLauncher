@@ -210,7 +210,9 @@ public final class LauncherFacade {
             if (ramMiB > totalMiB) {
                 log.accept("[LAUNCHER] ADVERTENCIA: Asignados " + ramMiB + "MB. RAM Total: " + totalMiB + "MB. (Posible crasheo)");
             }
-            if (ramMiB > availableMiB) {
+            if (availableMiB < 1024) {
+                log.accept("[LAUNCHER] CRÍTICO: Tienes solo " + availableMiB + "MB libres. MeaCore recomienda cerrar aplicaciones para evitar cierres inesperados.");
+            } else if (ramMiB > availableMiB) {
                 log.accept("[LAUNCHER] OJO: Tienes solo " + availableMiB + "MB libres. Recomendamos cerrar otras apps.");
             }
         } catch (Exception ignored) {}

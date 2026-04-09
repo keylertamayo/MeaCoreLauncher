@@ -76,6 +76,11 @@ public final class GameFilesInstaller {
                     HttpFiles.downloadIfHashMismatch(nat.get("url").asText(), zipPath, nat.get("sha1").asText());
                     extractNatives(zipPath, nativesDir);
                 }
+            } else if (lib.has("name") && lib.get("name").asText().contains("text2speech")) {
+                // Fix para el Narrador en Linux: text2speech no tiene classifier pero contiene .so
+                JsonNode art = downloads.get("artifact");
+                Path jarPath = librariesDir.resolve(art.get("path").asText());
+                if (Files.exists(jarPath)) extractNatives(jarPath, nativesDir);
             }
         }
         progress.log("Descargando índice de assets…");
@@ -143,6 +148,14 @@ public final class GameFilesInstaller {
                         throw new RuntimeException(ex);
                     }
                     int c = done.incrementAndGet();
+                    if (ramMiB > totalMiB) {
+                        log.accept("[LAUNCHER] ADVERTENCIA: Asignados " + ramMiB + "MB. RAM Total: " + totalMiB + "MB. (Posible crasheo)");
+                    }
+                    if (availableMiB < 1024) {
+                        log.accept("[LAUNCHER] CRÍTICO: Tienes solo " + availableMiB + "MB libres. MeaCore recomienda cerrar aplicaciones para evitar cierres inesperados.");
+                    } else if (ramMiB > availableMiB) {
+                        log.accept("[LAUNCHER] OJO: Tienes solo " + availableMiB + "MB libres. Recomendamos cerrar otras apps.");
+                    }
                     if (c % 500 == 0) {
                         progress.log("Assets: " + c + "/" + total);
                     }
