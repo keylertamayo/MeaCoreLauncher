@@ -60,7 +60,9 @@ public final class JvmPresetService {
                 "-Xms512M",
                 "-Xmx2G",
                 "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=40", // Más agresivo para estabilidad
+                "-XX:MaxGCPauseMillis=35", // Más suave para reducir el stuttering en F3
+                "-XX:G1NewSizePercent=25",
+                "-XX:G1MaxNewSizePercent=35",
                 "-XX:+UseStringDeduplication",
                 "-XX:+UnlockExperimentalVMOptions");
     }

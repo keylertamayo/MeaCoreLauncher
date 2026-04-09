@@ -163,6 +163,10 @@ public final class GameLauncher {
                 }
 
                 if (libPath != null) {
+                    if (libPath.toString().contains("text2speech")) {
+                        // El usuario pidió quitar el narrador para ahorrar recursos
+                        continue;
+                    }
                     cp.add(libPath);
                 }
             }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.BufferedOutputStream;
 import java.io.InputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -105,21 +106,15 @@ public final class GameFilesInstaller {
                 String assetKey = e.getKey();
                 
                 // Filtrar idiomas para conservar solo los seleccionados:
-                // Inglés (en_us, en_gb) + 7 variantes de Español específicas
                 if (assetKey.startsWith("minecraft/lang/")) {
                     boolean keep = assetKey.contains("/en_us") || assetKey.contains("/en_gb")
-                               || assetKey.contains("/es_ar")  // Español (Argentina)
-                               || assetKey.contains("/es_cl")  // Español (Chile)
-                               || assetKey.contains("/es_ec")  // Español (Ecuador)
-                               || assetKey.contains("/es_es")  // Español (España)
-                               || assetKey.contains("/es_mx")  // Español (México)
-                               || assetKey.contains("/es_uy")  // Español (Uruguay)
-                               || assetKey.contains("/es_ve"); // Español (Venezuela)
+                               || assetKey.contains("/es_ar") || assetKey.contains("/es_cl")
+                               || assetKey.contains("/es_ec") || assetKey.contains("/es_es")
+                               || assetKey.contains("/es_mx") || assetKey.contains("/es_uy")
+                               || assetKey.contains("/es_ve");
                     if (!keep) {
                         int c = done.incrementAndGet();
-                        if (c % 500 == 0) {
-                            progress.log("Assets: " + c + "/" + total);
-                        }
+                        if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
                         return; // Omitir otros idiomas
                     }
                 }
@@ -135,35 +130,32 @@ public final class GameFilesInstaller {
                                 String got = com.experimento.launcher.util.Hashing.sha1Hex(in);
                                 if (hash.equalsIgnoreCase(got)) {
                                     int c = done.incrementAndGet();
-                                    if (c % 500 == 0) {
-                                        progress.log("Assets: " + c + "/" + total);
-                                    }
+                                    if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
                                     return;
                                 }
                             }
                         }
                         String url = RESOURCE_HOST + prefix + "/" + hash;
                         HttpFiles.downloadIfHashMismatch(url, dest, hash);
+                        int c = done.incrementAndGet();
+                        if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
                     } catch (Exception ex) {
                         throw new RuntimeException(ex);
-                    }
-                    int c = done.incrementAndGet();
-                    if (ramMiB > totalMiB) {
-                        log.accept("[LAUNCHER] ADVERTENCIA: Asignados " + ramMiB + "MB. RAM Total: " + totalMiB + "MB. (Posible crasheo)");
-                    }
-                    if (availableMiB < 1024) {
-                        log.accept("[LAUNCHER] CRÍTICO: Tienes solo " + availableMiB + "MB libres. MeaCore recomienda cerrar aplicaciones para evitar cierres inesperados.");
-                    } else if (ramMiB > availableMiB) {
-                        log.accept("[LAUNCHER] OJO: Tienes solo " + availableMiB + "MB libres. Recomendamos cerrar otras apps.");
-                    }
-                    if (c % 500 == 0) {
-                        progress.log("Assets: " + c + "/" + total);
                     }
                 }));
             });
             for (Future<?> f : futures) {
                 f.get();
             }
+        } catch (Exception e) {
+            progress.log("[ERROR] Error en descarga de assets: " + e.getMessage());
+        }
+
+        // Deep Clean: Borrar idiomas no filtrados que ya existen
+        try {
+            cleanupUnneededAssets(objects, progress);
+        } catch (Exception e) {
+            progress.log("[ADVERTENCIA] No se pudo completar la limpieza profunda: " + e.getMessage());
         }
 
         progress.log("Descargando configuración de logging…");
@@ -176,6 +168,29 @@ public final class GameFilesInstaller {
 
         progress.log("Instalación de " + versionId + " completada.");
         return merged;
+    }
+
+    private void cleanupUnneededAssets(JsonNode objects, ProgressSink progress) throws IOException {
+        Path objectsDir = assetsDir.resolve("objects");
+        if (!Files.exists(objectsDir)) return;
+
+        objects.fields().forEachRemaining(e -> {
+            String key = e.getKey();
+            if (key.startsWith("minecraft/lang/")) {
+                boolean keep = key.contains("/en_us") || key.contains("/en_gb")
+                           || key.contains("/es_ar") || key.contains("/es_cl")
+                           || key.contains("/es_ec") || key.contains("/es_es")
+                           || key.contains("/es_mx") || key.contains("/es_uy")
+                           || key.contains("/es_ve");
+                if (!keep) {
+                    String hash = e.getValue().get("hash").asText();
+                    Path file = objectsDir.resolve(hash.substring(0, 2)).resolve(hash);
+                    try {
+                        if (Files.exists(file)) Files.delete(file);
+                    } catch (IOException ignored) {}
+                }
+            }
+        });
     }
 
     private void downloadMavenLibrary(String name) {
