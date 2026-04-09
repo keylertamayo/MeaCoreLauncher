@@ -64,7 +64,16 @@ public final class LauncherFacade {
                     String id = p.getFileName().toString();
                     if (Files.isRegularFile(p.resolve(id + ".json"))) {
                         if (mojangVersions.stream().noneMatch(v -> v.id().equals(id))) {
-                            allVersions.add(new ManifestVersionEntry(id, "híbrido/custom"));
+                            String type = "híbrido/custom";
+                            try {
+                                JsonNode localVer = mapper.readTree(p.resolve(id + ".json").toFile());
+                                if (localVer.has("inheritsFrom")) {
+                                    String inherits = localVer.get("inheritsFrom").asText().toLowerCase();
+                                    if (id.toLowerCase().contains("forge") || inherits.contains("forge")) type = "forge";
+                                    else if (id.toLowerCase().contains("fabric") || inherits.contains("fabric")) type = "fabric";
+                                }
+                            } catch (Exception ignored) {}
+                            allVersions.add(new ManifestVersionEntry(id, type));
                         }
                     }
                 });
@@ -127,6 +136,12 @@ public final class LauncherFacade {
             }
         } catch (Exception ignored) {}
 
+        Path versionJar = dirs.versionsDir().resolve(p.lastVersionId).resolve(p.lastVersionId + ".jar");
+        if (!Files.exists(versionJar)) {
+            log.accept("[LAUNCHER] ❌ La versión " + p.lastVersionId + " no está instalada. Haz clic en 'Instalar' primero.");
+            throw new IllegalStateException("La versión " + p.lastVersionId + " no está instalada.");
+        }
+
         prepareInstance(p, ramMiB, log);
         List<String> cmd = buildLaunchCommand(p, ramMiB);
         log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
@@ -142,7 +157,12 @@ public final class LauncherFacade {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     final String captured = line;
-                    log.accept("[GAME] " + captured);
+                    String prefix = "";
+                    if (captured.contains("WARN")) prefix = "⚠️ ";
+                    else if (captured.contains("ERROR") || captured.contains("FATAL") || captured.contains("Exception")) prefix = "❌ ";
+                    else if (captured.contains("INFO")) prefix = "ℹ️ ";
+                    
+                    log.accept("[GAME] " + prefix + captured);
                 }
             } catch (Exception e) {
                 log.accept("[LAUNCHER] Error leyendo consola del juego: " + e.getMessage());

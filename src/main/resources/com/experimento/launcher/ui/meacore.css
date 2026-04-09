@@ -123,3 +123,50 @@
     -fx-text-fill: #cccccc;
     -fx-font-weight: bold;
 }
+
+/* ----- NUEVOS ESTILOS v1.2.2 ----- */
+
+/* Cards / paneles flotantes */
+.mc-card {
+    -fx-background-color: #252526;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #3a3a3a;
+    -fx-border-width: 1px;
+    -fx-padding: 15px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 8, 0, 0, 2);
+}
+
+/* Botón play animado */
+.btn-play {
+    -fx-background-color: linear-gradient(to bottom, #1177BB, #0E639C);
+    -fx-text-fill: white;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 12px 45px;
+    -fx-background-radius: 6px;
+    -fx-cursor: hand;
+}
+.btn-play:hover {
+    -fx-background-color: linear-gradient(to bottom, #1a8ad6, #1177BB);
+    -fx-scale-x: 1.04;
+    -fx-scale-y: 1.04;
+}
+
+/* Status badges */
+.badge-ok { -fx-text-fill: #4CAF50; -fx-font-weight: bold; }
+.badge-warn { -fx-text-fill: #FF9800; -fx-font-weight: bold; }
+.badge-error { -fx-text-fill: #f44336; -fx-font-weight: bold; }
+
+/* Avatar circular en lista de perfiles */
+.profile-avatar {
+    -fx-background-radius: 50%;
+    -fx-min-width: 32px;
+    -fx-min-height: 32px;
+    -fx-max-width: 32px;
+    -fx-max-height: 32px;
+    -fx-alignment: center;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+}

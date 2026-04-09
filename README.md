@@ -1,4 +1,4 @@
-# MeaCore Launcher (v1.1.10-alfa) 🚀
+# MeaCore Launcher (v1.2.2-alfa) 🚀
 
 Un launcher de Minecraft de alto rendimiento, diseñado para ofrecer la mejor experiencia técnica y visual en entornos Linux (Ubuntu/Debian) y Windows.
 
@@ -26,15 +26,15 @@ Este repositorio utiliza un flujo de trabajo dinámico para garantizar la estabi
 ¡Ya puedes descargar la última versión estable desde la sección de **[Releases](https://github.com/keylertamayo/MeaCoreLauncher/releases)**!
 
 ### 🐧 Linux (Ubuntu/Debian)
-1. Descarga el archivo `meacorelauncher_1.1.10_amd64.deb`.
+1. Descarga el archivo `meacorelauncher_1.2.2_amd64.deb`.
 2. **Terminal**:
    ```bash
-   sudo apt install ./meacorelauncher_1.1.10_amd64.deb
+   sudo apt install ./meacorelauncher_1.2.2_amd64.deb
    ```
 3. Inicia "MeaCore Launcher" desde tu menú de aplicaciones.
 
 ### 🪟 Windows
-1. Descarga el archivo `meacorelauncher_1.1.10.msi`.
+1. Descarga el archivo `meacorelauncher_1.2.2.msi`.
 2. Haz doble clic y sigue el asistente de instalación.
 
 ---

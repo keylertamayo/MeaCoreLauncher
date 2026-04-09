@@ -4,6 +4,8 @@ import com.experimento.launcher.model.*;
 import com.experimento.launcher.mojang.*;
 import com.experimento.launcher.paths.*;
 import com.experimento.launcher.service.*;
+import com.experimento.launcher.store.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
@@ -66,6 +68,10 @@ public class LauncherApp extends Application {
     private Label aternosHint;
     private Label navViewTitle;
 
+    // Nuevo Header Dinámico
+    private Label headerProfileName;
+    private Label headerProfileVersion;
+
     // Botones (para deshabilitar durante procesos)
     private Button installBtn;
     private Button playBtn;
@@ -79,13 +85,50 @@ public class LauncherApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        initData();
+        Stage splashStage = new Stage(javafx.stage.StageStyle.UNDECORATED);
+        StackPane splashRoot = new StackPane();
+        splashRoot.setStyle("-fx-background-color: linear-gradient(to right, #1177BB, #0E639C); -fx-border-color: #0c507c; -fx-border-width: 4px;");
+        
+        Label title = new Label("MEACORE\nTHE LAUNCHER FOR MINECRAFT");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold; -fx-alignment: center; -fx-text-alignment: center;");
+        
+        Label version = new Label(LauncherMetadata.VERSION);
+        version.setStyle("-fx-text-fill: white; -fx-background-color: rgba(0,0,0,0.2); -fx-padding: 3 8;");
+        StackPane.setAlignment(version, Pos.TOP_RIGHT);
+        
+        splashRoot.getChildren().addAll(title, version);
+        Scene splashScene = new Scene(splashRoot, 400, 250);
+        splashStage.setScene(splashScene);
+        splashStage.show();
+
+        new Thread(() -> {
+            try {
+                initData();
+                Platform.runLater(() -> {
+                    try {
+                        initLayout(stage);
+                        splashStage.close();
+                        stage.show();
+                        loadVersionManifestAsync();
+                        com.experimento.launcher.service.AutoUpdateService.checkForUpdatesAsync();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void initLayout(Stage stage) throws Exception {
+        this.stage = stage;
         
         VBox sidebarArea = new VBox();
         sidebarArea.setPrefWidth(260);
-        sidebarArea.setStyle("-fx-background-color: #1e1e1e;"); // Carbón Premium
+        sidebarArea.setStyle("-fx-background-color: #252526;"); // Carbón Premium
         
-        Label brandLabel = new Label(" MeaCore Launcher ");
+        Label brandLabel = new Label("🎮 MeaCore Launcher");
         brandLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 20 10;");
         
         sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu());
@@ -97,19 +140,34 @@ public class LauncherApp extends Application {
         initializeViews();
         setupFieldListeners();
         
-        navViewTitle = new Label("General");
-        navViewTitle.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333333; -fx-padding: 20 0 15 20;");
+        headerProfileName = new Label("Cargando...");
+        headerProfileName.setStyle("-fx-text-fill: white; -fx-font-size: 32px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 5, 0, 0, 2);");
+        headerProfileVersion = new Label("");
+        headerProfileVersion.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 16px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 3, 0, 0, 1);");
 
+        VBox headerTextInfo = new VBox(5, headerProfileName);
+        headerTextInfo.setAlignment(Pos.CENTER_LEFT);
+        headerTextInfo.setPadding(new Insets(0, 0, 0, 30));
 
+        StackPane topHeader = new StackPane(headerTextInfo);
+        topHeader.setPrefHeight(120);
+        topHeader.setMinHeight(120);
+        topHeader.setMaxHeight(120);
+        topHeader.setStyle("-fx-background-color: linear-gradient(to right, #111111, #094771);");
 
         VBox rightArea = new VBox();
-        rightArea.getChildren().addAll(navViewTitle, contentStack, createPersistentFooter());
+        rightArea.getChildren().addAll(topHeader, contentStack, createPersistentFooter());
         VBox.setVgrow(contentStack, Priority.ALWAYS);
 
         HBox mainLayout = new HBox(sidebarArea, rightArea);
         HBox.setHgrow(rightArea, Priority.ALWAYS);
 
         Scene scene = new Scene(mainLayout, 1080, 720);
+        try {
+            java.net.URL cssUrl = LauncherApp.class.getResource("/com/experimento/launcher/ui/meacore.css");
+            if (cssUrl != null) scene.getStylesheets().add(cssUrl.toExternalForm());
+        } catch (Exception ignored) {}
+        
         stage.setTitle(LauncherMetadata.DISPLAY_NAME);
         stage.getProperties().put("glass.gtk.wm_class", "meacorelauncher");
         try {
@@ -120,12 +178,9 @@ public class LauncherApp extends Application {
         } catch (Exception ignored) {}
         
         stage.setScene(scene);
-        showView("General");
         
         // Inicialización post-UI
         profileList.getSelectionModel().selectFirst();
-        stage.show();
-        loadVersionManifestAsync();
 
         stage.setOnCloseRequest(ev -> {
             workers.shutdownNow();
@@ -152,23 +207,23 @@ public class LauncherApp extends Application {
     private VBox createProfileSidebar() {
         profileList = new ListView<>(FXCollections.observableList(profiles));
         profileList.setPrefWidth(240);
-        profileList.setStyle("-fx-background-color: #1e1e1e; -fx-background: #1e1e1e; -fx-control-inner-background: #1e1e1e; -fx-border-color: #333333; -fx-border-width: 0 0 0 0;");
+        profileList.setStyle("-fx-background-color: #252526; -fx-background: #252526; -fx-control-inner-background: #252526; -fx-border-color: transparent;");
         profileList.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(LauncherProfile item, boolean empty) {
                 super.updateItem(item, empty);
-                // Fondo oscuro siempre
                 setStyle(isSelected()
-                    ? "-fx-background-color: #3a3a3a; -fx-text-fill: white;"
-                    : "-fx-background-color: #1e1e1e; -fx-text-fill: #cccccc;");
+                    ? "-fx-background-color: #37373D;"
+                    : "-fx-background-color: #252526;");
                 if (empty || item == null) {
                     setGraphic(null); setText(null);
                 } else {
-                    HBox box = new HBox(8);
+                    HBox box = new HBox(12);
                     box.setAlignment(Pos.CENTER_LEFT);
+                    box.setPadding(new Insets(5, 5, 5, 5));
+                    
                     Circle indicator = new Circle(4);
                     indicator.setFill(Color.TRANSPARENT);
-                    
                     BooleanProperty running = runningState.get(item.id);
                     if (running != null) {
                         indicator.fillProperty().bind(javafx.beans.binding.Bindings.when(running)
@@ -176,8 +231,9 @@ public class LauncherApp extends Application {
                             .otherwise(Color.TRANSPARENT));
                     }
                     
-                    Label name = new Label(item.displayName + " (" + item.username + ")");
+                    Label name = new Label(item.displayName + " (" + (item.lastVersionId != null && !item.lastVersionId.isBlank() ? item.lastVersionId : "Sin versión") + ")");
                     name.setStyle("-fx-text-fill: inherit;");
+                    
                     box.getChildren().addAll(indicator, name);
                     setGraphic(box);
                 }
@@ -185,9 +241,7 @@ public class LauncherApp extends Application {
             @Override
             public void updateSelected(boolean selected) {
                 super.updateSelected(selected);
-                setStyle(selected
-                    ? "-fx-background-color: #3a3a3a; -fx-text-fill: white;"
-                    : "-fx-background-color: #1e1e1e; -fx-text-fill: #cccccc;");
+                setStyle(selected ? "-fx-background-color: #37373D;" : "-fx-background-color: #252526;");
             }
         });
         profileList.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> bindProfile(n));
@@ -207,6 +261,7 @@ public class LauncherApp extends Application {
         menu.getChildren().addAll(
             createNavButton("🏠 General", "General"),
             createNavButton("🛠 Modding", "Modding"),
+            createNavButton("🏪 MCMOD", "Store"),
             createNavButton("⚙ Config. Java", "Java"),
             createNavButton("🌐 Servidores", "Servers"),
             createNavButton("📜 Consola", "Log")
@@ -224,7 +279,7 @@ public class LauncherApp extends Application {
         btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cccccc; -fx-font-size: 14px; -fx-padding: 10 15; -fx-cursor: hand; -fx-background-radius: 5;");
         
         btn.setOnMouseEntered(e -> {
-            if (!navViewTitle.getText().equals(viewId)) {
+            if (!viewId.equals(currentViewId)) {
                 btn.setStyle("-fx-background-color: #333333; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 15; -fx-cursor: hand; -fx-background-radius: 5;");
             }
         });
@@ -235,8 +290,10 @@ public class LauncherApp extends Application {
         return btn;
     }
 
+    private String currentViewId = "General";
+
     private void updateNavButtonStyle(Button btn, String viewId) {
-        if (navViewTitle.getText().equals(viewId)) {
+        if (viewId.equals(currentViewId)) {
             btn.setStyle("-fx-background-color: #3d3d3d; -fx-text-fill: #4CAF50; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 15; -fx-background-radius: 5;");
         } else {
             btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #cccccc; -fx-font-size: 14px; -fx-padding: 10 15; -fx-background-radius: 5;");
@@ -247,7 +304,9 @@ public class LauncherApp extends Application {
         Node view = views.get(viewId);
         if (view != null) {
             contentStack.getChildren().setAll(view);
-            navViewTitle.setText(viewId);
+            currentViewId = viewId;
+            currentViewTitle = viewId;
+            updateHeaderTitle();
             
             // Solo intentamos actualizar botones si la UI ya está "viva"
             if (contentStack.getScene() != null && contentStack.getScene().getRoot() instanceof HBox mainRoot) {
@@ -282,13 +341,26 @@ public class LauncherApp extends Application {
 
         views.put("General", createGeneralView());
         views.put("Modding", createModdingView());
+        views.put("Store", createStoreView());
         views.put("Java", createJavaView());
         views.put("Servers", createServersView());
         views.put("Log", createLogAreaView());
     }
 
-    private VBox createGeneralView() {
-        return new VBox(15, new Label("Ajustes de Identidad"), createIdentitySection(), new Separator(), new Label("Versión del Juego"), createVersionSection());
+    private Node createGeneralView() {
+        VBox identityCard = new VBox(15, new Label("Ajustes de Identidad"), createIdentitySection());
+        identityCard.getStyleClass().add("mc-card");
+
+        VBox versionCard = new VBox(15, new Label("Versión del Juego"), createVersionSection());
+        versionCard.getStyleClass().add("mc-card");
+
+        VBox content = new VBox(20, identityCard, versionCard);
+        content.setPadding(new Insets(10, 15, 10, 0)); // Evitar que el scrollbar tape cards
+        
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
+        return scroll;
     }
 
     private VBox createModdingView() {
@@ -303,6 +375,133 @@ public class LauncherApp extends Application {
         );
         modding.setAlignment(Pos.TOP_CENTER);
         return modding;
+    }
+
+    private VBox createStoreView() {
+        HBox topBar = new HBox(10);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+
+        ComboBox<StoreCategory> catCombo = new ComboBox<>(FXCollections.observableArrayList(StoreCategory.values()));
+        catCombo.setValue(StoreCategory.MODPACK);
+
+        TextField searchField = new TextField();
+        searchField.setPromptText("Buscar...");
+        searchField.setPrefWidth(300);
+
+        Button searchBtn = new Button("🔍 Buscar");
+
+        topBar.getChildren().addAll(catCombo, searchField, searchBtn);
+
+        ListView<StoreItem> storeList = new ListView<>();
+        storeList.setPrefHeight(400);
+        storeList.setCellFactory(lv -> new ListCell<>() {
+            @Override protected void updateItem(StoreItem item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) { setGraphic(null); setText(null); }
+                else {
+                    HBox box = new HBox(15);
+                    box.setAlignment(Pos.CENTER_LEFT);
+                    box.setPadding(new Insets(10));
+
+                    StackPane iconBox = new StackPane();
+                    iconBox.setPrefSize(64, 64);
+                    iconBox.setMinSize(64, 64);
+                    iconBox.setStyle("-fx-background-color: #2a2a2a; -fx-background-radius: 8px;");
+
+                    Label fallbackIcon = new Label("📦");
+                    fallbackIcon.setStyle("-fx-font-size: 32px;");
+                    iconBox.getChildren().add(fallbackIcon);
+
+                    if (item.thumbnailUrl() != null && !item.thumbnailUrl().isBlank()) {
+                        javafx.scene.image.ImageView imgView = new javafx.scene.image.ImageView();
+                        imgView.setFitWidth(64); 
+                        imgView.setFitHeight(64);
+                        javafx.scene.image.Image img = new javafx.scene.image.Image(item.thumbnailUrl(), true);
+                        imgView.setImage(img);
+                        iconBox.getChildren().add(imgView);
+                        
+                        img.errorProperty().addListener((obs, o, isError) -> {
+                            if (isError) {
+                                Platform.runLater(() -> iconBox.getChildren().remove(imgView));
+                            }
+                        });
+                    }
+
+                    VBox info = new VBox(5);
+                    Label title = new Label(item.title());
+                    title.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: white;");
+                    Label author = new Label("Por " + item.author());
+                    author.setStyle("-fx-text-fill: #0E639C;");
+                    Label desc = new Label(item.description());
+                    desc.setWrapText(true); desc.setMaxWidth(400); desc.setStyle("-fx-text-fill: #cccccc;");
+                    Label stats = new Label("Descargas: " + item.downloads() + " | Versión: " + item.latestVersion());
+                    stats.setStyle("-fx-font-size: 11px; -fx-text-fill: #888888;");
+                    info.getChildren().addAll(title, author, desc, stats);
+
+                    Region spacer = new Region();
+                    HBox.setHgrow(spacer, Priority.ALWAYS);
+
+                    Button btnInstall = new Button("✨ Instalar");
+                    btnInstall.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold;");
+                    btnInstall.setOnAction(ev -> {
+                        if (selected == null) {
+                            new Alert(Alert.AlertType.WARNING, "Selecciona un perfil en la barra lateral primero.").show();
+                            return;
+                        }
+                        btnInstall.setDisable(true);
+                        btnInstall.setText("Instalando...");
+                        workers.submit(() -> {
+                            try {
+                                StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
+                                Platform.runLater(() -> btnInstall.setText("✅ Listo"));
+                            } catch (Exception ex) {
+                                Platform.runLater(() -> {
+                                    btnInstall.setDisable(false);
+                                    btnInstall.setText("✨ Instalar");
+                                    log("[STORE] Error: " + ex.getMessage());
+                                });
+                            }
+                        });
+                    });
+
+                    box.getChildren().addAll(iconBox, info, spacer, btnInstall);
+                    setGraphic(box);
+                }
+            }
+        });
+        
+        VBox.setVgrow(storeList, Priority.ALWAYS);
+
+        Button loadMoreBtn = new Button("Cargar Más...");
+        loadMoreBtn.setMaxWidth(Double.MAX_VALUE);
+        
+        final int[] offset = {0};
+
+        Runnable performSearch = () -> {
+            storeList.getItems().clear();
+            offset[0] = 0;
+            workers.submit(() -> {
+                var results = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), 0);
+                Platform.runLater(() -> storeList.getItems().addAll(results));
+            });
+        };
+
+        searchBtn.setOnAction(e -> performSearch.run());
+        searchField.setOnAction(e -> performSearch.run());
+        catCombo.setOnAction(e -> performSearch.run());
+
+        loadMoreBtn.setOnAction(e -> {
+            offset[0] += 20;
+            workers.submit(() -> {
+                var res = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), offset[0]);
+                Platform.runLater(() -> storeList.getItems().addAll(res));
+            });
+        });
+
+        // Trigger initial load
+        Platform.runLater(performSearch);
+
+        return new VBox(15, topBar, storeList, loadMoreBtn);
     }
 
     private VBox createJavaView() {
@@ -327,14 +526,16 @@ public class LauncherApp extends Application {
 
     private HBox createPersistentFooter() {
         saveBtn = new Button("💾 Guardar");
+        saveBtn.setStyle("-fx-background-color: transparent; -fx-border-color: white; -fx-border-radius: 4px; -fx-text-fill: white;");
         saveBtn.setOnAction(e -> saveProfiles());
 
-        installBtn = new Button("📥 Instalar");
+        installBtn = new Button("⬇ Instalar");
+        installBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white;");
         installBtn.setOnAction(e -> runTask(createInstallTask()));
 
         playBtn = new Button("▶ ¡JUGAR!");
         playBtn.setDefaultButton(true);
-        playBtn.setStyle("-fx-background-color: #2d8134; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 10 40;");
+        playBtn.getStyleClass().add("btn-play");
         playBtn.setOnAction(e -> runTask(createLaunchTask()));
 
         newProfileBtn = new Button("➕ Nuevo");
@@ -348,7 +549,7 @@ public class LauncherApp extends Application {
         HBox.setHgrow(footer.getChildren().get(2), Priority.ALWAYS);
         footer.setPadding(new Insets(15, 25, 15, 25));
         footer.setAlignment(Pos.CENTER_LEFT);
-        footer.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
+        footer.setStyle("-fx-background-color: #2d2d2d; -fx-border-color: #3f3f46; -fx-border-width: 1 0 0 0;");
         return footer;
     }
 
@@ -476,13 +677,25 @@ public class LauncherApp extends Application {
 
     // --- Lógica de Negocio y Helpers ---
 
+    private void updateHeaderTitle() {
+        if (selected == null) {
+            headerProfileName.setText("Ningún perfil");
+            return;
+        }
+        String name = selected.displayName != null && !selected.displayName.isBlank() ? selected.displayName : (selected.username != null ? selected.username : "Perfil Nuevo");
+        headerProfileName.setText(name + " | " + currentViewTitle);
+    }
+
     private void bindProfile(LauncherProfile p) {
         selected = p;
         deleteProfileBtn.setDisable(p == null);
         if (p == null) {
+            updateHeaderTitle();
             clearFields();
             return;
         }
+
+        updateHeaderTitle();
 
         syncingIdentityUi = true;
         try {
@@ -504,6 +717,18 @@ public class LauncherApp extends Application {
         applyVersionFilter();
         if (p.offlineUuid == null || p.offlineUuid.isBlank()) syncUuidFromUsername();
         refreshHints();
+        refreshStatusCard();
+    }
+
+    private void refreshStatusCard() {
+        // Redundante, el cuadro fue eliminado pero mantendremos el hook dummy si algun proceso lo llama
+    }
+
+    private String getAvatarColor(String username) {
+        if (username == null || username.isBlank()) return "#555555";
+        String[] colors = {"#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50", "#ff9800", "#ff5722", "#795548"};
+        int hash = Math.abs(username.hashCode());
+        return colors[hash % colors.length];
     }
 
     private void clearFields() {
@@ -627,8 +852,15 @@ public class LauncherApp extends Application {
                 if (!OfflineUuid.uuidMatchesUsername(selected.username, selected.offlineUuid)) {
                     throw new RuntimeException("UUID no válido para el usuario actual.");
                 }
+                
+                Path jar = facade.directories().versionsDir().resolve(selected.lastVersionId).resolve(selected.lastVersionId + ".jar");
+                if (!java.nio.file.Files.exists(jar)) {
+                    Platform.runLater(() -> log("Detectada versión faltando. Iniciando auto-instalador para " + selected.lastVersionId + "..."));
+                    facade.installVersion(selected.lastVersionId, s -> Platform.runLater(() -> log(s)));
+                }
+                
                 updateMessage("Iniciando Minecraft...");
-                long ram = HardwareProbe.totalPhysicalRamMiB();
+                long ram = com.experimento.launcher.service.HardwareProbe.totalPhysicalRamMiB();
                 
                 String pId = selected.id;
                 Process proc = facade.startGame(selected, ram, s -> Platform.runLater(() -> log(s)));

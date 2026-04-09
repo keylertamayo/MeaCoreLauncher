@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Cambios — MeaCore Launcher</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav>
+        <a href="index.html" class="logo">
+            <img src="icon.png" alt="MeaCore Logo">
+            MeaCore
+        </a>
+        <div class="nav-links">
+            <a href="index.html#features">Características</a>
+            <a href="index.html#download">Descargar</a>
+            <a href="changelog.html">Registro de Cambios</a>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="hero" style="padding: 4rem 5%; min-height: auto;">
+        <h1>Historial de Versiones</h1>
+        <p>Registro transparente de todos los cambios de MeaCore</p>
+    </div>
+
+    <div class="timeline">
+        <div class="log-item">
+            <h3>v1.2.2 - Alfa Release 🚀 (Actual)</h3>
+            <p><strong>Novedades:</strong></p>
+            <ul>
+                <li><strong>CI/CD Unificado:</strong> Flujo de trabajo automatizado para generar instaladores de Linux y Windows sincronizados con la versión del proyecto.</li>
+                <li><strong>Documentación Profesional:</strong> Reescritura total del README y listado de características técnicas.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.2.1 - GNOME & Assets Fix 🐧</h3>
+            <ul>
+                <li><strong>Dock de GNOME:</strong> Parche manual del archivo <code>.desktop</code> en el proceso de CI/CD para garantizar que el icono se agrupe correctamente en el dock de Ubuntu.</li>
+                <li><strong>Filtro de Assets:</strong> Optimización del algoritmo de descarga para conservar únicamente archivos de lenguaje en Español e Inglés, reduciendo el peso innecesario.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.2.0 - Modloaders & Java Integration 🛠️</h3>
+            <ul>
+                <li><strong>Soporte Multi-Java:</strong> Detección inteligente de versiones de Java necesarias para diferentes versiones de Minecraft.</li>
+                <li><strong>Motores de Mods:</strong> Soporte inicial para la inyección de Forge y Fabric.</li>
+                <li><strong>NBT Sync:</strong> Sincronización automática de listas de servidores multijugador directamente en los archivos del juego.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.1.8-alpha - Gestión de Almacenamiento 🛡️</h3>
+            <ul>
+                <li><strong>Eliminación Permanente:</strong> Nueva funcionalidad para borrar perfiles y sus datos residuales (screenshots, saves, logs) de forma segura.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.1.7-alpha - Telemetría y Alertas 📡</h3>
+            <ul>
+                <li><strong>Advertencias de RAM:</strong> Implementación de alertas en tiempo real cuando la memoria libre es insuficiente para el perfil seleccionado.</li>
+                <li><strong>Identidad de Dock:</strong> Refuerzo de la identidad visual en Ubuntu 24.04.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.1.0 - El Nacimiento de MeaCore ✨</h3>
+            <ul>
+                <li><strong>Rebranding:</strong> Transición oficial a la marca MeaCore Launcher.</li>
+                <li><strong>Multi-Instancia:</strong> Aislamiento total de directorios de juego por perfil.</li>
+                <li><strong>Diagnóstico de Sistema:</strong> Integración con OSHI para telemetría avanzada de hardware y optimización automática de JVM (ZGC/Aikar's Flags).</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 MeaCore-Enterprise — Arica, Chile.</p>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeaCore Launcher — Minecraft para Linux</title>
+    <meta name="description" content="MeaCore Launcher — Launcher de Minecraft gratis para Linux con auto-optimización, MeaStore de mods y soporte offline. Descarga gratis.">
+    <meta name="keywords" content="minecraft launcher linux, launcher minecraft gratis, minecraft sin cuenta, meacore launcher, launcher debian ubuntu">
+    <meta property="og:title" content="MeaCore Launcher — Minecraft para Linux">
+    <meta property="og:description" content="El launcher de Minecraft de alto rendimiento para Linux. Gratis, sin anuncios.">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav>
+        <a href="#" class="logo">
+            <img src="icon.png" alt="MeaCore Logo">
+            MeaCore
+        </a>
+        <div class="nav-links">
+            <a href="#features">Características</a>
+            <a href="#download">Descargar</a>
+            <a href="changelog.html">Registro de Cambios</a>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank">GitHub</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <span class="badge" id="version-badge">v1.2.x — Alfa</span>
+        <h1>MeaCore Launcher</h1>
+        <p>El launcher de Minecraft de alto rendimiento para Linux. Gratis, sin anuncios, sin cuentas premium.</p>
+        <div>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases/latest" id="download-btn-hero" class="btn btn-primary">⬇ Descargar .DEB (Linux)</a>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank" class="btn btn-outline">Ver en GitHub</a>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <h2>Características Principales</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>🚀 Auto-Optimización Inteligente</h3>
+                <p>Analiza la RAM disponible y aplica los parámetros JVM más eficientes (ZGC Generacional y Aikar's flags) para reducir drásticamente el lag.</p>
+            </div>
+            <div class="card">
+                <h3>🏪 MeaStore</h3>
+                <p>Busca e instala mods, recurso paquetes y mapas nativamente gracias a la integración total con Modrinth. A un clic.</p>
+            </div>
+            <div class="card">
+                <h3>📡 Sync de Servidores NBT</h3>
+                <p>No más IPs perdidas. El launcher incrusta tu lista de servidores multijugador directamente en los archivos del juego antes de arrancar.</p>
+            </div>
+            <div class="card">
+                <h3>🎮 Perfiles Aislados</h3>
+                <p>Aísla mundos, mods y configuraciones. Puedes tener una instancia de PvP separada completamente de tu instancia Survival.</p>
+            </div>
+            <div class="card">
+                <h3>🛠 Forge & Fabric</h3>
+                <p>Inyecta los motores de mods líderes del mercado en segundos sin tener que descargar instaladores manuales.</p>
+            </div>
+            <div class="card">
+                <h3>🖥 Nativo para Linux</h3>
+                <p>Empaquetado en .deb con integración correcta en el Dock de GNOME, clase WM_CLASS real y actualizador automático.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="download" class="download-sec">
+        <div class="install-guide">
+            <div class="install-step">
+                <h4>1. Descarga el paquete</h4>
+                <p>Haz clic en el botón de descarga superior para obtener el archivo <code>.deb</code>.</p>
+            </div>
+            <div class="install-step">
+                <h4>2. Abre la terminal</h4>
+                <p>Navega hasta tu carpeta de Descargas e instala el paquete con el siguiente comando:</p>
+                <div class="terminal" id="install-command">
+                    sudo apt install ./meacore-launcher_latest_amd64.deb
+                </div>
+            </div>
+            <div class="install-step">
+                <h4>3. ¡A jugar!</h4>
+                <p>Busca "MeaCore Launcher" en tu menú de aplicaciones e inicia tu aventura en Minecraft.</p>
+            </div>
+        </div>
+
+        <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases" class="btn btn-outline" style="margin-top: 2rem;">Ver todas las versiones</a>
+    </section>
+
+    <footer>
+        <p>© 2026 MeaCore-Enterprise — Arica, Chile. Todos los derechos reservados.</p>
+        <div style="margin-top: 1rem;">
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank">GitHub</a>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher/issues" target="_blank">Reportar Bug</a>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

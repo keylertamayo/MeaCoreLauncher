@@ -88,6 +88,20 @@ public final class GameFilesInstaller {
         List<Future<?>> futures = new ArrayList<>();
         try (ExecutorService pool = Executors.newFixedThreadPool(8)) {
             objects.fields().forEachRemaining(e -> {
+                String assetKey = e.getKey();
+                
+                // Filtrar idiomas (ahorrar espacio y tiempo)
+                // Conservar solo español (es_*) y el bloque pack.mcmeta o fallback
+                if (assetKey.startsWith("minecraft/lang/")) {
+                    if (!assetKey.contains("/es_") && !assetKey.contains("/en_")) {
+                        int c = done.incrementAndGet();
+                        if (c % 500 == 0) {
+                            progress.log("Assets: " + c + "/" + total);
+                        }
+                        return; // Omitir otros idiomas
+                    }
+                }
+
                 JsonNode h = e.getValue();
                 String hash = h.get("hash").asText();
                 String prefix = hash.substring(0, 2);
