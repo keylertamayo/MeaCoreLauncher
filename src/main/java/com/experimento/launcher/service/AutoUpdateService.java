@@ -4,11 +4,8 @@ import com.experimento.launcher.LauncherMetadata;
 import com.experimento.launcher.mojang.HttpFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import javafx.application.Platform;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,6 +18,18 @@ public class AutoUpdateService {
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/keylertamayo/MeaCoreLauncher/releases/latest";
     private static final ObjectMapper M = new ObjectMapper();
+    private static UpdateListener listener;
+
+    public interface UpdateListener {
+        void onUpdateFound(String version, String url);
+        void onDownloadProgress(double fraction);
+        void onDownloadComplete(Path debPath);
+        void onDownloadError(String message);
+    }
+
+    public static void setListener(UpdateListener l) {
+        listener = l;
+    }
 
     public static void checkForUpdatesAsync() {
         Thread thread = new Thread(() -> {
@@ -54,76 +63,70 @@ public class AutoUpdateService {
 
                         if (downloadUrl != null) {
                             final String finalUrl = downloadUrl;
-                            Platform.runLater(() -> promptUpdate(latestVersion, finalUrl));
+                            final String ver = latestVersion;
+                            if (listener != null) listener.onUpdateFound(ver, finalUrl);
                         }
                     }
                 }
             } catch (Exception ignored) {
-                // Falla silenciosa si no hay internet o GitHub cae
             }
         });
         thread.setDaemon(true);
         thread.start();
     }
 
-    private static void promptUpdate(String newVersion, String debUrl) {
-        Alert info = new Alert(Alert.AlertType.INFORMATION, 
-            "MeaCore Launcher v" + newVersion + " está disponible.\n\n" +
-            "¿Deseas descargar e instalar esta actualización?\n" +
-            "Se te pedirá tu contraseña de administrador para instalar paquetes nativamente.",
-            ButtonType.YES, ButtonType.NO);
-        info.setTitle("Actualización Disponible");
-        info.setHeaderText("¡Nueva versión nativa detectada!");
-
-        info.showAndWait().ifPresent(res -> {
-            if (res == ButtonType.YES) {
-                downloadAndInstall(debUrl);
-            }
-        });
-    }
-
-    private static void downloadAndInstall(String debUrl) {
-        // Ventana de progreso sencilla
-        Alert progress = new Alert(Alert.AlertType.INFORMATION, "Descargando paquete .deb...");
-        progress.setTitle("Actualizando");
-        progress.setHeaderText("Por favor, espera...");
-        progress.getButtonTypes().clear(); // Sin botones
-        progress.show();
-
+    public static void downloadAndInstallAsync(String debUrl) {
         Thread t = new Thread(() -> {
             try {
                 Path dest = Path.of(System.getProperty("user.home"), ".cache", "meacore-update.deb");
                 Files.createDirectories(dest.getParent());
                 Files.deleteIfExists(dest);
 
-                HttpFiles.downloadIfHashMismatch(debUrl, dest, null); // Forzamos descarga sin hash
+                // Descarga personalizada con progreso
+                downloadWithProgress(debUrl, dest);
 
-                Platform.runLater(() -> {
-                    progress.close();
-                    executePkexec(dest);
-                });
+                if (listener != null) listener.onDownloadComplete(dest);
+                executePkexec(dest);
             } catch (Exception ex) {
-                Platform.runLater(() -> {
-                    progress.close();
-                    new Alert(Alert.AlertType.ERROR, "Error descargando la actualización: " + ex.getMessage()).show();
-                });
+                if (listener != null) listener.onDownloadError(ex.getMessage());
             }
         });
         t.setDaemon(true);
         t.start();
     }
 
+    private static void downloadWithProgress(String urlStr, Path dest) throws Exception {
+        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlStr)).build();
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+        long totalBytes = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
+        
+        try (InputStream is = response.body();
+             OutputStream os = Files.newOutputStream(dest)) {
+            byte[] buffer = new byte[8192];
+            long readBytes = 0;
+            int n;
+            while ((n = is.read(buffer)) != -1) {
+                os.write(buffer, 0, n);
+                readBytes += n;
+                if (totalBytes > 0 && listener != null) {
+                    listener.onDownloadProgress((double) readBytes / totalBytes);
+                }
+            }
+        }
+    }
+
     private static void executePkexec(Path debPath) {
         try {
-            // Comando para instalar el .deb de forma nativa usando Polkit (GUI de sudo de GNOME/Ubuntu)
-            ProcessBuilder pb = new ProcessBuilder("pkexec", "apt", "install", "-y", debPath.toAbsolutePath().toString());
+            // Comando mejorado: Instala el .deb y REINICIA el launcher
+            // meacorelauncher & al final lanza el proceso en segundo plano despues de que apt termine
+            String cmd = String.format("apt install -y %s && meacorelauncher &", debPath.toAbsolutePath().toString());
+            ProcessBuilder pb = new ProcessBuilder("pkexec", "bash", "-c", cmd);
             pb.start();
             
-            // Cerrar el launcher para no interferir con la sobreescritura de archivos
             System.exit(0);
-        } catch (Exception ex) {
-            new Alert(Alert.AlertType.ERROR, "Error ejecutando la instalación: " + ex.getMessage()).show();
-        }
+        } catch (Exception ignored) {}
     }
 
     private static boolean isNewer(String latest, String current) {

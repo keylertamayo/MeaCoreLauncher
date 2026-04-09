@@ -70,6 +70,12 @@ public class LauncherApp extends Application {
     private String currentViewTitle = "General";
     private StackPane deleteConfirmOverlay;
     private Label deleteConfirmMsg;
+    private StackPane modloaderOverlay;
+    private Label modloaderMcLabel;
+    private StackPane updateOverlay;
+    private ProgressBar updateProgress;
+    private Label updateStatus;
+    private Button updateBtn;
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -164,14 +170,61 @@ public class LauncherApp extends Application {
         HBox mainLayout = new HBox(sidebarArea, rightArea);
         HBox.setHgrow(rightArea, Priority.ALWAYS);
 
-        // Overlay de confirmacion interno (sin ventana secundaria)
+        // Overlays internos (sin ventanas secundarias del OS)
         deleteConfirmOverlay = buildDeleteOverlay();
         deleteConfirmOverlay.setVisible(false);
-        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay);
+        modloaderOverlay = buildModloaderOverlay();
+        modloaderOverlay.setVisible(false);
+        updateOverlay = buildUpdateOverlay();
+        updateOverlay.setVisible(false);
+        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, updateOverlay);
 
         Scene scene = new Scene(rootPane, 1080, 720);
         stage.setMinWidth(1080);
         stage.setMinHeight(720);
+        
+        // Listener de actualización
+        AutoUpdateService.setListener(new AutoUpdateService.UpdateListener() {
+            @Override
+            public void onUpdateFound(String version, String url) {
+                Platform.runLater(() -> {
+                    updateStatus.setText("MeaCore Launcher v" + version + " disponible.");
+                    updateBtn.setText("🚀 Actualizar Ahora");
+                    updateBtn.setDisable(false);
+                    updateBtn.setOnAction(e -> {
+                        updateBtn.setDisable(true);
+                        updateBtn.setText("Descargando...");
+                        AutoUpdateService.downloadAndInstallAsync(url);
+                    });
+                    updateOverlay.setVisible(true);
+                });
+            }
+
+            @Override
+            public void onDownloadProgress(double fraction) {
+                Platform.runLater(() -> {
+                    updateProgress.setProgress(fraction);
+                    updateStatus.setText("Descargando actualización: " + (int)(fraction * 100) + "%");
+                });
+            }
+
+            @Override
+            public void onDownloadComplete(Path debPath) {
+                Platform.runLater(() -> {
+                    updateStatus.setText("¡Descarga completada! Instalando...");
+                    updateProgress.setProgress(1.0);
+                });
+            }
+
+            @Override
+            public void onDownloadError(String message) {
+                Platform.runLater(() -> {
+                    updateOverlay.setVisible(false);
+                    new Alert(Alert.AlertType.ERROR, "Error al actualizar: " + message).show();
+                });
+            }
+        });
+
         try {
             java.net.URL cssUrl = LauncherApp.class.getResource("/com/experimento/launcher/ui/meacore.css");
             if (cssUrl != null) scene.getStylesheets().add(cssUrl.toExternalForm());
@@ -463,7 +516,11 @@ public class LauncherApp extends Application {
                         btnInstall.setText("Instalando...");
                         workers.submit(() -> {
                             try {
-                                StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
+                                ModpackDependencies deps = StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
+                                if (deps != null) {
+                                    Platform.runLater(() -> log("[STORE] Modpack requiere " + deps.mcVersion() + " con " + deps.loader() + ". Configurando automáticamente..."));
+                                    autoConfigureModpack(deps);
+                                }
                                 Platform.runLater(() -> btnInstall.setText("✅ Listo"));
                             } catch (Exception ex) {
                                 Platform.runLater(() -> {
@@ -773,6 +830,7 @@ public class LauncherApp extends Application {
 
         VBox card = new VBox(16);
         card.setMaxWidth(460);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
                 + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
                 + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 6);");
@@ -843,43 +901,215 @@ public class LauncherApp extends Application {
         });
     }
 
+    /** Muestra el overlay de selección de loader sin abrir ventanas secundarias. */
     private void handleInstallModloader() {
         if (selected == null || selected.lastVersionId == null || selected.lastVersionId.isBlank()) {
             log("[ERROR] Selecciona primero una versión Vanilla desde el desplegable 'Versión Juego' antes de instalar Forge/Fabric.");
             return;
         }
-        
-        List<String> choices = new ArrayList<>();
-        choices.add("Forge");
-        choices.add("Fabric");
-        
-        ChoiceDialog<String> dialog = new ChoiceDialog<>("Forge", choices);
-        dialog.setTitle("Instalar Modloader Automático");
-        dialog.setHeaderText("Inyección de Modloader para " + selected.lastVersionId);
-        dialog.setContentText("Elige el motor de mods a instalar. Se descargará automáticamente:");
-        
-        dialog.showAndWait().ifPresent(choice -> {
-            String mcVersion = selected.lastVersionId;
-            Path baseDir = facade.directories().launcherData();
-            log("Iniciando instalación automática de " + choice + " para " + mcVersion + "...");
-            
-            workers.submit(() -> {
-                try {
-                    if ("Forge".equals(choice)) {
-                        ModloaderInstallerService.installForge(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
-                    } else if ("Fabric".equals(choice)) {
-                        ModloaderInstallerService.installFabric(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
-                    }
-                    
-                    Platform.runLater(() -> {
-                        log("¡Terminado! Actualizando lista de versiones...");
-                        loadVersionManifestAsync();
-                    });
-                } catch (Exception ex) {
-                    Platform.runLater(() -> log("[CRITICAL] Falló la instalación: " + ex.getMessage()));
-                }
-            });
+        modloaderMcLabel.setText("Inyección de Modloader para Minecraft " + selected.lastVersionId);
+        modloaderOverlay.setVisible(true);
+    }
+
+    /** Construye el overlay de selección de Forge/Fabric. */
+    private StackPane buildModloaderOverlay() {
+        StackPane dim = new StackPane();
+        dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+
+        VBox card = new VBox(16);
+        card.setMaxWidth(460);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
+                + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
+                + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 6);");
+
+        Label titleLbl = new Label("✨ Instalar Modloader Automático");
+        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        modloaderMcLabel = new Label();
+        modloaderMcLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
+
+        Label hint = new Label("Elige el motor de mods a instalar. Se descargará automáticamente:");
+        hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
+        hint.setWrapText(true);
+
+        Button forgeBtn = new Button("⚙ Forge");
+        forgeBtn.setPrefWidth(180);
+        forgeBtn.setStyle("-fx-background-color: #b07833; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
+        forgeBtn.setOnAction(e -> {
+            modloaderOverlay.setVisible(false);
+            executeInstallModloader("Forge");
         });
+
+        Button fabricBtn = new Button("🪡 Fabric");
+        fabricBtn.setPrefWidth(180);
+        fabricBtn.setStyle("-fx-background-color: #4a7c40; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
+        fabricBtn.setOnAction(e -> {
+            modloaderOverlay.setVisible(false);
+            executeInstallModloader("Fabric");
+        });
+
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 8 16;");
+        cancelBtn.setOnAction(e -> modloaderOverlay.setVisible(false));
+
+        HBox loaderBtns = new HBox(12, forgeBtn, fabricBtn);
+        loaderBtns.setAlignment(Pos.CENTER);
+        HBox cancelRow = new HBox(cancelBtn);
+        cancelRow.setAlignment(Pos.CENTER_RIGHT);
+
+        card.getChildren().addAll(titleLbl, modloaderMcLabel, hint, new Separator(), loaderBtns, cancelRow);
+        dim.getChildren().add(card);
+        return dim;
+    }
+
+    /** Lógica real de instalación del modloader tras seleccionar en el overlay. */
+    private void executeInstallModloader(String choice) {
+        if (selected == null) return;
+        String mcVersion = selected.lastVersionId;
+        Path baseDir = facade.directories().launcherData();
+        log("Iniciando instalación automática de " + choice + " para " + mcVersion + "...");
+        workers.submit(() -> {
+            try {
+                if ("Forge".equals(choice)) {
+                    ModloaderInstallerService.installForge(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                } else if ("Fabric".equals(choice)) {
+                    ModloaderInstallerService.installFabric(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                }
+                Platform.runLater(() -> {
+                    log("¡Terminado! Actualizando lista de versiones...");
+                    loadVersionManifestAsync();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("[CRITICAL] Falló la instalación: " + ex.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Configura automáticamente las dependencias de un modpack recién instalado.
+     */
+    private void autoConfigureModpack(ModpackDependencies deps) {
+        if (deps == null || deps.mcVersion() == null) return;
+        
+        workers.submit(() -> {
+            try {
+                String mcVer = deps.mcVersion();
+                String loader = deps.loader();
+
+                // 1. Instalar base vanilla si no existe
+                Platform.runLater(() -> log("[STORE] Instalando Minecraft " + mcVer + "..."));
+                facade.installVersion(mcVer, s -> Platform.runLater(() -> log("[AUTO] " + s)));
+
+                String finalVersionId = mcVer;
+
+                // 2. Instalar loader si se requiere
+                if (loader != null && !loader.equalsIgnoreCase("vanilla")) {
+                    Platform.runLater(() -> log("[STORE] Inyectando " + loader + "..."));
+                    Path baseDir = facade.directories().launcherData();
+                    
+                    if (loader.equalsIgnoreCase("forge")) {
+                        ModloaderInstallerService.installForge(mcVer, baseDir, s -> Platform.runLater(() -> log("[AUTO-FORGE] " + s)));
+                        // Intentar adivinar el nombre del perfil forge (suele ser forge-1.12.2-...)
+                        // Como es asíncrono y complejo, recargamos y buscamos
+                    } else if (loader.equalsIgnoreCase("fabric")) {
+                        ModloaderInstallerService.installFabric(mcVer, baseDir, s -> Platform.runLater(() -> log("[AUTO-FABRIC] " + s)));
+                    }
+
+                    // Recargar manifiesto para encontrar el nuevo ID
+                    Platform.runLater(() -> {
+                        log("[STORE] Actualizando lista de versiones...");
+                        loadVersionManifestAsync();
+                        
+                        // Esperar un poco a que el manifiesto cargue y buscar la mejor coincidencia
+                        workers.submit(() -> {
+                            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                            Platform.runLater(() -> finalizeModpackSetup(mcVer, loader));
+                        });
+                    });
+                } else {
+                    // Solo vanilla
+                    Platform.runLater(() -> finalizeModpackSetup(mcVer, null));
+                }
+
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("[STORE] Error en auto-config: " + ex.getMessage()));
+            }
+        });
+    }
+
+    private void finalizeModpackSetup(String mcVer, String loader) {
+        if (selected == null) return;
+        
+        // Buscar en la lista de versiones filtradas la que mejor coincida
+        String match = mcVer;
+        if (loader != null) {
+            String target = loader.toLowerCase();
+            for (ManifestVersionEntry v : versionCombo.getItems()) {
+                if (v.id().toLowerCase().contains(target) && v.id().contains(mcVer)) {
+                    match = v.id();
+                    break;
+                }
+            }
+        }
+        
+        selected.lastVersionId = match;
+        // Seleccionar en el combo si está presente
+        for (ManifestVersionEntry v : versionCombo.getItems()) {
+            if (v.id().equals(match)) {
+                versionCombo.getSelectionModel().select(v);
+                break;
+            }
+        }
+        saveProfiles();
+        applyVersionFilter(); // Refresca UI
+        log("[STORE] ✅ Perfil auto-configurado para: " + match);
+        
+        // Si estamos en la vista General, forzar refresco
+        if ("General".equals(currentViewTitle)) showView("General");
+    }
+
+    /** Construye el overlay de actualización. */
+    private StackPane buildUpdateOverlay() {
+        StackPane dim = new StackPane();
+        dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+
+        VBox card = new VBox(16);
+        card.setMaxWidth(460);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
+                + "-fx-border-radius: 10; -fx-border-color: #0E639C; -fx-border-width: 2; "
+                + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 8);");
+
+        Label title = new Label("✨ ¡Actualización Disponible!");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        updateStatus = new Label("Buscando actualizaciones...");
+        updateStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
+        updateStatus.setWrapText(true);
+
+        updateProgress = new ProgressBar(0);
+        updateProgress.setMaxWidth(Double.MAX_VALUE);
+        updateProgress.setStyle("-fx-accent: #0E639C;");
+
+        Label note = new Label("Se te pedirá tu contraseña para instalar el paquete .deb nativamente.");
+        note.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+        note.setWrapText(true);
+
+        updateBtn = new Button("🚀 Actualizar");
+        updateBtn.setMaxWidth(Double.MAX_VALUE);
+        updateBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
+
+        Button laterBtn = new Button("Más tarde");
+        laterBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 8 16;");
+        laterBtn.setOnAction(e -> updateOverlay.setVisible(false));
+
+        HBox bottom = new HBox(laterBtn);
+        bottom.setAlignment(Pos.CENTER_RIGHT);
+
+        card.getChildren().addAll(title, updateStatus, updateProgress, note, new Separator(), updateBtn, bottom);
+        dim.getChildren().add(card);
+        return dim;
     }
 
     private void saveProfiles() {

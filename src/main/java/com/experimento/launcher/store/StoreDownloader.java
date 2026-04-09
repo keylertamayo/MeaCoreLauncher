@@ -16,7 +16,7 @@ public final class StoreDownloader {
 
     private static final ObjectMapper M = new ObjectMapper();
 
-    public static void install(StoreItem item, Path gameDir, String mcVersion, Consumer<String> progress) throws Exception {
+    public static ModpackDependencies install(StoreItem item, Path gameDir, String mcVersion, Consumer<String> progress) throws Exception {
         Files.createDirectories(gameDir);
 
         progress.accept("Obteniendo URL de descarga para " + item.title() + "...");
@@ -69,14 +69,16 @@ public final class StoreDownloader {
 
         if (item.category() == StoreCategory.MODPACK && fileName.endsWith(".mrpack")) {
             progress.accept("Instalando modpack...");
-            installMrPack(destFile, gameDir, progress);
+            ModpackDependencies deps = installMrPack(destFile, gameDir, progress);
             Files.deleteIfExists(destFile);
+            return deps;
         }
 
         progress.accept("✅ Instalado exitosamente.");
+        return null;
     }
 
-    private static void installMrPack(Path mrPackPath, Path gameDir, Consumer<String> progress) throws Exception {
+    private static ModpackDependencies installMrPack(Path mrPackPath, Path gameDir, Consumer<String> progress) throws Exception {
         // === Paso 1: Extraer el modrinth.index.json y los overrides/ ===
         byte[] indexBytes = null;
 
@@ -101,6 +103,15 @@ public final class StoreDownloader {
         // === Paso 2: Procesar el índice y descargar los mods listados ===
         if (indexBytes != null) {
             JsonNode index = M.readTree(indexBytes);
+            
+            // Extraer dependencias
+            String mcVer = index.path("dependencies").path("minecraft").asText(null);
+            String loader = null;
+            JsonNode depsNode = index.path("dependencies");
+            if (depsNode.has("forge")) loader = "forge";
+            else if (depsNode.has("fabric")) loader = "fabric";
+            else if (depsNode.has("quilt")) loader = "quilt";
+
             JsonNode files = index.path("files");
             int total = files.size();
             int current = 0;
@@ -125,6 +136,8 @@ public final class StoreDownloader {
 
                 HttpFiles.downloadIfHashMismatch(downloadUrl, out, expectedSha1);
             }
+            return new ModpackDependencies(mcVer, loader);
         }
+        return null;
     }
 }
