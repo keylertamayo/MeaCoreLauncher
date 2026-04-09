@@ -64,35 +64,40 @@
             </ul>
         </div>
 
-        <!-- v1.2.7 -->
-        <div class="version-entry">
-            <div class="version-header">
-                <span class="version-tag">v1.2.7</span>
-                <span class="version-date">9 de Abril, 2026</span>
-            </div>
-            <div class="version-notes">
-                <p><strong>Fixes de Infraestructura y AutoUpdate:</strong></p>
-                <ul>
-                    <li><strong>Extracción Nativa:</strong> Ahora el motor Java 8 se extrae usando <code>tar</code>, lo que garantiza soporte para <code>.tar.gz</code> y mantiene los permisos de ejecución.</li>
-                    <li><strong>Reinicio Robusto:</strong> Se corrigió el AutoUpdate para que el launcher se abra automáticamente tras la instalación mediante <code>setsid</code>.</li>
-                    <li><strong>Búsqueda Inteligente:</strong> Mejorada la localización del ejecutable Java independientemente de la estructura del paquete descargado.</li>
-                </ul>
-            </div>
+        <div class="log-item">
+            <h3>v1.2.9 - Mantenimiento & Pulido 💎 (Actual)</h3>
+            <ul>
+                <li><strong>Limpieza de Código:</strong> Eliminación de código muerto y optimización de importaciones para un launcher más ligero.</li>
+                <li><strong>Corrección de Facade:</strong> Sincronizada la lógica de detección de Java entre la interfaz y el motor de arranque.</li>
+            </ul>
         </div>
 
-        <div class="version-entry">
-            <div class="version-header">
-                <span class="version-tag">v1.2.6</span>
-                <span class="version-date">9 de Abril, 2026</span>
-            </div>
-            <div class="version-notes">
-                <p><strong>Estabilización de Forge y Java 8:</strong></p>
-                <ul>
-                    <li><strong>Motor Maven:</strong> Se corrigió el error de LWJGL en mods 1.12.2 mediante una resolución inteligente de librerías.</li>
-                    <li><strong>Zero Friction:</strong> Se eliminó la configuración manual de Java Path; el launcher ahora elige automáticamente el JRE correcto.</li>
-                    <li><strong>Detección Blindada:</strong> Mejorada la lógica para forzar Java 8 en versiones Legacy y Forge.</li>
-                </ul>
-            </div>
+        <div class="log-item">
+            <h3>v1.2.8 - Multi-Java & Maven Engine ☕</h3>
+            <p><strong>Actualización del Motor de Ejecución:</strong></p>
+            <ul>
+                <li><strong>Multi-Java:</strong> Se añadió soporte para descargar y usar Java 17 automáticamente para versiones 1.17-1.20.4, solucionando errores de módulos en sistemas con Java 21+.</li>
+                <li><strong>Descarga de Librerías Maven:</strong> Se mejoró el instalador para descargar automáticamente librerías faltantes (como LWJGL) desde repositorios secundarios si no están en el JSON oficial.</li>
+                <li><strong>Sincronización Total:</strong> Los perfiles ahora se auto-configuran con la versión de Java recomendada para máxima estabilidad.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.2.7 - Fixes de Infraestructura & AutoUpdate 🛠️</h3>
+            <ul>
+                <li><strong>Extracción Nativa:</strong> Ahora el motor Java 8 se extrae usando <code>tar</code>, lo que garantiza soporte para <code>.tar.gz</code> y mantiene los permisos de ejecución.</li>
+                <li><strong>Reinicio Robusto:</strong> Se corrigió el AutoUpdate para que el launcher se abra automáticamente tras la instalación mediante <code>setsid</code>.</li>
+                <li><strong>Búsqueda Inteligente:</strong> Mejorada la localización del ejecutable Java independientemente de la estructura del paquete descargado.</li>
+            </ul>
+        </div>
+
+        <div class="log-item">
+            <h3>v1.2.6 - Forge Stability & UI Clean ✨</h3>
+            <ul>
+                <li><strong>Motor Maven:</strong> Se corrigió el error de LWJGL en mods 1.12.2 mediante una resolución inteligente de librerías.</li>
+                <li><strong>Zero Friction:</strong> Se eliminó la configuración manual de Java Path; el launcher ahora elige automáticamente el JRE correcto.</li>
+                <li><strong>Detección Blindada:</strong> Mejorada la lógica para forzar Java 8 en versiones Legacy y Forge.</li>
+            </ul>
         </div>
 
         <div class="log-item">

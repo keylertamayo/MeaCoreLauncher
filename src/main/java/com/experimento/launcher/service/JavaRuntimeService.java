@@ -1,8 +1,5 @@
 package com.experimento.launcher.service;
 
-import com.experimento.launcher.mojang.HttpFiles;
-import com.experimento.launcher.mojang.OsContext;
-
 import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -109,22 +106,6 @@ public final class JavaRuntimeService {
                 os.write(buf, 0, n);
                 read += n;
                 if (total > 0) progress.accept((double) read / total);
-            }
-        }
-    }
-
-    private void extractZip(Path zipFile, Path destDir) throws IOException {
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                Path out = destDir.resolve(entry.getName());
-                if (entry.isDirectory()) {
-                    Files.createDirectories(out);
-                } else {
-                    Files.createDirectories(out.getParent());
-                    Files.copy(zis, out, StandardCopyOption.REPLACE_EXISTING);
-                }
-                zis.closeEntry();
             }
         }
     }

@@ -118,12 +118,13 @@ public final class LauncherFacade {
         
         String effectiveJava = p.javaExecutable;
         
-        // Detección de necesidad de Java 8
+        // Detección inteligente de la versión de Java requerida
         if (effectiveJava == null || effectiveJava.isBlank()) {
-            if (isJava8Required(merged)) {
-                Path portable8 = runtimeService.getJava8Executable();
-                if (portable8 != null) {
-                    effectiveJava = portable8.toAbsolutePath().toString();
+            int requiredVer = getRequiredJavaVersion(merged, versionId);
+            if (requiredVer == 8 || requiredVer == 17) {
+                Path portable = runtimeService.getExecutable(requiredVer);
+                if (portable != null) {
+                    effectiveJava = portable.toAbsolutePath().toString();
                 }
             }
         }
@@ -140,14 +141,22 @@ public final class LauncherFacade {
                 LaunchFeatures.defaults());
     }
 
-    private boolean isJava8Required(JsonNode merged) {
+    private int getRequiredJavaVersion(JsonNode merged, String versionId) {
         if (merged.has("javaVersion")) {
-            int major = merged.get("javaVersion").path("majorVersion").asInt(0);
-            return major == 8;
+            return merged.get("javaVersion").path("majorVersion").asInt(0);
         }
-        // Fallback: Si no tiene el campo, pero tiene LaunchWrapper (versiones muy viejas)
-        String mainClass = merged.path("mainClass").asText("");
-        return mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.Launch");
+        
+        String mainClass = merged.path("mainClass").asText("").toLowerCase();
+        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || versionId.contains("1.12.2")) {
+            return 8;
+        }
+
+        // Fallback para versiones que requieren Java 17 por compatibilidad de mods (1.17 - 1.20.4)
+        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19") || versionId.contains("1.20.1") || versionId.contains("1.20.2") || versionId.contains("1.20.4")) {
+            return 17;
+        }
+        
+        return 0; // Usar el del sistema
     }
 
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
