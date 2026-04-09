@@ -65,7 +65,7 @@ public class LauncherApp extends Application {
     private TextArea logArea;
     private Label modHintLabel;
     private Label aternosHint;
-    @SuppressWarnings("FieldCanBeLocal")
+    @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private Stage stage;
     private String currentViewTitle = "General";
     private StackPane deleteConfirmOverlay;
@@ -1000,8 +1000,6 @@ public class LauncherApp extends Application {
                 // 1. Instalar base vanilla si no existe
                 Platform.runLater(() -> log("[STORE] Instalando Minecraft " + mcVer + "..."));
                 facade.installVersion(mcVer, s -> Platform.runLater(() -> log("[AUTO] " + s)));
-
-                String finalVersionId = mcVer;
 
                 // 2. Instalar loader si se requiere
                 if (loader != null && !loader.equalsIgnoreCase("vanilla")) {

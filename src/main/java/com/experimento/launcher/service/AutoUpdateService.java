@@ -1,7 +1,6 @@
 package com.experimento.launcher.service;
 
 import com.experimento.launcher.LauncherMetadata;
-import com.experimento.launcher.mojang.HttpFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
