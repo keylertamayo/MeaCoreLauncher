@@ -81,6 +81,7 @@ public class LauncherApp extends Application {
     private StackPane javaDownloadOverlay;
     private ProgressBar javaProgress;
     private Label javaStatus;
+    private int detectedJavaVersion = 8;
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -1124,19 +1125,30 @@ public class LauncherApp extends Application {
                 }
                 
                 JsonNode merged = new ObjectMapper().readTree(java.nio.file.Files.readAllBytes(jsonPath));
-                boolean needsJ8 = false;
+                int requiredJava = 0;
                 if (merged.has("javaVersion")) {
-                    needsJ8 = merged.get("javaVersion").path("majorVersion").asInt(0) == 8;
+                    requiredJava = merged.get("javaVersion").path("majorVersion").asInt(0);
                 } else {
                     String main = merged.path("mainClass").asText("").toLowerCase();
-                    // Detección agresiva para Forge y Legacy
-                    needsJ8 = main.contains("launchwrapper") || main.contains("fml") || main.contains("forge") || selected.lastVersionId.toLowerCase().contains("1.12.2");
+                    if (main.contains("launchwrapper") || main.contains("fml") || main.contains("forge") || selected.lastVersionId.toLowerCase().contains("1.12.2")) {
+                        requiredJava = 8;
+                    }
                 }
 
-                if (needsJ8) {
-                    if (facade.runtime().getJava8Executable() == null) {
+                // Forzar Java 17 para versiones entre 1.17 y 1.20.4 si no se detectó (por seguridad para mods)
+                if (requiredJava == 0 || requiredJava > 17) {
+                    String vid = selected.lastVersionId;
+                    if (vid.contains("1.17") || vid.contains("1.18") || vid.contains("1.19") || vid.contains("1.20.1") || vid.contains("1.20.2") || vid.contains("1.20.4")) {
+                        requiredJava = 17;
+                    }
+                }
+
+                if (requiredJava == 8 || requiredJava == 17) {
+                    final int ver = requiredJava;
+                    if (facade.runtime().getExecutable(ver) == null) {
                         Platform.runLater(() -> {
-                            javaStatus.setText("Esta versión requiere Java 8 para funcionar correctamente.");
+                            detectedJavaVersion = ver;
+                            javaStatus.setText("Esta versión requiere Java " + ver + " para funcionar correctamente.");
                             javaProgress.setProgress(0);
                             javaDownloadOverlay.setVisible(true);
                             playBtn.setDisable(false);
@@ -1173,7 +1185,7 @@ public class LauncherApp extends Application {
         card.getStyleClass().add("mc-card");
         card.setStyle(card.getStyle() + "; -fx-border-color: #0E639C; -fx-border-width: 2;");
 
-        Label title = new Label("☕ Motor Java 8 Requerido");
+        Label title = new Label("☕ Motor Java Requerido");
         title.setStyle("-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;");
 
         javaStatus = new Label("Detectamos que esta versión de Minecraft necesita Java 8.");
@@ -1184,22 +1196,12 @@ public class LauncherApp extends Application {
         javaProgress.setMaxWidth(Double.MAX_VALUE);
         javaProgress.setStyle("-fx-accent: #0E639C;");
 
-        Button downloadBtn = new Button("🚀 Descargar Java Portátil (Recomendado)");
-        downloadBtn.setMaxWidth(Double.MAX_VALUE);
+        Button downloadBtn = new Button("Descargar Java Portátil (Recomendado)");
+        downloadBtn.getStyleClass().add("button-primary");
+        downloadBtn.setPrefWidth(300);
         downloadBtn.setOnAction(e -> {
-            downloadBtn.setDisable(true);
-            facade.runtime().downloadJava8Async(
-                p -> Platform.runLater(() -> javaProgress.setProgress(p)),
-                path -> Platform.runLater(() -> {
-                    javaDownloadOverlay.setVisible(false);
-                    log("Java 8 Portable instalado en: " + path);
-                    handlePlayClick(); // Reintentar
-                }),
-                err -> Platform.runLater(() -> {
-                    downloadBtn.setDisable(false);
-                    javaStatus.setText("❌ Error: " + err);
-                })
-            );
+            javaDownloadOverlay.setVisible(false);
+            runTask(createJavaDownloadTask(detectedJavaVersion));
         });
 
         Button closeBtn = new Button("Cancelar");
@@ -1209,6 +1211,23 @@ public class LauncherApp extends Application {
         card.getChildren().addAll(title, javaStatus, javaProgress, downloadBtn, closeBtn);
         dim.getChildren().add(card);
         return dim;
+    }
+
+    private javafx.concurrent.Task<Void> createJavaDownloadTask(int version) {
+        return new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                updateMessage("Iniciando descarga de Java " + version + "...");
+                facade.runtime().downloadJavaAsync(version, p -> {
+                    updateProgress(p, 1.0);
+                }, path -> {
+                    Platform.runLater(() -> log("Java " + version + " Portable instalado en: " + path));
+                }, err -> {
+                    Platform.runLater(() -> log("Error descargando Java " + version + ": " + err));
+                });
+                return null;
+            }
+        };
     }
 
     private void saveProfiles() {

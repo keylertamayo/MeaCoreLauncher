@@ -53,11 +53,20 @@ public final class GameFilesInstaller {
                 continue;
             }
             JsonNode downloads = lib.get("downloads");
+            boolean downloaded = false;
+            
             if (downloads != null && downloads.has("artifact")) {
                 JsonNode art = downloads.get("artifact");
                 Path dest = librariesDir.resolve(art.get("path").asText());
                 HttpFiles.downloadIfHashMismatch(art.get("url").asText(), dest, art.get("sha1").asText());
+                downloaded = true;
+            } 
+            
+            // Fallback: Si no se descargó (no hay artifact.url), probar por nombre Maven
+            if (!downloaded && lib.has("name")) {
+                downloadMavenLibrary(lib.get("name").asText());
             }
+
             if (downloads != null && downloads.has("classifiers")) {
                 JsonNode cls = downloads.get("classifiers");
                 String key = pickNativeClassifier(cls);
@@ -154,6 +163,35 @@ public final class GameFilesInstaller {
 
         progress.log("Instalación de " + versionId + " completada.");
         return merged;
+    }
+
+    private void downloadMavenLibrary(String name) {
+        String path = nameToPath(name);
+        Path dest = librariesDir.resolve(path);
+        if (Files.exists(dest)) return;
+
+        String[] mirrors = {
+            "https://libraries.minecraft.net/",
+            "https://maven.minecraftforge.net/"
+        };
+
+        for (String mirror : mirrors) {
+            try {
+                HttpFiles.downloadIfHashMismatch(mirror + path, dest, null);
+                if (Files.exists(dest)) break;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private static String nameToPath(String name) {
+        String[] parts = name.split(":");
+        if (parts.length < 3) return name.replace(":", "_") + ".jar";
+        String group = parts[0].replace(".", "/");
+        String artifact = parts[1];
+        String version = parts[2];
+        String classifier = parts.length > 3 ? parts[3] : null;
+        String filename = artifact + "-" + version + (classifier != null ? "-" + classifier : "") + ".jar";
+        return group + "/" + artifact + "/" + version + "/" + filename;
     }
 
     private String pickNativeClassifier(JsonNode classifiers) {

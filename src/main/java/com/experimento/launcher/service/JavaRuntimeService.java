@@ -18,17 +18,18 @@ import java.util.zip.ZipInputStream;
  */
 public final class JavaRuntimeService {
 
-    private static final String ADOPTIUM_API = "https://api.adoptium.net/v3/binary/latest/8/ga/linux/x64/jre/hotspot/normal/eclipse?project=jdk";
+    private static final String ADOPTIUM_API_TEMPLATE = "https://api.adoptium.net/v3/binary/latest/%d/ga/linux/x64/jre/hotspot/normal/eclipse?project=jdk";
     private final Path runtimeDir;
 
     public JavaRuntimeService(Path launcherDataDir) {
         this.runtimeDir = launcherDataDir.resolve("runtime");
     }
 
-    public Path getJava8Executable() {
-        if (!Files.exists(runtimeDir)) return null;
+    public Path getExecutable(int version) {
+        Path vDir = runtimeDir.resolve("java" + version);
+        if (!Files.exists(vDir)) return null;
         
-        try (var stream = Files.walk(runtimeDir)) {
+        try (var stream = Files.walk(vDir)) {
             return stream
                 .filter(p -> p.getFileName().toString().equals("java"))
                 .filter(p -> p.getParent().getFileName().toString().equals("bin"))
@@ -40,22 +41,30 @@ public final class JavaRuntimeService {
         }
     }
 
-    public void downloadJava8Async(Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
+    @Deprecated
+    public Path getJava8Executable() {
+        return getExecutable(8);
+    }
+    
+    public Path getJava17Executable() {
+        return getExecutable(17);
+    }
+
+    public void downloadJavaAsync(int version, Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
         new Thread(() -> {
             try {
                 Files.createDirectories(runtimeDir);
-                Path tarFile = runtimeDir.resolve("java8.tar.gz");
-                Path extractDir = runtimeDir.resolve("java8");
+                Path tarFile = runtimeDir.resolve("java" + version + ".tar.gz");
+                Path extractDir = runtimeDir.resolve("java" + version);
                 
                 if (Files.exists(extractDir)) {
                     deleteDirectory(extractDir);
                 }
                 Files.createDirectories(extractDir);
 
-                // Descarga con progreso
-                downloadWithProgress(ADOPTIUM_API, tarFile, progress);
+                String url = String.format(ADOPTIUM_API_TEMPLATE, version);
+                downloadWithProgress(url, tarFile, progress);
 
-                // Extracción nativa (preserva permisos y maneja tar.gz)
                 ProcessBuilder pb = new ProcessBuilder("tar", "-xzf", tarFile.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
                 Process p = pb.start();
                 int code = p.waitFor();
@@ -63,7 +72,7 @@ public final class JavaRuntimeService {
                 Files.deleteIfExists(tarFile);
 
                 if (code == 0) {
-                    Path exe = getJava8Executable();
+                    Path exe = getExecutable(version);
                     if (exe != null) {
                         exe.toFile().setExecutable(true);
                         onResult.accept(exe);
@@ -78,6 +87,11 @@ public final class JavaRuntimeService {
                 onError.accept(e.getMessage());
             }
         }).start();
+    }
+
+    @Deprecated
+    public void downloadJava8Async(Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
+        downloadJavaAsync(8, progress, onResult, onError);
     }
 
     private void downloadWithProgress(String url, Path dest, Consumer<Double> progress) throws Exception {
