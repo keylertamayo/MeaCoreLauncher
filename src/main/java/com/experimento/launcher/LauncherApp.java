@@ -219,7 +219,7 @@ public class LauncherApp extends Application {
             @Override
             public void onDownloadComplete(Path debPath) {
                 Platform.runLater(() -> {
-                    updateStatus.setText("¡Descarga completada! Instalando...");
+                    updateStatus.setText("¡Descarga lista! Por favor, autoriza la instalación en la ventana de sistema que aparecerá.");
                     updateProgress.setProgress(1.0);
                 });
             }

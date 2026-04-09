@@ -118,14 +118,27 @@ public class AutoUpdateService {
 
     private static void executePkexec(Path debPath) {
         try {
-            // Comando mejorado: Instala el .deb y REINICIA el launcher
-            // meacorelauncher & al final lanza el proceso en segundo plano despues de que apt termine
-            String cmd = String.format("apt install -y %s && meacorelauncher &", debPath.toAbsolutePath().toString());
-            ProcessBuilder pb = new ProcessBuilder("pkexec", "bash", "-c", cmd);
+            // Comando robusto y desvinculado (detached)
+            // 1. sleep 1 da tiempo al launcher a cerrarse si es necesario.
+            // 2. pkexec solicita permisos.
+            // 3. apt instala el .deb.
+            // 4. meacorelauncher reinicia la app (asumiendo que está en el PATH tras instalar el .deb).
+            String deb = debPath.toAbsolutePath().toString();
+            String innerCmd = String.format("sleep 1; pkexec apt install -y %s && meacorelauncher", deb);
+            
+            // Ejecutamos en una sub-shell desvinculada (disown) para que no muera con el padre
+            String wrapperCmd = String.format("((%s) & disown) &", innerCmd);
+            
+            ProcessBuilder pb = new ProcessBuilder("bash", "-c", wrapperCmd);
             pb.start();
             
+            // IMPORTANTE: Un pequeño delay antes del exit ayuda a que OS/PolicyKit 
+            // no descarte la petición de pkexec al morir el padre instantáneamente.
+            Thread.sleep(2000);
             System.exit(0);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            System.exit(1);
+        }
     }
 
     private static boolean isNewer(String latest, String current) {
