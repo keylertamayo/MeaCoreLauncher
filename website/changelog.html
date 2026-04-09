@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Cambios — MeaCore Launcher</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 0.5rem;
+        }
+        .version-date {
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+        .log-item h3 {
+            margin: 0;
+            color: #0E639C;
+        }
+    </style>
 </head>
 <body>
 
@@ -27,100 +46,73 @@
     </div>
 
     <div class="timeline">
+        <!-- v1.3.0 -->
         <div class="log-item">
-            <h3>v1.2.5 - Java Hub & UI Fluidity ✨ (Actual)</h3>
-            <p><strong>Novedades y Mejoras:</strong></p>
+            <div class="version-header">
+                <h3>v1.3.0 - Deep Clean & Mod Isolation 🛡️ (Actual)</h3>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
+            <p><strong>Novedades Críticas de Estabilidad:</strong></p>
             <ul>
-                <li><strong>Java 8 Portable:</strong> Descarga automática de un motor Java 8 privado para versiones antiguas (1.12.2 y menores), eliminando la necesidad de instalaciones globales o privilegios de administrador.</li>
-                <li><strong>Corrección de Interfaz:</strong> Se eliminó el color verde discordante de la barra de navegación, reemplazándolo por el Azul MeaCore.</li>
-                <li><strong>Optimización de Navegación:</strong> Rediseño del motor de cambio de vistas para una transición instantánea y fluida entre apartados.</li>
+                <li><strong>Aislamiento de Perfiles:</strong> El launcher ahora detecta cambios de versión y limpia automáticamente la carpeta <code>mods</code> (respaldándola) para evitar crashes por mezcla de versiones.</li>
+                <li><strong>Fixes de Java 17:</strong> Se optimizaron los argumentos de la JVM para solucionar errores de módulos en mods modernos (1.20.1).</li>
+                <li><strong>Sincronización Total:</strong> Los perfiles ahora se auto-configuran con la versión de Java recomendada para máxima estabilidad.</li>
             </ul>
         </div>
 
+        <!-- v1.2.9 -->
         <div class="log-item">
-            <h3>v1.2.4 - Automatización y Estabilidad 🚀</h3>
-
-        <div class="log-item">
-            <h3>v1.2.3 - Correcciones Críticas 🔧</h3>
-
-        <div class="log-item">
-            <h3>v1.2.2 - Modernización "Dark Premium" 🚀</h3>
-            <p><strong>Novedades y Mejoras:</strong></p>
-            <ul>
-                <li><strong>Rediseño Visual Completo:</strong> Nueva interfaz inspirada en estándares modernos con esquema de colores Carbón Premium, bordes redondeados y tipografía optimizada.</li>
-                <li><strong>Web Dinámica Inteligente:</strong> Despliegue de portal oficial con detección automática de versiones y comandos de instalación sincronizados mediante GitHub API.</li>
-                <li><strong>Optimización de Rendimiento:</strong> Refactorización del borrado de perfiles para ejecutarse en segundo plano, eliminando el congelamiento (lag) de la interfaz.</li>
-                <li><strong>Estabilidad en Linux:</strong> Solución crítica al bug de renderizado que provocaba que la ventana se abriera colapsada en entornos GNOME/Ubuntu.</li>
-                <li><strong>CI/CD Robusto:</strong> Automatización total de la generación de paquetes <code>.deb</code> y <code>.msi</code> mediante GitHub Actions.</li>
-                <li><strong>Limpieza de Código:</strong> Resolución de advertencias y errores de compilación, eliminando código muerto y optimizando el uso de recursos.</li>
-            </ul>
-        </div>
-
-        <div class="log-item">
-            <h3>v1.2.1 - GNOME & Assets Fix 🐧</h3>
-            <ul>
-                <li><strong>Dock de GNOME:</strong> Parche manual del archivo <code>.desktop</code> en el proceso de CI/CD para garantizar que el icono se agrupe correctamente en el dock de Ubuntu.</li>
-                <li><strong>Filtro de Assets:</strong> Optimización del algoritmo de descarga para conservar únicamente archivos de lenguaje en Español e Inglés, reduciendo el peso innecesario.</li>
-            </ul>
-        </div>
-
-        <div class="log-item">
-            <h3>v1.2.9 - Mantenimiento & Pulido 💎 (Actual)</h3>
+            <div class="version-header">
+                <h3>v1.2.9 - Mantenimiento & Pulido 💎</h3>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
             <ul>
                 <li><strong>Limpieza de Código:</strong> Eliminación de código muerto y optimización de importaciones para un launcher más ligero.</li>
                 <li><strong>Corrección de Facade:</strong> Sincronizada la lógica de detección de Java entre la interfaz y el motor de arranque.</li>
             </ul>
         </div>
 
+        <!-- v1.2.8 -->
         <div class="log-item">
-            <h3>v1.2.8 - Multi-Java & Maven Engine ☕</h3>
+            <div class="version-header">
+                <h3>v1.2.8 - Multi-Java & Maven Engine ☕</h3>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
             <p><strong>Actualización del Motor de Ejecución:</strong></p>
             <ul>
-                <li><strong>Multi-Java:</strong> Se añadió soporte para descargar y usar Java 17 automáticamente para versiones 1.17-1.20.4, solucionando errores de módulos en sistemas con Java 21+.</li>
-                <li><strong>Descarga de Librerías Maven:</strong> Se mejoró el instalador para descargar automáticamente librerías faltantes (como LWJGL) desde repositorios secundarios si no están en el JSON oficial.</li>
-                <li><strong>Sincronización Total:</strong> Los perfiles ahora se auto-configuran con la versión de Java recomendada para máxima estabilidad.</li>
+                <li><strong>Multi-Java:</strong> Soporte para Java 17 automático en versiones 1.17-1.20.4, solucionando errores de módulos.</li>
+                <li><strong>Descarga de Librerías Maven:</strong> Descarga automática de librerías faltantes como LWJGL.</li>
             </ul>
         </div>
 
+        <!-- v1.2.7 -->
         <div class="log-item">
-            <h3>v1.2.7 - Fixes de Infraestructura & AutoUpdate 🛠️</h3>
+            <div class="version-header">
+                <h3>v1.2.7 - Fixes de Infraestructura & AutoUpdate 🛠️</h3>
+                <span class="version-date">9 de Abril, 2026</span>
+            </div>
             <ul>
-                <li><strong>Extracción Nativa:</strong> Ahora el motor Java 8 se extrae usando <code>tar</code>, lo que garantiza soporte para <code>.tar.gz</code> y mantiene los permisos de ejecución.</li>
+                <li><strong>Extracción Nativa:</strong> Ahora el motor Java 8 se extrae usando <code>tar</code>, lo que garantiza soporte para <code>.tar.gz</code>.</li>
                 <li><strong>Reinicio Robusto:</strong> Se corrigió el AutoUpdate para que el launcher se abra automáticamente tras la instalación mediante <code>setsid</code>.</li>
-                <li><strong>Búsqueda Inteligente:</strong> Mejorada la localización del ejecutable Java independientemente de la estructura del paquete descargado.</li>
             </ul>
         </div>
 
         <div class="log-item">
-            <h3>v1.2.6 - Forge Stability & UI Clean ✨</h3>
+            <h3>v1.2.5 - Java Hub & UI Fluidity ✨</h3>
+            <p><strong>Novedades y Mejoras:</strong></p>
             <ul>
-                <li><strong>Motor Maven:</strong> Se corrigió el error de LWJGL en mods 1.12.2 mediante una resolución inteligente de librerías.</li>
-                <li><strong>Zero Friction:</strong> Se eliminó la configuración manual de Java Path; el launcher ahora elige automáticamente el JRE correcto.</li>
-                <li><strong>Detección Blindada:</strong> Mejorada la lógica para forzar Java 8 en versiones Legacy y Forge.</li>
+                <li><strong>Java 8 Portable:</strong> Descarga automática de un motor Java 8 privado para versiones antiguas (1.12.2 y menores).</li>
+                <li><strong>Corrección de Interfaz:</strong> Se eliminó el color verde discordante de la barra de navegación.</li>
             </ul>
         </div>
 
         <div class="log-item">
-            <h3>v1.2.0 - Modloaders & Java Integration 🛠️</h3>
+            <h3>v1.2.2 - Modernización "Dark Premium" 🚀</h3>
+            <p><strong>Novedades y Mejoras:</strong></p>
             <ul>
-                <li><strong>Soporte Multi-Java:</strong> Detección inteligente de versiones de Java necesarias para diferentes versiones de Minecraft.</li>
-                <li><strong>Motores de Mods:</strong> Soporte inicial para la inyección de Forge y Fabric.</li>
-                <li><strong>NBT Sync:</strong> Sincronización automática de listas de servidores multijugador directamente en los archivos del juego.</li>
-            </ul>
-        </div>
-
-        <div class="log-item">
-            <h3>v1.1.8-alpha - Gestión de Almacenamiento 🛡️</h3>
-            <ul>
-                <li><strong>Eliminación Permanente:</strong> Nueva funcionalidad para borrar perfiles y sus datos residuales (screenshots, saves, logs) de forma segura.</li>
-            </ul>
-        </div>
-
-        <div class="log-item">
-            <h3>v1.1.7-alpha - Telemetría y Alertas 📡</h3>
-            <ul>
-                <li><strong>Advertencias de RAM:</strong> Implementación de alertas en tiempo real cuando la memoria libre es insuficiente para el perfil seleccionado.</li>
-                <li><strong>Identidad de Dock:</strong> Refuerzo de la identidad visual en Ubuntu 24.04.</li>
+                <li><strong>Rediseño Visual Completo:</strong> Nueva interfaz inspirada en estándares modernos con esquema de colores Carbón Premium.</li>
+                <li><strong>Web Dinámica Inteligente:</strong> Despliegue de portal oficial con detección automática de versiones.</li>
+                <li><strong>Estabilidad en Linux:</strong> Solución crítica al bug de renderizado en entornos GNOME/Ubuntu.</li>
             </ul>
         </div>
 
@@ -129,7 +121,6 @@
             <ul>
                 <li><strong>Rebranding:</strong> Transición oficial a la marca MeaCore Launcher.</li>
                 <li><strong>Multi-Instancia:</strong> Aislamiento total de directorios de juego por perfil.</li>
-                <li><strong>Diagnóstico de Sistema:</strong> Integración con OSHI para telemetría avanzada de hardware y optimización automática de JVM (ZGC/Aikar's Flags).</li>
             </ul>
         </div>
     </div>

@@ -116,6 +116,11 @@ public final class LauncherFacade {
         Path gameDir = gameDirFor(p);
         List<String> jvm = JvmPresetService.argsFor(p, ramMiB);
         
+        // Fixes de compatibilidad de módulos para Java 17+
+        jvm.add("-Djdk.module.illegalAccess.silent=true");
+        jvm.add("-XX:+IgnoreUnrecognizedVMOptions");
+        jvm.add("--add-opens=java.base/java.lang=ALL-UNNAMED");
+        
         String effectiveJava = p.javaExecutable;
         
         // Detección inteligente de la versión de Java requerida
@@ -141,6 +146,39 @@ public final class LauncherFacade {
                 LaunchFeatures.defaults());
     }
 
+    private void enforceVersionIsolation(Path profileDir, String currentVersion, Consumer<String> log) {
+        try {
+            Path versionFile = profileDir.resolve(".meacore_version");
+            Path modsDir = profileDir.resolve("mods");
+            
+            String lastVersion = Files.exists(versionFile) ? Files.readString(versionFile).trim() : null;
+            
+            if (lastVersion != null && !lastVersion.equals(currentVersion) && Files.exists(modsDir)) {
+                log.accept("[LAUNCHER] Detectado cambio de versión: " + lastVersion + " -> " + currentVersion);
+                log.accept("[LAUNCHER] Limpiando carpeta 'mods' para evitar conflictos...");
+                
+                Path backupDir = profileDir.resolve("mods_backup_" + lastVersion.replace(".", "_"));
+                if (Files.exists(modsDir)) {
+                    if (Files.exists(backupDir)) deleteDirectory(backupDir);
+                    Files.move(modsDir, backupDir);
+                }
+                Files.createDirectories(modsDir);
+            }
+            
+            Files.writeString(versionFile, currentVersion);
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] Error en aislamiento de mods: " + e.getMessage());
+        }
+    }
+
+    private void deleteDirectory(Path path) throws IOException {
+        try (var stream = Files.walk(path)) {
+            stream.sorted(java.util.Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(java.io.File::delete);
+        }
+    }
+
     private int getRequiredJavaVersion(JsonNode merged, String versionId) {
         if (merged.has("javaVersion")) {
             return merged.get("javaVersion").path("majorVersion").asInt(0);
@@ -160,6 +198,9 @@ public final class LauncherFacade {
     }
 
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {
+        Path profileDir = gameDirFor(p);
+        enforceVersionIsolation(profileDir, p.lastVersionId, log);
+
         // Alerta informativa sobre RAM total (sin bloqueos ni límites forzados)
         try {
             var hw = SystemInfoService.getInfo();
