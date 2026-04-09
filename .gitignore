@@ -5,3 +5,5 @@
 !instances/.gitkeep
 *.iml
 .idea/
+/bin/
+*.log
