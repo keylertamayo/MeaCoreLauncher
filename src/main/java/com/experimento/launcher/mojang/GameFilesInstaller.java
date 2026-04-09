@@ -94,31 +94,34 @@ public final class GameFilesInstaller {
 
         JsonNode indexJson = M.readTree(Files.readAllBytes(indexFile));
         JsonNode objects = indexJson.get("objects");
+        
+        // Ghosting: Eliminar idiomas no deseados del índice para que Minecraft ni los vea
+        if (objects instanceof com.fasterxml.jackson.databind.node.ObjectNode objNode) {
+            java.util.List<String> toRemove = new java.util.ArrayList<>();
+            objNode.fieldNames().forEachRemaining(key -> {
+                if (key.startsWith("minecraft/lang/")) {
+                    boolean keep = key.contains("/en_us") || key.contains("/en_gb")
+                               || key.contains("/es_ar") || key.contains("/es_cl")
+                               || key.contains("/es_ec") || key.contains("/es_es")
+                               || key.contains("/es_mx") || key.contains("/es_uy")
+                               || key.contains("/es_ve");
+                    if (!keep) toRemove.add(key);
+                }
+            });
+            toRemove.forEach(objNode::remove);
+            M.writeValue(indexFile.toFile(), indexJson);
+            if (!toRemove.isEmpty()) progress.log("Deep Clean: Ocultados " + toRemove.size() + " idiomas del menú.");
+        }
+
         int total = objects.size();
-        AtomicInteger done = new AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
         progress.log("Sincronizando assets (" + total + " objetos)…");
 
         Path objectsDir = assetsDir.resolve("objects");
         Files.createDirectories(objectsDir);
-        List<Future<?>> futures = new ArrayList<>();
-        try (ExecutorService pool = Executors.newFixedThreadPool(8)) {
+        java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+        try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8)) {
             objects.fields().forEachRemaining(e -> {
-                String assetKey = e.getKey();
-                
-                // Filtrar idiomas para conservar solo los seleccionados:
-                if (assetKey.startsWith("minecraft/lang/")) {
-                    boolean keep = assetKey.contains("/en_us") || assetKey.contains("/en_gb")
-                               || assetKey.contains("/es_ar") || assetKey.contains("/es_cl")
-                               || assetKey.contains("/es_ec") || assetKey.contains("/es_es")
-                               || assetKey.contains("/es_mx") || assetKey.contains("/es_uy")
-                               || assetKey.contains("/es_ve");
-                    if (!keep) {
-                        int c = done.incrementAndGet();
-                        if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
-                        return; // Omitir otros idiomas
-                    }
-                }
-
                 JsonNode h = e.getValue();
                 String hash = h.get("hash").asText();
                 String prefix = hash.substring(0, 2);
@@ -144,7 +147,7 @@ public final class GameFilesInstaller {
                     }
                 }));
             });
-            for (Future<?> f : futures) {
+            for (java.util.concurrent.Future<?> f : futures) {
                 f.get();
             }
         } catch (Exception e) {
