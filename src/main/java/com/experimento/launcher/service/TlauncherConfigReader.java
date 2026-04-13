@@ -12,7 +12,12 @@ public final class TlauncherConfigReader {
     private TlauncherConfigReader() {}
 
     public static String suggestedJvmArgsFromTlauncher() {
-        Path p = Path.of(System.getProperty("user.home"), ".tlauncher", "tlauncher-2.0.properties");
+        Path base = Path.of(System.getProperty("user.home"));
+        if (com.experimento.launcher.mojang.OsContext.current().isWindows()) {
+            String appdata = System.getenv("APPDATA");
+            if (appdata != null) base = Path.of(appdata);
+        }
+        Path p = base.resolve(".tlauncher").resolve("tlauncher-2.0.properties");
         if (!Files.isRegularFile(p)) {
             return "";
         }

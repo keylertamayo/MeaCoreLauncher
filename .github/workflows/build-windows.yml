@@ -27,32 +27,72 @@ jobs:
       - name: Build Gradle (Skip Tests)
         run: ./gradlew build --no-daemon -x test
 
+      # ── Versión ──────────────────────────────────────────────────────────────
+      # Leemos version.properties y strippeamos sufijos alpha/alfa para obtener
+      # un número semver limpio compatible con jpackage (X.Y.Z)
       - name: Extract Version
         id: vars
         shell: pwsh
         run: |
-          $content = Get-Content src/main/resources/version.properties
-          $versionStr = ($content | Select-String "version=").ToString().Split("=")[1].Trim()
-          $cleanVersion = $versionStr -replace "-alpha", "" -replace "-alfa", ""
-          echo "VERSION=$cleanVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $raw = (Get-Content src/main/resources/version.properties |
+                  Select-String "^version=").ToString().Split("=",2)[1].Trim()
+          $clean = $raw -replace "-alpha","" -replace "-alfa",""
+          # jpackage requiere que la versión tenga al menos dos componentes (X.Y)
+          if ($clean -notmatch "^\d+\.\d+") { $clean = "$clean.0" }
+          echo "VERSION=$clean" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Launcher version: $clean"
 
+      # ── Icono ─────────────────────────────────────────────────────────────────
+      # jpackage en Windows EXIGE un .ico; convertimos icon.png usando
+      # la herramienta magick (ImageMagick v7 pre-instalado en windows-latest).
+      - name: Convert icon PNG -> ICO
+        shell: pwsh
+        run: |
+          # ImageMagick 7 en windows-latest se llama 'magick', no 'convert'
+          magick icon.png -resize 256x256 icon.ico
+          Write-Host "icon.ico generado OK"
+
+      # ── Empaquetar ────────────────────────────────────────────────────────────
+      # jpackage toma el JAR principal + todas las dependencias que Gradle
+      # copió en build/libs gracias a la tarea copyDependencies.
+      # --win-per-user-install: no requiere UAC al instalar (más compat.)
+      # --win-console:          muestra consola solo si se integra con CMD (debug)
       - name: Create .msi with jpackage
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path build/dist
-          $MainJar = Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs | Select-Object -First 1
-          $JarName = $MainJar.Name
-          Write-Host "Using JAR: $JarName"
-          jpackage --name meacorelauncher `
+          New-Item -ItemType Directory -Force -Path build/dist | Out-Null
+
+          $MainJar = (Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs |
+                      Select-Object -First 1).Name
+          Write-Host "Main JAR: $MainJar"
+
+          jpackage `
+            --name "MeaCore Launcher" `
+            --app-version "$env:VERSION" `
+            --vendor "MeaCore-Enterprise" `
             --input build/libs `
-            --main-jar $JarName `
+            --main-jar $MainJar `
             --main-class com.experimento.launcher.Main `
             --type msi `
-            --icon icon.png `
-            --win-shortcut --win-menu --win-dir-chooser `
-            --app-version ${{ env.VERSION }} `
-            --vendor MeaCore-Enterprise `
+            --icon icon.ico `
+            --win-shortcut `
+            --win-menu `
+            --win-dir-chooser `
+            --win-per-user-install `
+            --java-options "-Xmx512m" `
             --dest build/dist
+
+          Write-Host "=== build/dist contents ==="
+          Get-ChildItem build/dist
+
+      # ── Renombrar para que el AutoUpdateService lo encuentre fácilmente ──────
+      - name: Rename artifact
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Filter "*.msi" -Path build/dist | Select-Object -First 1
+          $newName = "meacore-launcher-$env:VERSION.msi"
+          Rename-Item $msi.FullName $newName
+          Write-Host "Renamed to $newName"
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4

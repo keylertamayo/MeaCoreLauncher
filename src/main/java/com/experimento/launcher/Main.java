@@ -7,9 +7,12 @@ package com.experimento.launcher;
 public class Main {
     public static void main(String[] args) {
         // Establecer estas propiedades lo antes posible, ANTES de cargar cualquier clase de JavaFX.
-        System.setProperty("com.sun.javafx.wm.class", "meacorelauncher");
-        System.setProperty("glass.gtk.wm_class", "meacorelauncher");
-        System.setProperty("jdk.gtk.wm_class", "meacorelauncher");
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
+            System.setProperty("com.sun.javafx.wm.class", "meacorelauncher");
+            System.setProperty("glass.gtk.wm_class", "meacorelauncher");
+            System.setProperty("jdk.gtk.wm_class", "meacorelauncher");
+        }
         
         // Llamar a LauncherApp mediante reflexión para asegurar que la clase no se cargue
         // antes de que las propiedades del sistema estén establecidas.

@@ -45,6 +45,10 @@ public final class LauncherFacade {
 
     public Path gameDirFor(LauncherProfile p) {
         if (p.useGlobalMinecraftFolder) {
+            if (com.experimento.launcher.mojang.OsContext.current().isWindows()) {
+                String appdata = System.getenv("APPDATA");
+                if (appdata != null) return Path.of(appdata, ".minecraft");
+            }
             return Path.of(System.getProperty("user.home"), ".minecraft");
         }
         return dirs.instanceGameDir(p.instanceId);

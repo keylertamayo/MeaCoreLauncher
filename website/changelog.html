@@ -46,10 +46,33 @@
     </div>
 
     <div class="timeline">
+
+        <!-- v1.3.6 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.3.6 - Windows Native &amp; CI/CD Overhaul 🪟 (Actual)</h3>
+                <span class="version-date">13 de Abril, 2026</span>
+            </div>
+            <p><strong>Compatibilidad Multiplataforma (Windows / Linux):</strong></p>
+            <ul>
+                <li><strong>Soporte Nativo Windows:</strong> El launcher detecta el SO en tiempo de ejecución. Las rutas de datos (<code>%APPDATA%\.minecraft</code>, <code>%APPDATA%\.tlauncher</code>) y el directorio temporal (<code>%TEMP%</code>) se resuelven automáticamente sin configuración manual.</li>
+                <li><strong>JRE Portable Multiplataforma:</strong> <code>JavaRuntimeService</code> descarga <code>.zip</code> en Windows (extracción Java pura) y <code>.tar.gz</code> en Linux. Detecta <code>java.exe</code> o <code>java</code> según el sistema.</li>
+                <li><strong>Auto-Updater Multiplataforma:</strong> <code>AutoUpdateService</code> busca el asset correcto en GitHub Releases según el SO — <code>.msi</code> en Windows, <code>.deb</code> en Linux. Se ejecuta con <code>msiexec /passive /norestart</code> en Windows y <code>pkexec apt install</code> en Linux.</li>
+                <li><strong>UI Segura en Windows:</strong> Las propiedades GTK de JavaFX (<code>glass.gtk.wm_class</code>, etc.) solo se inyectan en Linux, eliminando warnings de la JVM al arrancar en Windows.</li>
+            </ul>
+            <p><strong>CI/CD &amp; Build System:</strong></p>
+            <ul>
+                <li><strong>Fix Crítico de Variables PowerShell:</strong> Corregido el bug donde <code>${{ env.VERSION }}</code> no se expandía dentro de bloques <code>run:</code> de PowerShell — ahora usa <code>$env:VERSION</code> correctamente.</li>
+                <li><strong>Icono Windows (.ico):</strong> El workflow convierte <code>icon.png</code> a <code>icon.ico</code> (256×256) con ImageMagick v7, requerimiento obligatorio de <code>jpackage</code> en Windows.</li>
+                <li><strong>Instalador .msi Mejorado:</strong> Añadidos <code>--win-per-user-install</code> (sin UAC) y <code>--win-shortcut</code>/<code>--win-menu</code>. El artefacto se renombra a <code>meacore-launcher-X.Y.Z.msi</code> para que el auto-updater lo detecte de forma predecible.</li>
+                <li><strong>build.gradle.kts:</strong> Los args JVM GTK del task <code>JavaExec</code> se condicionan a Linux — <code>./gradlew run</code> ya funciona limpio en Windows sin warnings.</li>
+            </ul>
+        </div>
+
         <!-- v1.3.5 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.3.5 - Legacy Engine & Classpath Polish 🔧 (Actual)</h3>
+                <h3>v1.3.5 - Legacy Engine &amp; Classpath Polish 🔧</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Compatibilidad y Core System:</strong></p>
@@ -79,7 +102,7 @@
         <!-- v1.3.2 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.3.2 - Performance & Deep Clean 🧹 (Actual)</h3>
+                <h3>v1.3.2 - Performance &amp; Deep Clean 🧹</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Optimización de Recursos Extrema:</strong></p>
@@ -94,7 +117,7 @@
         <!-- v1.3.1 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.3.1 - Narrator & RAM Polish 🔊</h3>
+                <h3>v1.3.1 - Narrator &amp; RAM Polish 🔊</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Optimización y Pulido:</strong></p>
@@ -108,7 +131,7 @@
         <!-- v1.3.0 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.3.0 - Deep Clean & Mod Isolation 🛡️</h3>
+                <h3>v1.3.0 - Deep Clean &amp; Mod Isolation 🛡️</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Novedades Críticas de Estabilidad:</strong></p>
@@ -122,7 +145,7 @@
         <!-- v1.2.9 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.2.9 - Mantenimiento & Pulido 💎</h3>
+                <h3>v1.2.9 - Mantenimiento &amp; Pulido 💎</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <ul>
@@ -134,7 +157,7 @@
         <!-- v1.2.8 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.2.8 - Multi-Java & Maven Engine ☕</h3>
+                <h3>v1.2.8 - Multi-Java &amp; Maven Engine ☕</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <p><strong>Actualización del Motor de Ejecución:</strong></p>
@@ -147,7 +170,7 @@
         <!-- v1.2.7 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.2.7 - Fixes de Infraestructura & AutoUpdate 🛠️</h3>
+                <h3>v1.2.7 - Fixes de Infraestructura &amp; AutoUpdate 🛠️</h3>
                 <span class="version-date">9 de Abril, 2026</span>
             </div>
             <ul>
@@ -157,7 +180,7 @@
         </div>
 
         <div class="log-item">
-            <h3>v1.2.5 - Java Hub & UI Fluidity ✨</h3>
+            <h3>v1.2.5 - Java Hub &amp; UI Fluidity ✨</h3>
             <p><strong>Novedades y Mejoras:</strong></p>
             <ul>
                 <li><strong>Java 8 Portable:</strong> Descarga automática de un motor Java 8 privado para versiones antiguas (1.12.2 y menores).</li>

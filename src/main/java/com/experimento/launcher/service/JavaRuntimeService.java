@@ -1,5 +1,6 @@
 package com.experimento.launcher.service;
 
+import com.experimento.launcher.mojang.OsContext;
 import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -7,14 +8,17 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.*;
 import java.util.function.Consumer;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Gestiona los entornos de ejecución de Java (JRE) portátiles.
  */
 public final class JavaRuntimeService {
 
-    private static final String ADOPTIUM_API_TEMPLATE = "https://api.adoptium.net/v3/binary/latest/%d/ga/linux/x64/jre/hotspot/normal/eclipse?project=jdk";
+    private static final String ADOPTIUM_API_TEMPLATE = "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse?project=jdk";
     private final Path runtimeDir;
+    private final OsContext os = OsContext.current();
 
     public JavaRuntimeService(Path launcherDataDir) {
         this.runtimeDir = launcherDataDir.resolve("runtime");
@@ -24,11 +28,11 @@ public final class JavaRuntimeService {
         Path vDir = runtimeDir.resolve("java" + version);
         if (!Files.exists(vDir)) return null;
         
+        String exeName = os.javaExecutableName();
         try (var stream = Files.walk(vDir)) {
             return stream
-                .filter(p -> p.getFileName().toString().equals("java"))
-                .filter(p -> p.getParent().getFileName().toString().equals("bin"))
-                .filter(p -> Files.isExecutable(p))
+                .filter(p -> p.getFileName().toString().equalsIgnoreCase(exeName))
+                .filter(p -> p.getParent().getFileName().toString().equalsIgnoreCase("bin"))
                 .findFirst()
                 .orElse(null);
         } catch (IOException e) {
@@ -49,7 +53,8 @@ public final class JavaRuntimeService {
         new Thread(() -> {
             try {
                 Files.createDirectories(runtimeDir);
-                Path tarFile = runtimeDir.resolve("java" + version + ".tar.gz");
+                String ext = os.archiveExtension();
+                Path archiveFile = runtimeDir.resolve("java" + version + ext);
                 Path extractDir = runtimeDir.resolve("java" + version);
                 
                 if (Files.exists(extractDir)) {
@@ -57,31 +62,53 @@ public final class JavaRuntimeService {
                 }
                 Files.createDirectories(extractDir);
 
-                String url = String.format(ADOPTIUM_API_TEMPLATE, version);
-                downloadWithProgress(url, tarFile, progress);
+                String url = String.format(ADOPTIUM_API_TEMPLATE, version, os.name(), os.arch());
+                downloadWithProgress(url, archiveFile, progress);
 
-                ProcessBuilder pb = new ProcessBuilder("tar", "-xzf", tarFile.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
-                Process p = pb.start();
-                int code = p.waitFor();
+                boolean success;
+                if (os.isWindows()) {
+                    extractZip(archiveFile, extractDir);
+                    success = true;
+                } else {
+                    ProcessBuilder pb = new ProcessBuilder("tar", "-xzf", archiveFile.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
+                    Process p = pb.start();
+                    success = p.waitFor() == 0;
+                }
                 
-                Files.deleteIfExists(tarFile);
+                Files.deleteIfExists(archiveFile);
 
-                if (code == 0) {
+                if (success) {
                     Path exe = getExecutable(version);
                     if (exe != null) {
-                        exe.toFile().setExecutable(true);
+                        if (!os.isWindows()) exe.toFile().setExecutable(true);
                         onResult.accept(exe);
                     } else {
                         onError.accept("No se encontró el ejecutable tras la extracción.");
                     }
                 } else {
-                    onError.accept("Error al extraer el archivo tar.gz (Código " + code + ").");
+                    onError.accept("Error al extraer el archivo " + ext);
                 }
 
             } catch (Exception e) {
                 onError.accept(e.getMessage());
             }
         }).start();
+    }
+
+    private void extractZip(Path zipFile, Path destDir) throws IOException {
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                Path newPath = destDir.resolve(entry.getName());
+                if (entry.isDirectory()) {
+                    Files.createDirectories(newPath);
+                } else {
+                    Files.createDirectories(newPath.getParent());
+                    Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+                zis.closeEntry();
+            }
+        }
     }
 
     @Deprecated
@@ -116,3 +143,4 @@ public final class JavaRuntimeService {
         }
     }
 }
+

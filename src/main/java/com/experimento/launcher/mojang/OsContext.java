@@ -14,9 +14,34 @@ public record OsContext(String name, String arch) {
         } else {
             name = "linux";
         }
-        String a =
-                (arch.contains("aarch64") || arch.contains("arm64")) ? "arm64" : "x86";
+        
+        // Adoptium naming and general arch detection
+        String a;
+        if (arch.contains("aarch64") || arch.contains("arm64")) {
+            a = "arm64";
+        } else if (arch.contains("64")) {
+            a = "x64";
+        } else {
+            a = "x86";
+        }
+        
         return new OsContext(name, a);
+    }
+
+    public boolean isWindows() {
+        return "windows".equals(name);
+    }
+
+    public boolean isLinux() {
+        return "linux".equals(name);
+    }
+
+    public String javaExecutableName() {
+        return isWindows() ? "java.exe" : "java";
+    }
+
+    public String archiveExtension() {
+        return isWindows() ? ".zip" : ".tar.gz";
     }
 
     public String nativeClassifier() {
@@ -29,3 +54,4 @@ public record OsContext(String name, String arch) {
         return "natives-linux";
     }
 }
+

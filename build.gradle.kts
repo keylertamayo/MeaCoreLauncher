@@ -47,7 +47,15 @@ application {
 }
 
 tasks.withType<JavaExec> {
-    jvmArgs("-Dcom.sun.javafx.wm.class=meacorelauncher", "-Dglass.gtk.wm_class=meacorelauncher", "-Djdk.gtk.wm_class=meacorelauncher")
+    // Propiedades GTK necesarias solo en Linux para que la ventana tenga el WM_CLASS correcto
+    val isLinux = System.getProperty("os.name", "").lowercase().contains("linux")
+    if (isLinux) {
+        jvmArgs(
+            "-Dcom.sun.javafx.wm.class=meacorelauncher",
+            "-Dglass.gtk.wm_class=meacorelauncher",
+            "-Djdk.gtk.wm_class=meacorelauncher"
+        )
+    }
 }
 
 tasks.test {
