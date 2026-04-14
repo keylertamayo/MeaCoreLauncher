@@ -40,17 +40,25 @@ public final class PerformanceModsService {
     public record PerformanceMod(String slug, String name, String description) {}
 
     public static final List<PerformanceMod> FABRIC_MODS = List.of(
-        new PerformanceMod("sodium",      "Sodium",      "Motor de renderizado moderno — +50-300% FPS"),
-        new PerformanceMod("lithium",     "Lithium",     "Optimización general del servidor/lógica del juego"),
-        new PerformanceMod("ferrite-core","FerriteCore", "Reducción masiva de uso de RAM (-30%)"),
-        new PerformanceMod("indium",      "Indium",      "Compatibilidad de Sodium con Fabric Rendering API"),
-        new PerformanceMod("immediatelyfast", "ImmediatelyFast", "Renderizado de entidades y UI más rápido")
+        new PerformanceMod("sodium",         "Sodium",          "Motor de renderizado moderno — +50-300% FPS"),
+        new PerformanceMod("lithium",        "Lithium",         "Optimización de lógica del juego y servidor"),
+        new PerformanceMod("ferrite-core",   "FerriteCore",     "Reducción masiva de uso de RAM (-30%)"),
+        new PerformanceMod("indium",         "Indium",          "Compatibilidad de Sodium con Fabric Rendering API"),
+        new PerformanceMod("immediatelyfast","ImmediatelyFast", "Renderizado de entidades y UI más rápido")
     );
 
+    /** Forge 1.12.2–1.20.1 */
     public static final List<PerformanceMod> FORGE_MODS = List.of(
         new PerformanceMod("ferritecore", "FerriteCore", "Reducción masiva de uso de RAM (-30%)"),
-        new PerformanceMod("rubidium",    "Rubidium",   "Puerto de Sodium para Forge — +50% FPS"),
-        new PerformanceMod("oculus",      "Oculus",     "Soporte de shaders compatible con Rubidium")
+        new PerformanceMod("rubidium",    "Rubidium",    "Puerto de Sodium para Forge — +50% FPS"),
+        new PerformanceMod("oculus",      "Oculus",      "Soporte de shaders compatible con Rubidium")
+    );
+
+    /** NeoForge 1.20.2+ — usa Embeddium (fork activo de Rubidium) */
+    public static final List<PerformanceMod> NEOFORGE_MODS = List.of(
+        new PerformanceMod("ferritecore",  "FerriteCore",  "Reducción masiva de uso de RAM (-30%)"),
+        new PerformanceMod("embeddium",    "Embeddium",    "Motor de renderizado para NeoForge/Forge — +50% FPS"),
+        new PerformanceMod("modernfix",    "ModernFix",    "Tiempos de carga -50%, RAM -20%, FPS +10%")
     );
 
     /**
@@ -65,8 +73,18 @@ public final class PerformanceModsService {
 
         Files.createDirectories(modsDir);
 
-        boolean isFabric = loader != null && loader.toLowerCase().contains("fabric");
-        List<PerformanceMod> mods = isFabric ? FABRIC_MODS : FORGE_MODS;
+        String loaderLow = loader != null ? loader.toLowerCase() : "vanilla";
+        List<PerformanceMod> mods;
+        if (loaderLow.contains("neoforge")) {
+            mods = NEOFORGE_MODS;
+        } else if (loaderLow.contains("fabric")) {
+            mods = FABRIC_MODS;
+        } else if (loaderLow.contains("forge")) {
+            mods = FORGE_MODS;
+        } else {
+            log.accept("[PERF] Loader '" + loader + "' no soportado. Instala Fabric, Forge o NeoForge primero.");
+            return;
+        }
 
         log.accept("[PERF] Iniciando instalación de mods de rendimiento para " + mcVersion + " (" + loader + ")...");
         log.accept("[PERF] Mods a instalar: " + mods.stream().map(PerformanceMod::name).reduce((a, b) -> a + ", " + b).orElse("ninguno"));

@@ -20,6 +20,8 @@ public class LauncherProfile {
     public String customJvmArgs = "";
     public String javaExecutable = "";
     public boolean useGlobalMinecraftFolder = false;
+    /** El modloader activo en esta instancia: "vanilla", "fabric", "forge", "neoforge". */
+    public String modLoader = "vanilla";
     public List<ServerEntry> servers = new ArrayList<>();
 
     public LauncherProfile() {}

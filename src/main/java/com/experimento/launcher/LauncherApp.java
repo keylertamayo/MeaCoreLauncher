@@ -483,9 +483,9 @@ public class LauncherApp extends Application {
             log("[PERF] El perfil no tiene versión configurada.");
             return;
         }
-        String loader = detectLoaderFromVersion(version);
+        String loader = selected.modLoader != null ? selected.modLoader : "vanilla";
         if (!PerformanceModsService.isSupported(loader)) {
-            log("[PERF] Este perfil usa una versión vanilla. Instala Fabric o Forge primero para usar los mods de rendimiento.");
+            log("[PERF] Este perfil no tiene modloader activo. Instala Fabric, Forge o NeoForge primero desde la pestaña Modding.");
             return;
         }
         btn.setDisable(true);
@@ -1082,6 +1082,11 @@ public class LauncherApp extends Application {
                 }
                 Platform.runLater(() -> {
                     log("✅ ¡" + choice + " instalado! Actualizando lista de versiones...");
+                    if (selected != null) {
+                        selected.modLoader = choice.toLowerCase();
+                        saveProfiles();
+                        log("[Perfil] Modloader guardado como '" + choice.toLowerCase() + "' en el perfil.");
+                    }
                     loadVersionManifestAsync();
                 });
             } catch (Exception ex) {

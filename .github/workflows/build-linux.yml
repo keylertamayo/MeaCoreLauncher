@@ -53,15 +53,18 @@ jobs:
           jpackage --name "MeaCore Launcher" \
             --linux-package-name meacore-launcher \
             --vendor "MeaCore" \
-            --app-version ${{ env.VERSION }} \
+            --app-version "$VERSION" \
             --input build/libs \
             --main-jar $JAR_NAME \
             --main-class com.experimento.launcher.Main \
             --type deb \
             --icon icon-256.png \
-            --resource-dir src/main/resources \
             --linux-shortcut \
             --linux-app-category Game \
+            --java-options "-Xmx512m" \
+            --java-options "--add-modules javafx.controls,javafx.fxml" \
+            --java-options "--add-opens=java.base/java.lang=ALL-UNNAMED" \
+            --java-options "-Dfile.encoding=UTF-8" \
             --dest build/dist
 
       - name: Inspect .deb contents
