@@ -1,6 +1,7 @@
 package com.experimento.launcher.modloaders;
 
 import com.experimento.launcher.mojang.HttpFiles;
+import com.experimento.launcher.service.JavaRuntimeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -12,52 +13,55 @@ import java.util.function.Consumer;
 public class ModloaderInstallerService {
     private static final ObjectMapper M = new ObjectMapper();
 
+    /**
+     * Instala Forge (legacy - 1.12.2 hasta 1.20.1).
+     * Usa el JRE portátil del launcher si está disponible.
+     */
     public static void installForge(String mcVersion, Path launcherDir, Consumer<String> logger) throws Exception {
+        installForge(mcVersion, launcherDir, logger, null);
+    }
+
+    public static void installForge(String mcVersion, Path launcherDir, Consumer<String> logger, JavaRuntimeService runtime) throws Exception {
         logger.accept("[Forge] Resolviendo última versión de Forge para " + mcVersion + "...");
-        
-        // 1. Obtener json de promociones
+
         byte[] promoBytes = HttpFiles.getBytes("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json");
         JsonNode promos = M.readTree(promoBytes);
-        
+
         JsonNode promosObj = promos.path("promos");
-        String forgeLatest = promosObj.path(mcVersion + "-latest").asText(null);
+        String forgeLatest = promosObj.path(mcVersion + "-recommended").asText(null);
         if (forgeLatest == null) {
-            // Intento con "recommended" si no hay latest
-            forgeLatest = promosObj.path(mcVersion + "-recommended").asText(null);
+            forgeLatest = promosObj.path(mcVersion + "-latest").asText(null);
         }
-        
+
         if (forgeLatest == null) {
-            throw new Exception("No se encontró Forge para la versión: " + mcVersion);
+            throw new Exception("No se encontró Forge para la versión: " + mcVersion + ". Prueba con NeoForge para versiones 1.20.2+.");
         }
-        
+
         String fullVersion = mcVersion + "-" + forgeLatest;
         logger.accept("[Forge] Versión elegida: " + fullVersion);
-        
-        // 2. Construir URL de descarga
+
         String jarUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/" + fullVersion + "/forge-" + fullVersion + "-installer.jar";
-        
-        // 3. Descargar temporalmente el instalador
+
         Path tempInstaller = Files.createTempFile("forge-installer-", ".jar");
         logger.accept("[Forge] Descargando instalador...");
         HttpFiles.downloadIfHashMismatch(jarUrl, tempInstaller, null);
-        
-        // 4. Asegurar que exista un launcher_profiles.json artificial porque la validación de Forge es muy estricta
+
         Path fakeProfile = launcherDir.resolve("launcher_profiles.json");
         if (!Files.exists(fakeProfile)) {
             Files.writeString(fakeProfile, "{ \"profiles\": {} }");
         }
 
-        // 5. Ejecutar el instalador en modo headless
-        logger.accept("[Forge] Inyectando Forge en el perfil. ¡Paciencia, esto puede tomar unos minutos!");
-        ProcessBuilder pb = new ProcessBuilder("java", "-jar", tempInstaller.toAbsolutePath().toString(), "--installClient", launcherDir.toAbsolutePath().toString());
+        String javaExe = resolveJavaExecutable(runtime, 17);
+        logger.accept("[Forge] Inyectando Forge. ¡Paciencia, esto puede tomar unos minutos!");
+        ProcessBuilder pb = new ProcessBuilder(javaExe, "-jar", tempInstaller.toAbsolutePath().toString(), "--installClient", launcherDir.toAbsolutePath().toString());
         pb.directory(tempInstaller.getParent().toFile());
         pb.redirectErrorStream(true);
         Process p = pb.start();
-        
+
         try (Scanner s = new Scanner(p.getInputStream())) {
             while (s.hasNextLine()) {
                 String line = s.nextLine();
-                if (line.contains("Downloading") || line.contains("Extracting") || line.contains("Successfully")) {
+                if (line.contains("Downloading") || line.contains("Extracting") || line.contains("Successfully") || line.contains("Installing")) {
                     logger.accept("[Forge-Bot] " + line);
                 } else if (line.toLowerCase().contains("error") || line.toLowerCase().contains("exception") || line.contains("Failed")) {
                     logger.accept("[Forge-Error] " + line);
@@ -66,27 +70,118 @@ public class ModloaderInstallerService {
         }
         int exitCode = p.waitFor();
         Files.deleteIfExists(tempInstaller);
-        
+
         if (exitCode != 0) {
-            throw new Exception("El instalador de Forge falló con código " + exitCode + ". Asegúrate de descargar e iniciar la versión vanilla primero.");
+            throw new Exception("El instalador de Forge falló (código " + exitCode + "). Asegúrate de instalar primero la versión vanilla y de tener acceso a internet.");
         }
-        logger.accept("[Forge] Instalación completada con éxito.");
+        logger.accept("[Forge] ✅ Instalación de Forge completada.");
     }
 
-    public static void installFabric(String mcVersion, Path launcherDir, Consumer<String> logger) throws Exception {
-        logger.accept("[Fabric] Descargando el último instalador de Fabric...");
-        
-        String jarUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"; 
-        // 1.0.1 es una versión sólida, pero idealmente resolvemos la última. Por ahora hardcodeamos el instalador que es universal.
-        
-        Path tempInstaller = Files.createTempFile("fabric-installer-", ".jar");
-        HttpFiles.downloadIfHashMismatch(jarUrl, tempInstaller, null);
-        
-        logger.accept("[Fabric] Inyectando Fabric para la versión " + mcVersion);
-        ProcessBuilder pb = new ProcessBuilder("java", "-jar", tempInstaller.toAbsolutePath().toString(), "client", "-mcversion", mcVersion, "-dir", launcherDir.toAbsolutePath().toString(), "-noprofile");
+    /**
+     * Instala NeoForge (sucesor moderno de Forge para 1.20.2+).
+     * Es el modloader recomendado para modpacks modernos como ATM9, Sky Odyssey, etc.
+     */
+    public static void installNeoForge(String mcVersion, Path launcherDir, Consumer<String> logger) throws Exception {
+        installNeoForge(mcVersion, launcherDir, logger, null);
+    }
+
+    public static void installNeoForge(String mcVersion, Path launcherDir, Consumer<String> logger, JavaRuntimeService runtime) throws Exception {
+        logger.accept("[NeoForge] Resolviendo última versión de NeoForge para Minecraft " + mcVersion + "...");
+
+        String mcVersionShort = mcVersion.startsWith("1.") ? mcVersion.substring(2) : mcVersion;
+
+        byte[] mavenMeta;
+        try {
+            mavenMeta = HttpFiles.getBytes(
+                "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml");
+        } catch (Exception e) {
+            throw new Exception("No se pudo acceder a los servidores de NeoForge. Verifica tu conexión a internet.");
+        }
+
+        String metaStr = new String(mavenMeta);
+        String[] lines = metaStr.split("\n");
+        String latestVersion = null;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("<version>") && trimmed.contains(mcVersionShort + ".")) {
+                latestVersion = trimmed.replace("<version>", "").replace("</version>", "").trim();
+            }
+        }
+
+        if (latestVersion == null) {
+            throw new Exception("No se encontró NeoForge para Minecraft " + mcVersion + ". NeoForge soporta 1.20.2 en adelante. Para versiones anteriores, usa Forge.");
+        }
+
+        logger.accept("[NeoForge] Versión seleccionada: " + latestVersion);
+
+        String installerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/" +
+                latestVersion + "/neoforge-" + latestVersion + "-installer.jar";
+
+        Path tempInstaller = Files.createTempFile("neoforge-installer-", ".jar");
+        logger.accept("[NeoForge] Descargando instalador NeoForge " + latestVersion + "...");
+        HttpFiles.downloadIfHashMismatch(installerUrl, tempInstaller, null);
+
+        Path fakeProfile = launcherDir.resolve("launcher_profiles.json");
+        if (!Files.exists(fakeProfile)) {
+            Files.writeString(fakeProfile, "{ \"profiles\": {} }");
+        }
+
+        String javaExe = resolveJavaExecutable(runtime, 21);
+        logger.accept("[NeoForge] Inyectando NeoForge. Puede tardar 2-5 minutos...");
+        ProcessBuilder pb = new ProcessBuilder(
+                javaExe, "-jar",
+                tempInstaller.toAbsolutePath().toString(),
+                "--installClient",
+                launcherDir.toAbsolutePath().toString());
+        pb.directory(tempInstaller.getParent().toFile());
         pb.redirectErrorStream(true);
         Process p = pb.start();
-        
+
+        try (Scanner s = new Scanner(p.getInputStream())) {
+            while (s.hasNextLine()) {
+                String line = s.nextLine();
+                logger.accept("[NeoForge-Bot] " + line);
+            }
+        }
+        int exitCode = p.waitFor();
+        Files.deleteIfExists(tempInstaller);
+
+        if (exitCode != 0) {
+            throw new Exception("El instalador de NeoForge falló (código " + exitCode + "). Instala primero la versión vanilla.");
+        }
+        logger.accept("[NeoForge] ✅ NeoForge instalado correctamente. Recarga la lista de versiones.");
+    }
+
+    /**
+     * Instala Fabric resolviendo dinámicamente la última versión del instalador.
+     */
+    public static void installFabric(String mcVersion, Path launcherDir, Consumer<String> logger) throws Exception {
+        installFabric(mcVersion, launcherDir, logger, null);
+    }
+
+    public static void installFabric(String mcVersion, Path launcherDir, Consumer<String> logger, JavaRuntimeService runtime) throws Exception {
+        logger.accept("[Fabric] Resolviendo última versión del instalador Fabric...");
+
+        String installerVersion = resolveLatestFabricInstaller(logger);
+        String jarUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/" +
+                installerVersion + "/fabric-installer-" + installerVersion + ".jar";
+
+        Path tempInstaller = Files.createTempFile("fabric-installer-", ".jar");
+        logger.accept("[Fabric] Descargando instalador Fabric " + installerVersion + "...");
+        HttpFiles.downloadIfHashMismatch(jarUrl, tempInstaller, null);
+
+        logger.accept("[Fabric] Inyectando Fabric para Minecraft " + mcVersion + "...");
+        String javaExe = resolveJavaExecutable(runtime, 17);
+        ProcessBuilder pb = new ProcessBuilder(
+                javaExe, "-jar",
+                tempInstaller.toAbsolutePath().toString(),
+                "client",
+                "-mcversion", mcVersion,
+                "-dir", launcherDir.toAbsolutePath().toString(),
+                "-noprofile");
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+
         try (Scanner s = new Scanner(p.getInputStream())) {
             while (s.hasNextLine()) {
                 logger.accept("[Fabric-Bot] " + s.nextLine());
@@ -94,10 +189,54 @@ public class ModloaderInstallerService {
         }
         int exitCode = p.waitFor();
         Files.deleteIfExists(tempInstaller);
-        
+
         if (exitCode != 0) {
             throw new Exception("El instalador de Fabric falló. Asegúrate de instalar la versión vanilla primero.");
         }
-        logger.accept("[Fabric] Instalación completada con éxito.");
+        logger.accept("[Fabric] ✅ Fabric instalado correctamente.");
+    }
+
+    private static String resolveLatestFabricInstaller(Consumer<String> logger) {
+        try {
+            byte[] meta = HttpFiles.getBytes(
+                "https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml");
+            String metaStr = new String(meta);
+            String[] lines = metaStr.split("\n");
+            String latest = null;
+            for (String line : lines) {
+                String t = line.trim();
+                if (t.startsWith("<latest>")) {
+                    latest = t.replace("<latest>", "").replace("</latest>", "").trim();
+                    break;
+                }
+                if (t.startsWith("<version>")) {
+                    latest = t.replace("<version>", "").replace("</version>", "").trim();
+                }
+            }
+            if (latest != null) {
+                logger.accept("[Fabric] Instalador más reciente: " + latest);
+                return latest;
+            }
+        } catch (Exception e) {
+            logger.accept("[Fabric] No se pudo resolver versión dinámica, usando 1.0.1 como fallback.");
+        }
+        return "1.0.1";
+    }
+
+    private static String resolveJavaExecutable(JavaRuntimeService runtime, int preferredVersion) {
+        if (runtime != null) {
+            java.nio.file.Path exe = runtime.getExecutable(preferredVersion);
+            if (exe != null) return exe.toAbsolutePath().toString();
+            if (preferredVersion == 21) {
+                exe = runtime.getExecutable(17);
+                if (exe != null) return exe.toAbsolutePath().toString();
+            }
+        }
+        String home = System.getProperty("java.home");
+        if (home != null) {
+            java.nio.file.Path bin = java.nio.file.Path.of(home, "bin", "java");
+            if (java.nio.file.Files.exists(bin)) return bin.toString();
+        }
+        return "java";
     }
 }

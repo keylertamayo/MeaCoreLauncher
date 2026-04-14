@@ -18,6 +18,8 @@ public final class SystemInfoService {
     private static final HardwareAbstractionLayer HAL = SI.getHardware();
     private static final OperatingSystem OS = SI.getOperatingSystem();
 
+    private static volatile HardwareInfo cachedInfo = null;
+
     public record HardwareInfo(
             String cpuName,
             int physicalCores,
@@ -30,14 +32,32 @@ public final class SystemInfoService {
     ) {}
 
     public static HardwareInfo getInfo() {
+        if (cachedInfo != null) {
+            CentralProcessor cpu = HAL.getProcessor();
+            GlobalMemory mem = HAL.getMemory();
+            return new HardwareInfo(
+                    cachedInfo.cpuName(),
+                    cachedInfo.physicalCores(),
+                    cachedInfo.logicalCores(),
+                    mem.getTotal(),
+                    mem.getAvailable(),
+                    cachedInfo.osName(),
+                    cachedInfo.diskTotalBytes(),
+                    cachedInfo.diskFreeBytes()
+            );
+        }
+        return refreshCache();
+    }
+
+    public static HardwareInfo refreshCache() {
         CentralProcessor cpu = HAL.getProcessor();
         GlobalMemory mem = HAL.getMemory();
-        
-        File root = new File("/");
+
+        File root = new File(System.getProperty("user.home"));
         long diskTotal = root.getTotalSpace();
         long diskFree = root.getFreeSpace();
 
-        return new HardwareInfo(
+        HardwareInfo info = new HardwareInfo(
                 cpu.getProcessorIdentifier().getName(),
                 cpu.getPhysicalProcessorCount(),
                 cpu.getLogicalProcessorCount(),
@@ -47,16 +67,18 @@ public final class SystemInfoService {
                 diskTotal,
                 diskFree
         );
+        cachedInfo = info;
+        return info;
     }
 
     public static void collectTelemetry(Path logPath) {
         try {
-            HardwareInfo info = getInfo();
+            HardwareInfo info = refreshCache();
             String logEntry = String.format(
-                "[%s] Telemetría de Inicio:\n- CPU: %s (%d nucleos)\n- RAM: %.2f GB / %.2f GB\n- Disco: %.2f GB Libres de %.2f GB\n- SO: %s\n- Java: %s %s\n------------------------\n",
+                "[%s] Telemetría de Inicio:\n- CPU: %s (%d núcleos físicos / %d lógicos)\n- RAM: %.2f GB total / %.2f GB disponibles\n- Disco: %.2f GB Libres de %.2f GB\n- SO: %s\n- Java: %s %s\n------------------------\n",
                 LocalDateTime.now(),
-                info.cpuName(), info.physicalCores(),
-                (info.totalRamBytes() - info.availableRamBytes()) / 1e9, info.totalRamBytes() / 1e9,
+                info.cpuName(), info.physicalCores(), info.logicalCores(),
+                info.totalRamBytes() / 1e9, info.availableRamBytes() / 1e9,
                 info.diskFreeBytes() / 1e9, info.diskTotalBytes() / 1e9,
                 info.osName(),
                 System.getProperty("java.version"), System.getProperty("java.vendor")

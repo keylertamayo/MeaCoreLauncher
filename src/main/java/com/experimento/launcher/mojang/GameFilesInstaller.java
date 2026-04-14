@@ -9,6 +9,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -16,6 +22,7 @@ public final class GameFilesInstaller {
 
     private static final ObjectMapper M = new ObjectMapper();
     private static final String RESOURCE_HOST = "https://resources.download.minecraft.net/";
+    private static final int DOWNLOAD_THREADS = 16;
 
     private final Path librariesDir;
     private final Path assetsDir;
@@ -41,44 +48,34 @@ public final class GameFilesInstaller {
         HttpFiles.downloadIfHashMismatch(
                 client.get("url").asText(), clientJar, client.get("sha1").asText());
 
-        progress.log("Descargando bibliotecas…");
+        progress.log("Descargando bibliotecas en paralelo…");
         Path nativesDir = versionRoot.resolve("natives");
         Files.createDirectories(nativesDir);
-        for (JsonNode lib : merged.get("libraries")) {
-            if (!RuleEvaluator.libraryAllowed(lib, os)) {
-                continue;
-            }
-            JsonNode downloads = lib.get("downloads");
-            boolean downloaded = false;
-            
-            if (downloads != null && downloads.has("artifact")) {
-                JsonNode art = downloads.get("artifact");
-                Path dest = librariesDir.resolve(art.get("path").asText());
-                HttpFiles.downloadIfHashMismatch(art.get("url").asText(), dest, art.get("sha1").asText());
-                downloaded = true;
-            } 
-            
-            // Fallback: Si no se descargó (no hay artifact.url), probar por nombre Maven
-            if (!downloaded && lib.has("name")) {
-                downloadMavenLibrary(lib.get("name").asText());
-            }
 
-            if (downloads != null && downloads.has("classifiers")) {
-                JsonNode cls = downloads.get("classifiers");
-                String key = pickNativeClassifier(cls);
-                if (key != null && cls.has(key)) {
-                    JsonNode nat = cls.get(key);
-                    Path zipPath = librariesDir.resolve(nat.get("path").asText());
-                    HttpFiles.downloadIfHashMismatch(nat.get("url").asText(), zipPath, nat.get("sha1").asText());
-                    extractNatives(zipPath, nativesDir);
-                }
-            } else if (lib.has("name") && lib.get("name").asText().contains("text2speech")) {
-                // Fix para el Narrador en Linux: text2speech no tiene classifier pero contiene .so
-                JsonNode art = downloads.get("artifact");
-                Path jarPath = librariesDir.resolve(art.get("path").asText());
-                if (Files.exists(jarPath)) extractNatives(jarPath, nativesDir);
+        List<JsonNode> libraries = new ArrayList<>();
+        for (JsonNode lib : merged.get("libraries")) {
+            if (RuleEvaluator.libraryAllowed(lib, os)) {
+                libraries.add(lib);
             }
         }
+
+        List<Future<?>> libFutures = new ArrayList<>();
+        try (ExecutorService libPool = Executors.newFixedThreadPool(Math.min(DOWNLOAD_THREADS, libraries.size() + 1))) {
+            for (JsonNode lib : libraries) {
+                libFutures.add(libPool.submit(() -> {
+                    try {
+                        downloadLibrary(lib, nativesDir, progress);
+                    } catch (Exception e) {
+                        progress.log("[WARN] Librería omitida: " + e.getMessage());
+                    }
+                    return null;
+                }));
+            }
+            for (Future<?> f : libFutures) {
+                f.get();
+            }
+        }
+
         progress.log("Descargando índice de assets…");
         JsonNode assetIndex = merged.get("assetIndex");
         Path indexesDir = assetsDir.resolve("indexes");
@@ -89,10 +86,9 @@ public final class GameFilesInstaller {
 
         JsonNode indexJson = M.readTree(Files.readAllBytes(indexFile));
         JsonNode objects = indexJson.get("objects");
-        
-        // Ghosting: Eliminar idiomas no deseados del índice para que Minecraft ni los vea
+
         if (objects instanceof com.fasterxml.jackson.databind.node.ObjectNode objNode) {
-            java.util.List<String> toRemove = new java.util.ArrayList<>();
+            List<String> toRemove = new ArrayList<>();
             objNode.fieldNames().forEachRemaining(key -> {
                 if (key.startsWith("minecraft/lang/")) {
                     boolean keep = key.contains("/en_us") || key.contains("/en_gb")
@@ -109,19 +105,19 @@ public final class GameFilesInstaller {
         }
 
         int total = objects.size();
-        java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
-        progress.log("Sincronizando assets (" + total + " objetos)…");
+        AtomicInteger done = new AtomicInteger();
+        progress.log("Sincronizando assets (" + total + " objetos) con " + DOWNLOAD_THREADS + " hilos…");
 
         Path objectsDir = assetsDir.resolve("objects");
         Files.createDirectories(objectsDir);
-        java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
-        try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+        List<Future<?>> assetFutures = new ArrayList<>();
+        try (ExecutorService pool = Executors.newFixedThreadPool(DOWNLOAD_THREADS)) {
             objects.fields().forEachRemaining(e -> {
                 JsonNode h = e.getValue();
                 String hash = h.get("hash").asText();
                 String prefix = hash.substring(0, 2);
                 Path dest = objectsDir.resolve(prefix).resolve(hash);
-                futures.add(pool.submit(() -> {
+                assetFutures.add(pool.submit(() -> {
                     try {
                         if (Files.exists(dest)) {
                             try (InputStream in = Files.newInputStream(dest)) {
@@ -142,18 +138,11 @@ public final class GameFilesInstaller {
                     }
                 }));
             });
-            for (java.util.concurrent.Future<?> f : futures) {
+            for (Future<?> f : assetFutures) {
                 f.get();
             }
         } catch (Exception e) {
             progress.log("[ERROR] Error en descarga de assets: " + e.getMessage());
-        }
-
-        // Deep Clean: Borrar idiomas no filtrados que ya existen
-        try {
-            cleanupUnneededAssets(objects, progress);
-        } catch (Exception e) {
-            progress.log("[ADVERTENCIA] No se pudo completar la limpieza profunda: " + e.getMessage());
         }
 
         progress.log("Descargando configuración de logging…");
@@ -168,27 +157,45 @@ public final class GameFilesInstaller {
         return merged;
     }
 
-    private void cleanupUnneededAssets(JsonNode objects, ProgressSink progress) throws IOException {
-        Path objectsDir = assetsDir.resolve("objects");
-        if (!Files.exists(objectsDir)) return;
+    private void downloadLibrary(JsonNode lib, Path nativesDir, ProgressSink progress) throws Exception {
+        JsonNode downloads = lib.get("downloads");
+        boolean downloaded = false;
 
-        objects.fields().forEachRemaining(e -> {
-            String key = e.getKey();
-            if (key.startsWith("minecraft/lang/")) {
-                boolean keep = key.contains("/en_us") || key.contains("/en_gb")
-                           || key.contains("/es_ar") || key.contains("/es_cl")
-                           || key.contains("/es_ec") || key.contains("/es_es")
-                           || key.contains("/es_mx") || key.contains("/es_uy")
-                           || key.contains("/es_ve");
-                if (!keep) {
-                    String hash = e.getValue().get("hash").asText();
-                    Path file = objectsDir.resolve(hash.substring(0, 2)).resolve(hash);
-                    try {
-                        if (Files.exists(file)) Files.delete(file);
-                    } catch (IOException ignored) {}
+        if (downloads != null && downloads.has("artifact")) {
+            JsonNode art = downloads.get("artifact");
+            Path dest = librariesDir.resolve(art.get("path").asText());
+            HttpFiles.downloadIfHashMismatch(art.get("url").asText(), dest, art.get("sha1").asText());
+            downloaded = true;
+        }
+
+        if (!downloaded && lib.has("name")) {
+            downloadMavenLibrary(lib.get("name").asText());
+        }
+
+        if (downloads != null && downloads.has("classifiers")) {
+            JsonNode cls = downloads.get("classifiers");
+            String key = pickNativeClassifier(cls);
+            if (key != null && cls.has(key)) {
+                JsonNode nat = cls.get(key);
+                Path zipPath = librariesDir.resolve(nat.get("path").asText());
+                HttpFiles.downloadIfHashMismatch(nat.get("url").asText(), zipPath, nat.get("sha1").asText());
+                synchronized (nativesDir) {
+                    extractNatives(zipPath, nativesDir);
                 }
             }
-        });
+        } else if (lib.has("name") && lib.get("name").asText().contains("text2speech")) {
+            if (downloads != null) {
+                JsonNode art = downloads.get("artifact");
+                if (art != null) {
+                    Path jarPath = librariesDir.resolve(art.get("path").asText());
+                    if (Files.exists(jarPath)) {
+                        synchronized (nativesDir) {
+                            extractNatives(jarPath, nativesDir);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void downloadMavenLibrary(String name) {
@@ -199,6 +206,7 @@ public final class GameFilesInstaller {
         String[] mirrors = {
             "https://libraries.minecraft.net/",
             "https://maven.minecraftforge.net/",
+            "https://maven.neoforged.net/releases/",
             "https://repo1.maven.org/maven2/"
         };
 
@@ -223,12 +231,8 @@ public final class GameFilesInstaller {
 
     private String pickNativeClassifier(JsonNode classifiers) {
         String primary = os.nativeClassifier();
-        if (classifiers.has(primary)) {
-            return primary;
-        }
-        if ("osx".equals(os.name()) && classifiers.has("natives-macos")) {
-            return "natives-macos";
-        }
+        if (classifiers.has(primary)) return primary;
+        if ("osx".equals(os.name()) && classifiers.has("natives-macos")) return "natives-macos";
         return null;
     }
 
@@ -236,16 +240,10 @@ public final class GameFilesInstaller {
         try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry e;
             while ((e = zin.getNextEntry()) != null) {
-                if (e.isDirectory()) {
-                    continue;
-                }
+                if (e.isDirectory()) continue;
                 String name = e.getName();
-                if (name.endsWith(".gitignore") || name.endsWith(".sha1")) {
-                    continue;
-                }
-                if (name.contains("META-INF")) {
-                    continue;
-                }
+                if (name.endsWith(".gitignore") || name.endsWith(".sha1")) continue;
+                if (name.contains("META-INF")) continue;
                 if (name.endsWith(".so") || name.endsWith(".dll") || name.endsWith(".dylib")) {
                     Path out = nativesDir.resolve(name.contains("/") ? name.substring(name.lastIndexOf('/') + 1) : name);
                     Files.createDirectories(out.getParent());

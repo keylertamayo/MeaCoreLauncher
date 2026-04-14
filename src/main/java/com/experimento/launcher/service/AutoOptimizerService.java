@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Writes performance-oriented {@code options.txt} keys (1.19+ style numeric enums). Safe to run before launch.
+ * Writes performance-oriented {@code options.txt} keys. Safe to run before launch.
  */
 public final class AutoOptimizerService {
 
@@ -22,9 +22,7 @@ public final class AutoOptimizerService {
         Map<String, String> existing = new LinkedHashMap<>();
         if (Files.isRegularFile(opt)) {
             for (String line : Files.readAllLines(opt)) {
-                if (line.isBlank() || line.startsWith("#")) {
-                    continue;
-                }
+                if (line.isBlank() || line.startsWith("#")) continue;
                 int i = line.indexOf(':');
                 if (i > 0) {
                     existing.put(line.substring(0, i), line.substring(i + 1));
@@ -43,18 +41,29 @@ public final class AutoOptimizerService {
                 };
         existing.putAll(patch);
         String body =
-                existing.entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining("\n"))
+                existing.entrySet().stream()
+                        .map(e -> e.getKey() + ":" + e.getValue())
+                        .collect(Collectors.joining("\n"))
                         + "\n";
         Files.writeString(opt, body);
     }
 
     private static Map<String, String> lowOptions() {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("renderDistance", "6");
-        m.put("simulationDistance", "6");
-        m.put("graphicsMode", "1"); // fast
+        m.put("renderDistance", "5");
+        m.put("simulationDistance", "5");
+        m.put("graphicsMode", "1");
         m.put("ao", "0");
-        m.put("particles", "2"); // minimal
+        m.put("particles", "2");
+        m.put("entityDistanceMul", "0.5");
+        m.put("maxFps", "60");
+        m.put("mipmapLevels", "2");
+        m.put("biomeBlendRadius", "1");
+        m.put("glDebugVerbosity", "0");
+        m.put("useNativeTransport", "true");
+        m.put("skipMultiplayerWarning", "true");
+        m.put("reducedDebugInfo", "false");
+        m.put("enableVsync", "false");
         return m;
     }
 
@@ -62,9 +71,17 @@ public final class AutoOptimizerService {
         Map<String, String> m = new LinkedHashMap<>();
         m.put("renderDistance", "10");
         m.put("simulationDistance", "8");
-        m.put("graphicsMode", "0"); // fancy
+        m.put("graphicsMode", "0");
         m.put("ao", "1");
         m.put("particles", "0");
+        m.put("entityDistanceMul", "0.75");
+        m.put("maxFps", "120");
+        m.put("mipmapLevels", "4");
+        m.put("biomeBlendRadius", "3");
+        m.put("glDebugVerbosity", "0");
+        m.put("useNativeTransport", "true");
+        m.put("skipMultiplayerWarning", "true");
+        m.put("enableVsync", "false");
         return m;
     }
 
@@ -75,6 +92,14 @@ public final class AutoOptimizerService {
         m.put("graphicsMode", "0");
         m.put("ao", "2");
         m.put("particles", "0");
+        m.put("entityDistanceMul", "1.0");
+        m.put("maxFps", "260");
+        m.put("mipmapLevels", "4");
+        m.put("biomeBlendRadius", "5");
+        m.put("glDebugVerbosity", "0");
+        m.put("useNativeTransport", "true");
+        m.put("skipMultiplayerWarning", "true");
+        m.put("enableVsync", "false");
         return m;
     }
 

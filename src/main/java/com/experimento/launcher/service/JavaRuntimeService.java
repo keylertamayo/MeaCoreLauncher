@@ -13,10 +13,14 @@ import java.util.zip.ZipInputStream;
 
 /**
  * Gestiona los entornos de ejecución de Java (JRE) portátiles.
+ * Soporta Java 8, 17 y 21.
  */
 public final class JavaRuntimeService {
 
-    private static final String ADOPTIUM_API_TEMPLATE = "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse?project=jdk";
+    private static final String ADOPTIUM_API_TEMPLATE =
+            "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse?project=jdk";
+    private static final int DOWNLOAD_BUFFER_SIZE = 65536;
+
     private final Path runtimeDir;
     private final OsContext os = OsContext.current();
 
@@ -27,7 +31,7 @@ public final class JavaRuntimeService {
     public Path getExecutable(int version) {
         Path vDir = runtimeDir.resolve("java" + version);
         if (!Files.exists(vDir)) return null;
-        
+
         String exeName = os.javaExecutableName();
         try (var stream = Files.walk(vDir)) {
             return stream
@@ -44,9 +48,13 @@ public final class JavaRuntimeService {
     public Path getJava8Executable() {
         return getExecutable(8);
     }
-    
+
     public Path getJava17Executable() {
         return getExecutable(17);
+    }
+
+    public Path getJava21Executable() {
+        return getExecutable(21);
     }
 
     public void downloadJavaAsync(int version, Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
@@ -56,7 +64,7 @@ public final class JavaRuntimeService {
                 String ext = os.archiveExtension();
                 Path archiveFile = runtimeDir.resolve("java" + version + ext);
                 Path extractDir = runtimeDir.resolve("java" + version);
-                
+
                 if (Files.exists(extractDir)) {
                     deleteDirectory(extractDir);
                 }
@@ -70,11 +78,14 @@ public final class JavaRuntimeService {
                     extractZip(archiveFile, extractDir);
                     success = true;
                 } else {
-                    ProcessBuilder pb = new ProcessBuilder("tar", "-xzf", archiveFile.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
+                    ProcessBuilder pb = new ProcessBuilder(
+                            "tar", "-xzf",
+                            archiveFile.toAbsolutePath().toString(),
+                            "-C", extractDir.toAbsolutePath().toString());
                     Process p = pb.start();
                     success = p.waitFor() == 0;
                 }
-                
+
                 Files.deleteIfExists(archiveFile);
 
                 if (success) {
@@ -117,20 +128,33 @@ public final class JavaRuntimeService {
     }
 
     private void downloadWithProgress(String url, Path dest, Consumer<Double> progress) throws Exception {
-        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).build();
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .build();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(java.time.Duration.ofMinutes(10))
+                .build();
         HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
         long total = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
-        try (InputStream is = response.body();
-             OutputStream os = Files.newOutputStream(dest)) {
-            byte[] buf = new byte[8192];
-            long read = 0;
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                os.write(buf, 0, n);
-                read += n;
-                if (total > 0) progress.accept((double) read / total);
+        int retries = 3;
+        while (retries > 0) {
+            try (InputStream is = response.body();
+                 OutputStream os2 = Files.newOutputStream(dest)) {
+                byte[] buf = new byte[DOWNLOAD_BUFFER_SIZE];
+                long read = 0;
+                int n;
+                while ((n = is.read(buf)) != -1) {
+                    os2.write(buf, 0, n);
+                    read += n;
+                    if (total > 0) progress.accept((double) read / total);
+                }
+                return;
+            } catch (IOException e) {
+                retries--;
+                if (retries == 0) throw e;
+                Thread.sleep(1000);
             }
         }
     }
@@ -143,4 +167,3 @@ public final class JavaRuntimeService {
         }
     }
 }
-

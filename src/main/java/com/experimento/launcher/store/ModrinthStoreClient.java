@@ -44,7 +44,7 @@ public class ModrinthStoreClient {
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("User-Agent", "MeaCore-Launcher/1.2.2")
+                    .header("User-Agent", "MeaCore-Launcher/" + com.experimento.launcher.LauncherMetadata.VERSION + " (meacore.launcher)")
                     .GET()
                     .build();
 
@@ -91,7 +91,7 @@ public class ModrinthStoreClient {
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(urlBuilder.toString()))
-                    .header("User-Agent", "MeaCore-Launcher/1.2.2")
+                    .header("User-Agent", "MeaCore-Launcher/" + com.experimento.launcher.LauncherMetadata.VERSION + " (meacore.launcher)")
                     .GET()
                     .build();
 

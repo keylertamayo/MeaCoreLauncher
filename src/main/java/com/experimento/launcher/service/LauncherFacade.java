@@ -131,10 +131,14 @@ public final class LauncherFacade {
         // Detección inteligente de la versión de Java requerida
         if (effectiveJava == null || effectiveJava.isBlank()) {
             int requiredVer = getRequiredJavaVersion(merged, versionId);
-            if (requiredVer == 8 || requiredVer == 17) {
+            if (requiredVer == 8 || requiredVer == 17 || requiredVer == 21) {
                 Path portable = runtimeService.getExecutable(requiredVer);
                 if (portable != null) {
                     effectiveJava = portable.toAbsolutePath().toString();
+                } else if (requiredVer == 21) {
+                    // Fallback a Java 17 si no hay Java 21 portátil
+                    portable = runtimeService.getExecutable(17);
+                    if (portable != null) effectiveJava = portable.toAbsolutePath().toString();
                 }
             }
         }
@@ -229,20 +233,31 @@ public final class LauncherFacade {
 
     private int getRequiredJavaVersion(JsonNode merged, String versionId) {
         if (merged.has("javaVersion")) {
-            return merged.get("javaVersion").path("majorVersion").asInt(0);
+            int major = merged.get("javaVersion").path("majorVersion").asInt(0);
+            if (major > 0) return major;
         }
-        
+
         String mainClass = merged.path("mainClass").asText("").toLowerCase();
         if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || versionId.contains("1.12.2")) {
             return 8;
         }
 
-        // Fallback para versiones que requieren Java 17 por compatibilidad de mods (1.17 - 1.20.4)
-        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19") || versionId.contains("1.20.1") || versionId.contains("1.20.2") || versionId.contains("1.20.4")) {
+        // Java 21 para 1.20.5+ (NeoForge/Fabric modernos lo requieren)
+        if (versionId.matches("1\\.2[1-9].*") || versionId.matches("1\\.[3-9]\\d.*")) {
+            return 21;
+        }
+        if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {
+            return 21;
+        }
+
+        // Java 17 para 1.17 - 1.20.4
+        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19")
+                || versionId.contains("1.20.1") || versionId.contains("1.20.2")
+                || versionId.contains("1.20.3") || versionId.contains("1.20.4")) {
             return 17;
         }
-        
-        return 0; // Usar el del sistema
+
+        return 0;
     }
 
     public Process startGame(LauncherProfile p, long ramMiB, Consumer<String> log) throws Exception {

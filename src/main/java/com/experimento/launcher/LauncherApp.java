@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
+import java.util.Optional;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -431,17 +432,92 @@ public class LauncherApp extends Application {
     }
 
     private VBox createModdingView() {
-        Button installModloaderBtn = new Button("✨ Inyectar Forge / Fabric");
-        installModloaderBtn.setStyle("-fx-font-size: 16px; -fx-padding: 10 20;");
+        Button installModloaderBtn = new Button("✨ Inyectar Forge / Fabric / NeoForge");
+        installModloaderBtn.setStyle("-fx-font-size: 15px; -fx-padding: 10 20; -fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold;");
         installModloaderBtn.setOnAction(e -> handleInstallModloader());
-        
-        VBox modding = new VBox(20, 
-            new Label("Gestión de Modloaders"),
-            new Label("Desde aquí puedes inyectar automáticamente Forge o Fabric en tu versión de Minecraft."),
-            installModloaderBtn
-        );
-        modding.setAlignment(Pos.TOP_CENTER);
-        return modding;
+
+        Label perfTitle = new Label("⚡ Mods de Rendimiento (GRATIS)");
+        perfTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+
+        Label perfDesc = new Label(
+            "Instala automáticamente Sodium, Lithium, FerriteCore e ImmediatelyFast.\n" +
+            "Estos mods son 100% gratuitos y pueden subir los FPS de 30 a 60+ en modpacks pesados.\n" +
+            "Requiere que el perfil use Fabric o Forge.");
+        perfDesc.setWrapText(true);
+        perfDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+
+        Button perfModsBtn = new Button("🚀 Instalar Mods de Rendimiento");
+        perfModsBtn.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;");
+        perfModsBtn.setOnAction(e -> handleInstallPerformanceMods(perfModsBtn));
+
+        Label modloaderTitle = new Label("🔧 Gestión de Modloaders");
+        modloaderTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        Label modloaderDesc = new Label("Inyecta Forge, Fabric o NeoForge automáticamente sin salir del launcher.");
+        modloaderDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+
+        VBox perfCard = new VBox(10, perfTitle, perfDesc, perfModsBtn);
+        perfCard.getStyleClass().add("mc-card");
+
+        VBox loaderCard = new VBox(10, modloaderTitle, modloaderDesc, installModloaderBtn);
+        loaderCard.getStyleClass().add("mc-card");
+
+        VBox modding = new VBox(20, loaderCard, perfCard);
+        modding.setAlignment(Pos.TOP_LEFT);
+
+        ScrollPane scroll = new ScrollPane(modding);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
+
+        VBox wrapper = new VBox(scroll);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+        return wrapper;
+    }
+
+    private void handleInstallPerformanceMods(Button btn) {
+        if (selected == null) {
+            log("[PERF] Selecciona un perfil primero.");
+            return;
+        }
+        String version = selected.lastVersionId;
+        if (version == null || version.isBlank()) {
+            log("[PERF] El perfil no tiene versión configurada.");
+            return;
+        }
+        String loader = detectLoaderFromVersion(version);
+        if (!PerformanceModsService.isSupported(loader)) {
+            log("[PERF] Este perfil usa una versión vanilla. Instala Fabric o Forge primero para usar los mods de rendimiento.");
+            return;
+        }
+        btn.setDisable(true);
+        btn.setText("Instalando...");
+        Path modsDir = facade.gameDirFor(selected).resolve("mods");
+        workers.submit(() -> {
+            try {
+                PerformanceModsService.installPerformanceMods(
+                    modsDir, version, loader,
+                    msg -> Platform.runLater(() -> log(msg)));
+                Platform.runLater(() -> {
+                    btn.setDisable(false);
+                    btn.setText("✅ Mods instalados");
+                    showView("Log");
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    btn.setDisable(false);
+                    btn.setText("🚀 Instalar Mods de Rendimiento");
+                    log("[PERF] Error: " + e.getMessage());
+                });
+            }
+        });
+    }
+
+    private String detectLoaderFromVersion(String versionId) {
+        if (versionId == null) return "vanilla";
+        String v = versionId.toLowerCase();
+        if (v.contains("fabric")) return "fabric";
+        if (v.contains("neoforge")) return "neoforge";
+        if (v.contains("forge")) return "forge";
+        return "vanilla";
     }
 
     private VBox createStoreView() {
@@ -929,13 +1005,13 @@ public class LauncherApp extends Application {
         modloaderOverlay.setVisible(true);
     }
 
-    /** Construye el overlay de selección de Forge/Fabric. */
+    /** Construye el overlay de selección de Forge/Fabric/NeoForge. */
     private StackPane buildModloaderOverlay() {
         StackPane dim = new StackPane();
         dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
 
         VBox card = new VBox(16);
-        card.setMaxWidth(460);
+        card.setMaxWidth(520);
         card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
                 + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
@@ -947,36 +1023,39 @@ public class LauncherApp extends Application {
         modloaderMcLabel = new Label();
         modloaderMcLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
 
-        Label hint = new Label("Elige el motor de mods a instalar. Se descargará automáticamente:");
+        Label hint = new Label("Elige el motor de mods. Se descargará e inyectará automáticamente:");
         hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
         hint.setWrapText(true);
 
         Button forgeBtn = new Button("⚙ Forge");
-        forgeBtn.setPrefWidth(180);
-        forgeBtn.setStyle("-fx-background-color: #b07833; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
-        forgeBtn.setOnAction(e -> {
-            modloaderOverlay.setVisible(false);
-            executeInstallModloader("Forge");
-        });
+        forgeBtn.setPrefWidth(150);
+        forgeBtn.setStyle("-fx-background-color: #b07833; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
+        forgeBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("Forge"); });
+
+        Button neoforgeBtn = new Button("🔥 NeoForge");
+        neoforgeBtn.setPrefWidth(150);
+        neoforgeBtn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
+        neoforgeBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("NeoForge"); });
 
         Button fabricBtn = new Button("🪡 Fabric");
-        fabricBtn.setPrefWidth(180);
-        fabricBtn.setStyle("-fx-background-color: #4a7c40; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
-        fabricBtn.setOnAction(e -> {
-            modloaderOverlay.setVisible(false);
-            executeInstallModloader("Fabric");
-        });
+        fabricBtn.setPrefWidth(150);
+        fabricBtn.setStyle("-fx-background-color: #4a7c40; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
+        fabricBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("Fabric"); });
+
+        Label forgeNote = new Label("Forge: 1.12.2–1.20.1 | NeoForge: 1.20.2+ (recomendado) | Fabric: todas las versiones");
+        forgeNote.setStyle("-fx-text-fill: #666666; -fx-font-size: 11px;");
+        forgeNote.setWrapText(true);
 
         Button cancelBtn = new Button("Cancelar");
         cancelBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 8 16;");
         cancelBtn.setOnAction(e -> modloaderOverlay.setVisible(false));
 
-        HBox loaderBtns = new HBox(12, forgeBtn, fabricBtn);
+        HBox loaderBtns = new HBox(10, forgeBtn, neoforgeBtn, fabricBtn);
         loaderBtns.setAlignment(Pos.CENTER);
         HBox cancelRow = new HBox(cancelBtn);
         cancelRow.setAlignment(Pos.CENTER_RIGHT);
 
-        card.getChildren().addAll(titleLbl, modloaderMcLabel, hint, new Separator(), loaderBtns, cancelRow);
+        card.getChildren().addAll(titleLbl, modloaderMcLabel, hint, new Separator(), loaderBtns, forgeNote, cancelRow);
         dim.getChildren().add(card);
         return dim;
     }
@@ -986,20 +1065,27 @@ public class LauncherApp extends Application {
         if (selected == null) return;
         String mcVersion = selected.lastVersionId;
         Path baseDir = facade.directories().launcherData();
-        log("Iniciando instalación automática de " + choice + " para " + mcVersion + "...");
+        log("Iniciando instalación automática de " + choice + " para Minecraft " + mcVersion + "...");
+        showView("Log");
         workers.submit(() -> {
             try {
+                var runtime = facade.runtime();
                 if ("Forge".equals(choice)) {
-                    ModloaderInstallerService.installForge(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                    ModloaderInstallerService.installForge(mcVersion, baseDir,
+                        msg -> Platform.runLater(() -> log(msg)), runtime);
+                } else if ("NeoForge".equals(choice)) {
+                    ModloaderInstallerService.installNeoForge(mcVersion, baseDir,
+                        msg -> Platform.runLater(() -> log(msg)), runtime);
                 } else if ("Fabric".equals(choice)) {
-                    ModloaderInstallerService.installFabric(mcVersion, baseDir, msg -> Platform.runLater(() -> log(msg)));
+                    ModloaderInstallerService.installFabric(mcVersion, baseDir,
+                        msg -> Platform.runLater(() -> log(msg)), runtime);
                 }
                 Platform.runLater(() -> {
-                    log("¡Terminado! Actualizando lista de versiones...");
+                    log("✅ ¡" + choice + " instalado! Actualizando lista de versiones...");
                     loadVersionManifestAsync();
                 });
             } catch (Exception ex) {
-                Platform.runLater(() -> log("[CRITICAL] Falló la instalación: " + ex.getMessage()));
+                Platform.runLater(() -> log("[CRITICAL] Falló la instalación de " + choice + ": " + ex.getMessage()));
             }
         });
     }
@@ -1024,12 +1110,16 @@ public class LauncherApp extends Application {
                     Platform.runLater(() -> log("[STORE] Inyectando " + loader + "..."));
                     Path baseDir = facade.directories().launcherData();
                     
+                    var runtime = facade.runtime();
                     if (loader.equalsIgnoreCase("forge")) {
-                        ModloaderInstallerService.installForge(mcVer, baseDir, s -> Platform.runLater(() -> log("[AUTO-FORGE] " + s)));
-                        // Intentar adivinar el nombre del perfil forge (suele ser forge-1.12.2-...)
-                        // Como es asíncrono y complejo, recargamos y buscamos
+                        ModloaderInstallerService.installForge(mcVer, baseDir,
+                            s -> Platform.runLater(() -> log("[AUTO-FORGE] " + s)), runtime);
+                    } else if (loader.equalsIgnoreCase("neoforge")) {
+                        ModloaderInstallerService.installNeoForge(mcVer, baseDir,
+                            s -> Platform.runLater(() -> log("[AUTO-NEOFORGE] " + s)), runtime);
                     } else if (loader.equalsIgnoreCase("fabric")) {
-                        ModloaderInstallerService.installFabric(mcVer, baseDir, s -> Platform.runLater(() -> log("[AUTO-FABRIC] " + s)));
+                        ModloaderInstallerService.installFabric(mcVer, baseDir,
+                            s -> Platform.runLater(() -> log("[AUTO-FABRIC] " + s)), runtime);
                     }
 
                     // Recargar manifiesto para encontrar el nuevo ID
@@ -1213,27 +1303,40 @@ public class LauncherApp extends Application {
         Label title = new Label("☕ Motor Java Requerido");
         title.setStyle("-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;");
 
-        javaStatus = new Label("Detectamos que esta versión de Minecraft necesita Java 8.");
+        javaStatus = new Label("Detectamos que esta versión de Minecraft necesita Java.");
         javaStatus.setWrapText(true);
         javaStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 14px;");
+
+        Label javaInfoLabel = new Label(
+            "Java 8: Minecraft 1.8–1.16  |  Java 17: Minecraft 1.17–1.20.4  |  Java 21: Minecraft 1.20.5+");
+        javaInfoLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+        javaInfoLabel.setWrapText(true);
 
         javaProgress = new ProgressBar(0);
         javaProgress.setMaxWidth(Double.MAX_VALUE);
         javaProgress.setStyle("-fx-accent: #0E639C;");
 
-        Button downloadBtn = new Button("Descargar Java Portátil (Recomendado)");
+        Button downloadBtn = new Button("✅ Descargar Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : "Recomendado") + " Portátil");
         downloadBtn.getStyleClass().add("button-primary");
         downloadBtn.setPrefWidth(300);
         downloadBtn.setOnAction(e -> {
             javaDownloadOverlay.setVisible(false);
-            runTask(createJavaDownloadTask(detectedJavaVersion));
+            runTask(createJavaDownloadTask(detectedJavaVersion > 0 ? detectedJavaVersion : 17));
+        });
+
+        Button download21Btn = new Button("⚡ Descargar Java 21 (NeoForge / Modpacks modernos)");
+        download21Btn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 12;");
+        download21Btn.setPrefWidth(300);
+        download21Btn.setOnAction(e -> {
+            javaDownloadOverlay.setVisible(false);
+            runTask(createJavaDownloadTask(21));
         });
 
         Button closeBtn = new Button("Cancelar");
         closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888;");
         closeBtn.setOnAction(e -> javaDownloadOverlay.setVisible(false));
 
-        card.getChildren().addAll(title, javaStatus, javaProgress, downloadBtn, closeBtn);
+        card.getChildren().addAll(title, javaStatus, javaInfoLabel, javaProgress, downloadBtn, download21Btn, closeBtn);
         dim.getChildren().add(card);
         return dim;
     }
@@ -1253,6 +1356,25 @@ public class LauncherApp extends Application {
                 return null;
             }
         };
+    }
+
+    private void showCrashAlert(CrashReportService.CrashAnalysis analysis) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+            javafx.scene.control.Alert.AlertType.ERROR);
+        alert.setTitle("💥 Minecraft se cerró inesperadamente");
+        alert.setHeaderText("🔴 " + analysis.title());
+        alert.setContentText("Causa: " + analysis.cause() + "\n\n💡 Solución sugerida:\n" + analysis.suggestion());
+        alert.getDialogPane().setPrefWidth(600);
+        alert.getDialogPane().setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+
+        javafx.scene.control.ButtonType viewLog = new javafx.scene.control.ButtonType("Ver Consola");
+        alert.getButtonTypes().add(viewLog);
+
+        alert.showAndWait().ifPresent(btn -> {
+            if (btn == viewLog) {
+                showView("Log");
+            }
+        });
     }
 
     private void saveProfiles() {
@@ -1309,11 +1431,34 @@ public class LauncherApp extends Application {
                     log("Instancia [" + selected.displayName + "] iniciada.");
                 });
                 
-                proc.onExit().thenAccept(p -> Platform.runLater(() -> {
-                    activeProcesses.remove(pId);
-                    if (runningState.containsKey(pId)) runningState.get(pId).set(false);
-                    log("Instancia [" + pId + "] cerrada.");
-                }));
+                final String vcopy = selected.lastVersionId;
+                proc.onExit().thenAccept(p -> {
+                    int exitCode = p.exitValue();
+                    Platform.runLater(() -> {
+                        activeProcesses.remove(pId);
+                        if (runningState.containsKey(pId)) runningState.get(pId).set(false);
+                        if (exitCode == 0) {
+                            log("Instancia [" + pId + "] cerrada correctamente.");
+                        } else {
+                            log("⚠ Instancia [" + pId + "] cerrada con código " + exitCode + ". Buscando crash report...");
+                        }
+                    });
+                    if (exitCode != 0) {
+                        Path gameDir = facade.gameDirFor(selected);
+                        Optional<Path> crashReport = CrashReportService.findLatestCrashReport(gameDir);
+                        crashReport.ifPresent(report -> {
+                            CrashReportService.CrashAnalysis analysis = CrashReportService.analyze(report);
+                            Platform.runLater(() -> {
+                                log("╔═══════════════════════════════════════════════════════════");
+                                log("║ 🔴 CRASH DETECTADO: " + analysis.title());
+                                log("║ Causa: " + analysis.cause());
+                                log("║ Solución: " + analysis.suggestion());
+                                log("╚═══════════════════════════════════════════════════════════");
+                                showCrashAlert(analysis);
+                            });
+                        });
+                    }
+                });
 
                 return null;
             }

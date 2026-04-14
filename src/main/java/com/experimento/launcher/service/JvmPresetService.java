@@ -28,20 +28,17 @@ public final class JvmPresetService {
                     case LOW -> lowPreset();
                     case BALANCED -> balancedPreset(totalRamMiB);
                     case HIGH -> highPreset(totalRamMiB);
-                    case AUTO -> lowPreset(); // resolved above; kept for exhaustiveness
+                    case AUTO -> lowPreset();
                 };
         List<String> out = new ArrayList<>(base);
         if (p.customJvmArgs != null && !p.customJvmArgs.isBlank()) {
             String custom = p.customJvmArgs.trim();
 
-            // 1. Evitar 'Multiple garbage collectors selected'
-            // Si el usuario ya definió un GC, quitamos el del preset automático
-            if (custom.contains("-XX:+UseG1GC") || custom.contains("-XX:+UseZGC") || 
+            if (custom.contains("-XX:+UseG1GC") || custom.contains("-XX:+UseZGC") ||
                 custom.contains("-XX:+UseShenandoahGC") || custom.contains("-XX:+UseParallelGC")) {
                 out.removeIf(arg -> arg.contains("-XX:+UseG1GC") || arg.contains("-XX:+UseZGC"));
             }
 
-            // 2. Si el usuario define memoria manual, quitamos la automática
             if (custom.contains("-Xmx")) {
                 out.removeIf(arg -> arg.startsWith("-Xmx"));
             }
@@ -54,34 +51,45 @@ public final class JvmPresetService {
         return out;
     }
 
-    /** Plan LOW: avoid Xms=Xmx on 4GB-class machines. */
     public static List<String> lowPreset() {
         return List.of(
                 "-Xms512M",
                 "-Xmx2G",
-                "-XX:+UnlockExperimentalVMOptions", // Debe preceder a todos los flags experimentales
+                "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=35", // Más suave para reducir el stuttering en F3
-                "-XX:G1NewSizePercent=25",
-                "-XX:G1MaxNewSizePercent=35",
-                "-XX:+UseStringDeduplication");
+                "-XX:MaxGCPauseMillis=35",
+                "-XX:G1NewSizePercent=20",
+                "-XX:G1MaxNewSizePercent=30",
+                "-XX:G1HeapRegionSize=8M",
+                "-XX:+UseStringDeduplication",
+                "-XX:+ParallelRefProcEnabled",
+                "-XX:+DisableExplicitGC",
+                "-XX:+PerfDisableSharedMem",
+                "-Dlog4j2.formatMsgNoLookups=true",
+                "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Dfile.encoding=UTF-8");
     }
 
     public static List<String> balancedPreset(long totalRamMiB) {
-        String mx = totalRamMiB >= 12 * 1024 ? "4G" : (totalRamMiB >= 8 * 1024 ? "3G" : "2G");
+        String mx;
+        if (totalRamMiB >= 16 * 1024L) mx = "6G";
+        else if (totalRamMiB >= 12 * 1024L) mx = "5G";
+        else if (totalRamMiB >= 8 * 1024L) mx = "4G";
+        else mx = "3G";
+
         return List.of(
                 "-Xms2G",
                 "-Xmx" + mx,
-                "-XX:+UnlockExperimentalVMOptions", // Debe preceder a todos los flags experimentales
+                "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseG1GC",
-                "-XX:+UseStringDeduplication", // Ahorro de RAM
+                "-XX:+UseStringDeduplication",
                 "-XX:+ParallelRefProcEnabled",
-                "-XX:MaxGCPauseMillis=20", // Target 60 FPS
+                "-XX:MaxGCPauseMillis=20",
                 "-XX:+DisableExplicitGC",
                 "-XX:+AlwaysPreTouch",
                 "-XX:G1NewSizePercent=30",
                 "-XX:G1MaxNewSizePercent=40",
-                "-XX:G1HeapRegionSize=8M",
+                "-XX:G1HeapRegionSize=16M",
                 "-XX:G1ReservePercent=20",
                 "-XX:G1HeapWastePercent=5",
                 "-XX:G1MixedGCCountTarget=4",
@@ -90,22 +98,38 @@ public final class JvmPresetService {
                 "-XX:G1RSetUpdatingPauseTimePercent=5",
                 "-XX:SurvivorRatio=32",
                 "-XX:+PerfDisableSharedMem",
-                "-XX:MaxTenuringThreshold=1");
+                "-XX:MaxTenuringThreshold=1",
+                "-XX:+UseNUMA",
+                "-Dlog4j2.formatMsgNoLookups=true",
+                "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Dfile.encoding=UTF-8");
     }
 
     public static List<String> highPreset(long totalRamMiB) {
-        // En configuraciones al máximo para 1.21+, 4-6GB ahogan el GC. Permitimos mas respiro si el PC tiene RAM,
-        // usando El Garbage Collector Z (Generacional) nativo de Java 21+ para latencia inferior al milisegundo.
-        String mx = totalRamMiB >= 16 * 1024 ? "8G" : "6G";
+        String mx;
+        if (totalRamMiB >= 32 * 1024L) mx = "12G";
+        else if (totalRamMiB >= 16 * 1024L) mx = "8G";
+        else mx = "6G";
+
+        String ms;
+        if (totalRamMiB >= 16 * 1024L) ms = "4G";
+        else ms = "3G";
+
         return List.of(
-                "-Xms3G",
+                "-Xms" + ms,
                 "-Xmx" + mx,
+                "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseZGC",
                 "-XX:+ZGenerational",
-                "-XX:MaxGCPauseMillis=15", // Ultra latencia
+                "-XX:MaxGCPauseMillis=10",
                 "-XX:+UseStringDeduplication",
                 "-XX:+AlwaysPreTouch",
                 "-XX:+DisableExplicitGC",
-                "-XX:+PerfDisableSharedMem");
+                "-XX:+PerfDisableSharedMem",
+                "-XX:+UseNUMA",
+                "-XX:+ParallelRefProcEnabled",
+                "-Dlog4j2.formatMsgNoLookups=true",
+                "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Dfile.encoding=UTF-8");
     }
 }
