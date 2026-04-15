@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
-import java.util.Optional;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -1363,25 +1362,6 @@ public class LauncherApp extends Application {
         };
     }
 
-    private void showCrashAlert(CrashReportService.CrashAnalysis analysis) {
-        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-            javafx.scene.control.Alert.AlertType.ERROR);
-        alert.setTitle("💥 Minecraft se cerró inesperadamente");
-        alert.setHeaderText("🔴 " + analysis.title());
-        alert.setContentText("Causa: " + analysis.cause() + "\n\n💡 Solución sugerida:\n" + analysis.suggestion());
-        alert.getDialogPane().setPrefWidth(600);
-        alert.getDialogPane().setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
-
-        javafx.scene.control.ButtonType viewLog = new javafx.scene.control.ButtonType("Ver Consola");
-        alert.getButtonTypes().add(viewLog);
-
-        alert.showAndWait().ifPresent(btn -> {
-            if (btn == viewLog) {
-                showView("Log");
-            }
-        });
-    }
-
     private void saveProfiles() {
         try {
             if (selected != null && (selected.offlineUuid == null || selected.offlineUuid.isBlank())) syncUuidFromUsername();
@@ -1445,24 +1425,9 @@ public class LauncherApp extends Application {
                         if (exitCode == 0) {
                             log("Instancia [" + pId + "] cerrada correctamente.");
                         } else {
-                            log("⚠ Instancia [" + pId + "] cerrada con código " + exitCode + ". Buscando crash report...");
+                            log("⚠ Instancia [" + pId + "] cerrada con código " + exitCode + ".");
                         }
                     });
-                    if (exitCode != 0) {
-                        Path gameDir = facade.gameDirFor(selected);
-                        Optional<Path> crashReport = CrashReportService.findLatestCrashReport(gameDir);
-                        crashReport.ifPresent(report -> {
-                            CrashReportService.CrashAnalysis analysis = CrashReportService.analyze(report);
-                            Platform.runLater(() -> {
-                                log("╔═══════════════════════════════════════════════════════════");
-                                log("║ 🔴 CRASH DETECTADO: " + analysis.title());
-                                log("║ Causa: " + analysis.cause());
-                                log("║ Solución: " + analysis.suggestion());
-                                log("╚═══════════════════════════════════════════════════════════");
-                                showCrashAlert(analysis);
-                            });
-                        });
-                    }
                 });
 
                 return null;
