@@ -98,15 +98,41 @@ jobs:
           Rename-Item $msi.FullName $newName
           Write-Host "Renamed to $newName"
 
-      - name: Upload Windows Artifact
+      # ── Crear Versión Portable (ZIP) para usuarios con SmartScreen estricto ──
+      - name: Create Portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build/dist-portable | Out-Null
+          $MainJar = (Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs | Select-Object -First 1).Name
+          jpackage `
+            --name "MeaCore Launcher" `
+            --app-version "$env:VERSION" `
+            --vendor "MeaCore-Enterprise" `
+            --input build/libs `
+            --main-jar $MainJar `
+            --main-class com.experimento.launcher.Main `
+            --type app-image `
+            --icon icon.ico `
+            --java-options "-Xmx512m" `
+            --dest build/dist-portable
+            
+          # Comprimir la carpeta en un ZIP
+          Compress-Archive -Path "build/dist-portable/MeaCore Launcher" -DestinationPath "build/dist/meacore-launcher-$env:VERSION-portable.zip"
+          Write-Host "ZIP Portable creado"
+
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MeaCoreLauncher-Windows
-          path: build/dist/*.msi
+          path: |
+            build/dist/*.msi
+            build/dist/*.zip
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: build/dist/*.msi
+          files: |
+            build/dist/*.msi
+            build/dist/*.zip
           generate_release_notes: true
