@@ -191,6 +191,132 @@ nav {
     background: var(--green-accent);
 }
 
+/* Hamburger button */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 0.3rem;
+}
+.hamburger span {
+    display: block;
+    width: 26px;
+    height: 3px;
+    background: var(--text-primary);
+    border-radius: 3px;
+    transition: transform 0.3s, opacity 0.3s;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Nav */
+    .hamburger {
+        display: flex;
+    }
+    .nav-links {
+        display: none;
+        position: fixed;
+        top: 61px;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        flex-direction: column;
+        padding: 1rem 5%;
+        border-bottom: 1px solid var(--border-color);
+        z-index: 99;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+    .nav-links.open {
+        display: flex;
+    }
+    .nav-links a {
+        margin-left: 0;
+        padding: 0.85rem 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 1rem;
+    }
+    .nav-links a:last-child {
+        border-bottom: none;
+    }
+
+    /* Hero */
+    .hero {
+        padding: 4rem 5% 3rem;
+    }
+    .hero h1 {
+        font-size: 2.4rem;
+    }
+    .hero p {
+        font-size: 1rem;
+    }
+    .hero > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .btn {
+        width: 100%;
+        max-width: 320px;
+        text-align: center;
+        box-sizing: border-box;
+        margin: 0.4rem auto;
+    }
+
+    /* Features grid */
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    .features {
+        padding: 3rem 5%;
+    }
+
+    /* Download section */
+    .download-sec {
+        padding: 3rem 5%;
+    }
+    .terminal {
+        font-size: 0.82rem;
+        padding: 1rem;
+        word-break: break-all;
+    }
+
+    /* Timeline / changelog */
+    .timeline {
+        padding: 0 5%;
+    }
+    .log-item {
+        padding-left: 1.2rem;
+    }
+    .version-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.3rem;
+    }
+    .version-header h3 {
+        font-size: 1rem;
+    }
+
+    /* Footer */
+    footer a {
+        margin: 0 0.5rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .hero h1 {
+        font-size: 1.9rem;
+    }
+    nav {
+        padding: 0.9rem 4%;
+    }
+}
+
 /* Footer */
 footer {
     text-align: center;

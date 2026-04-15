@@ -5,12 +5,43 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const target = document.querySelector(this.getAttribute('href'));
             if(target) {
-                target.scrollIntoView({
-                    behavior: 'smooth'
-                });
+                closeMenu();
+                target.scrollIntoView({ behavior: 'smooth' });
             }
         });
     });
+
+    // Menú hamburguesa
+    const hamburger = document.getElementById('hamburger');
+    const navLinks  = document.getElementById('nav-links');
+
+    if (hamburger && navLinks) {
+        hamburger.addEventListener('click', () => {
+            const isOpen = navLinks.classList.toggle('open');
+            hamburger.classList.toggle('open', isOpen);
+            hamburger.setAttribute('aria-expanded', isOpen);
+        });
+
+        // Cerrar al hacer clic en un enlace del menú
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', closeMenu);
+        });
+
+        // Cerrar al hacer clic fuera del menú
+        document.addEventListener('click', (e) => {
+            if (!hamburger.contains(e.target) && !navLinks.contains(e.target)) {
+                closeMenu();
+            }
+        });
+    }
+
+    function closeMenu() {
+        if (navLinks) navLinks.classList.remove('open');
+        if (hamburger) {
+            hamburger.classList.remove('open');
+            hamburger.setAttribute('aria-expanded', 'false');
+        }
+    }
 
     // Fetch GitHub Latest Release
     updateReleaseInfo();
