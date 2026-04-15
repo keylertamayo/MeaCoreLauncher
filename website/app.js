@@ -48,31 +48,44 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function updateReleaseInfo() {
-    const badge = document.getElementById('version-badge');
-    const downloadBtn = document.getElementById('download-btn-hero');
+    const badge          = document.getElementById('version-badge');
+    const downloadBtn    = document.getElementById('download-btn-hero');
+    const downloadWin    = document.getElementById('download-btn-windows');
     const installCommand = document.getElementById('install-command');
 
-    if (!badge || !downloadBtn || !installCommand) return;
+    if (!badge) return;
 
     try {
-        const response = await fetch('https://api.github.com/repos/keylertamayo/MeaCoreLauncher/releases/latest');
+        const response = await fetch('https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest');
         if (!response.ok) throw new Error('GitHub API query failed');
-        
+
         const data = await response.json();
-        // Limpiamos el prefijo 'bat-' si existe
         const versionNum = data.tag_name.replace('bat-', '');
         const versionTag = `v${versionNum}`;
-        
-        const debAsset = data.assets.find(asset => asset.name.endsWith('.deb'));
 
-        if (debAsset) {
-            badge.textContent = `${versionTag} — Alfa`;
+        badge.textContent = `${versionTag} — Alfa`;
+
+        // Botón Linux (.deb)
+        const debAsset = data.assets.find(a => a.name.endsWith('.deb'));
+        if (debAsset && downloadBtn) {
             downloadBtn.href = debAsset.browser_download_url;
-            installCommand.textContent = `sudo apt install ./${debAsset.name}`;
-            console.log(`MeaCore: Actualizado a la versión ${versionTag}`);
+            if (installCommand) {
+                installCommand.textContent = `sudo apt install ./${debAsset.name}`;
+            }
         }
+
+        // Botón Windows (.msi)
+        const msiAsset = data.assets.find(a => a.name.endsWith('.msi'));
+        if (msiAsset && downloadWin) {
+            downloadWin.href = msiAsset.browser_download_url;
+            downloadWin.textContent = `⬇ Descargar .MSI (Windows)`;
+        } else if (downloadWin) {
+            // Si aún no hay .msi en esta release, apuntar a releases general
+            downloadWin.href = 'https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/latest';
+        }
+
+        console.log(`MeaCore: Actualizado a la versión ${versionTag}`);
     } catch (error) {
-        console.warn('MeaCore: No se pudo obtener la última versión de GitHub. Usando valores por defecto.', error);
-        // Si falla, el HTML ya tiene valores de escape razonables.
+        console.warn('MeaCore: No se pudo obtener la última versión de GitHub.', error);
     }
 }

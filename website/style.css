@@ -102,6 +102,14 @@ nav {
 .btn-outline:hover {
     border-color: var(--text-sec);
 }
+.btn-windows {
+    background-color: #0078d4;
+    color: white;
+}
+.btn-windows:hover {
+    background-color: #106ebe;
+    transform: scale(1.05);
+}
 
 /* Features Grid */
 .features {
