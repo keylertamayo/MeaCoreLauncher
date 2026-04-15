@@ -25,7 +25,8 @@ jobs:
           cache: gradle
 
       - name: Build Gradle (Skip Tests)
-        run: ./gradlew build --no-daemon -x test
+        shell: cmd
+        run: gradlew.bat build --no-daemon -x test
 
       # ── Versión ──────────────────────────────────────────────────────────────
       # Leemos version.properties y strippeamos sufijos alpha/alfa para obtener
