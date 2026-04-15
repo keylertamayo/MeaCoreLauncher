@@ -66,6 +66,7 @@ public class LauncherApp extends Application {
     private TableView<ServerEntry> serverTable;
     private TextArea logArea;
     private Label modHintLabel;
+    private Label modLoaderBadgeLabel;
     private Label aternosHint;
     @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private Stage stage;
@@ -455,10 +456,13 @@ public class LauncherApp extends Application {
         Label modloaderDesc = new Label("Inyecta Forge, Fabric o NeoForge automáticamente sin salir del launcher.");
         modloaderDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
 
+        modLoaderBadgeLabel = new Label("Modloader activo: (selecciona un perfil)");
+        modLoaderBadgeLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 4 10; -fx-background-radius: 4;");
+
         VBox perfCard = new VBox(10, perfTitle, perfDesc, perfModsBtn);
         perfCard.getStyleClass().add("mc-card");
 
-        VBox loaderCard = new VBox(10, modloaderTitle, modloaderDesc, installModloaderBtn);
+        VBox loaderCard = new VBox(10, modloaderTitle, modloaderDesc, modLoaderBadgeLabel, installModloaderBtn);
         loaderCard.getStyleClass().add("mc-card");
 
         VBox modding = new VBox(20, loaderCard, perfCard);
@@ -511,14 +515,6 @@ public class LauncherApp extends Application {
         });
     }
 
-    private String detectLoaderFromVersion(String versionId) {
-        if (versionId == null) return "vanilla";
-        String v = versionId.toLowerCase();
-        if (v.contains("fabric")) return "fabric";
-        if (v.contains("neoforge")) return "neoforge";
-        if (v.contains("forge")) return "forge";
-        return "vanilla";
-    }
 
     private VBox createStoreView() {
         HBox topBar = new HBox(10);
@@ -1165,6 +1161,10 @@ public class LauncherApp extends Application {
         }
         
         selected.lastVersionId = match;
+        // Guardar el loader en el perfil para que los mods de rendimiento funcionen
+        if (loader != null && !loader.equalsIgnoreCase("vanilla")) {
+            selected.modLoader = loader.toLowerCase();
+        }
         // Seleccionar en el combo si está presente
         for (ManifestVersionEntry v : versionCombo.getItems()) {
             if (v.id().equals(match)) {
@@ -1174,7 +1174,7 @@ public class LauncherApp extends Application {
         }
         saveProfiles();
         applyVersionFilter(); // Refresca UI
-        log("[STORE] ✅ Perfil auto-configurado para: " + match);
+        log("[STORE] ✅ Perfil auto-configurado para: " + match + " | Loader: " + (loader != null ? loader : "vanilla"));
         
         // Si estamos en la vista General, forzar refresco
         if ("General".equals(currentViewTitle)) showView("General");
@@ -1616,6 +1616,23 @@ public class LauncherApp extends Application {
         long ram = HardwareProbe.totalPhysicalRamMiB();
         JvmPresetKind eff = selected.jvmPreset == JvmPresetKind.AUTO ? JvmPresetService.resolveAutoKind(ram) : selected.jvmPreset;
         modHintLabel.setText(AutoOptimizerService.modSuggestionText(eff) + " | RAM: " + ram + " MiB");
+
+        if (modLoaderBadgeLabel != null) {
+            String loader = selected.modLoader != null ? selected.modLoader : "vanilla";
+            String icon = switch (loader.toLowerCase()) {
+                case "fabric"   -> "🪡 Fabric";
+                case "forge"    -> "⚙ Forge";
+                case "neoforge" -> "🔥 NeoForge";
+                default         -> "📦 Vanilla";
+            };
+            boolean canInstallPerfMods = PerformanceModsService.isSupported(loader);
+            String perfNote = canInstallPerfMods ? " ✓ Compatible con mods de rendimiento" : " ✗ Sin soporte de mods (instala Fabric/Forge/NeoForge)";
+            modLoaderBadgeLabel.setText("Modloader activo: " + icon + perfNote);
+            modLoaderBadgeLabel.setStyle(
+                "-fx-font-size: 12px; -fx-padding: 4 10; -fx-background-radius: 4; -fx-text-fill: " +
+                (canInstallPerfMods ? "#81c784" : "#ef9a9a") +
+                "; -fx-background-color: #1e1e1e;");
+        }
     }
 
     private void refreshAternosRowHint(ServerEntry se) {
