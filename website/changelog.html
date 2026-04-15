@@ -47,10 +47,56 @@
 
     <div class="timeline">
 
+        <!-- v1.3.7 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.3.7 - NeoForge, Crash Detector &amp; Performance Mods ⚡ (Actual)</h3>
+                <span class="version-date">15 de Abril, 2026</span>
+            </div>
+            <p><strong>Soporte NeoForge (nuevo):</strong></p>
+            <ul>
+                <li><strong>Modloader NeoForge:</strong> Nuevo botón en el overlay de inyección de modloaders. Instala automáticamente la última versión de NeoForge desde <code>maven.neoforged.net</code> resolviendo dinámicamente el número de versión. Recomendado para modpacks modernos como ATM9, Sky Odyssey, All the Mods.</li>
+                <li><strong>NeoForge en Auto-Configuración:</strong> Cuando instalas un modpack desde la Tienda que requiere NeoForge, el launcher lo instala automáticamente igual que hace con Forge y Fabric.</li>
+            </ul>
+            <p><strong>Detector de Crashes automático:</strong></p>
+            <ul>
+                <li><strong>Análisis en tiempo real:</strong> Cuando Minecraft se cierra inesperadamente, el launcher busca automáticamente el <code>crash-reports/*.txt</code> más reciente y lo analiza.</li>
+                <li><strong>9 tipos de crash reconocidos:</strong> OutOfMemoryError, errores de OpenGL/LWJGL, conflictos de mods (Mixin, ForgeModLoadingException), ClassNotFoundException, StackOverflow, errores de conexión, entidades corruptas y más.</li>
+                <li><strong>Popup con solución específica:</strong> Se muestra un diálogo con título, causa y pasos exactos para solucionarlo. Incluye botón "Ver Consola" para revisar el log completo.</li>
+            </ul>
+            <p><strong>Instalador de Mods de Rendimiento:</strong></p>
+            <ul>
+                <li><strong>100% gratuitos y automáticos:</strong> Un solo botón en la pestaña Modding instala los mods correctos según el modloader del perfil — nunca se mezclan mods de Fabric con perfiles de Forge.</li>
+                <li><strong>Fabric:</strong> Sodium + Lithium + FerriteCore + Indium + ImmediatelyFast. Mejora esperada: +50–300% FPS en modpacks pesados.</li>
+                <li><strong>Forge (1.12.2–1.20.1):</strong> FerriteCore + Rubidium + Oculus.</li>
+                <li><strong>NeoForge (1.20.2+):</strong> FerriteCore + Embeddium + ModernFix.</li>
+                <li><strong>Detección inteligente de loader:</strong> El perfil ahora almacena el modloader activo. El instalador usa este dato directo en lugar de intentar adivinar por el nombre de versión.</li>
+            </ul>
+            <p><strong>JVM &amp; Optimizaciones:</strong></p>
+            <ul>
+                <li><strong>Preset HIGH corregido:</strong> El flag crítico <code>-XX:+UnlockExperimentalVMOptions</code> ahora se inyecta <em>antes</em> que <code>-XX:+UseZGC</code> y <code>-XX:+ZGenerational</code>. Sin este orden, ZGC no arrancaba.</li>
+                <li><strong>Memoria dinámica por hardware:</strong> El preset HIGH escala automáticamente hasta 12 GB en sistemas con 32+ GB de RAM. Balanced hasta 6 GB. LOW permanece conservador en 2 GB.</li>
+                <li><strong>Presets Balanced con Aikar's Flags completos:</strong> Añadidos <code>G1MixedGCCountTarget</code>, <code>InitiatingHeapOccupancyPercent</code>, <code>G1RSetUpdatingPauseTimePercent</code>, <code>MaxTenuringThreshold</code> y <code>useNUMA</code> para reducir micro-parones.</li>
+                <li><strong>Java 21 automático:</strong> Minecraft 1.20.5+ y versiones superiores detectan automáticamente Java 21 como requerido y usan el JRE portátil si está descargado. Hay un botón específico en el overlay de Java.</li>
+                <li><strong>options.txt con 14 parámetros:</strong> AutoOptimizerService ahora escribe <code>entityDistanceMul</code>, <code>maxFps</code>, <code>glDebugVerbosity</code>, <code>useNativeTransport</code>, <code>biomeBlendRadius</code> y más según el preset activo.</li>
+            </ul>
+            <p><strong>Descarga en paralelo (16 hilos):</strong></p>
+            <ul>
+                <li><strong>Librerías paralelas:</strong> El instalador de versiones ahora descarga todas las librerías del classpath simultáneamente con un pool de 16 hilos. En conexiones rápidas, la instalación inicial es hasta 8× más rápida.</li>
+                <li><strong>Assets paralelos:</strong> La sincronización de los miles de archivos de assets también usa 16 hilos.</li>
+            </ul>
+            <p><strong>Build &amp; CI/CD:</strong></p>
+            <ul>
+                <li><strong>jpackage corregido:</strong> Añadidos los flags <code>--add-modules javafx.controls,javafx.fxml</code> al instalador Windows (.msi) y Linux (.deb). Sin este flag, JavaFX no inicializaba correctamente en las instalaciones nativas.</li>
+                <li><strong>Linux workflow fix:</strong> Corregida la variable <code>${{ env.VERSION }}</code> → <code>"$VERSION"</code> en el bloque de shell. Eliminado <code>--resource-dir</code> problemático del jpackage de Linux.</li>
+                <li><strong>Modrinth User-Agent dinámico:</strong> El cliente de Modrinth ahora usa <code>LauncherMetadata.VERSION</code> en el header en lugar del string hardcodeado <code>"1.2.2"</code>.</li>
+            </ul>
+        </div>
+
         <!-- v1.3.6 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.3.6 - Windows Native &amp; CI/CD Overhaul 🪟 (Actual)</h3>
+                <h3>v1.3.6 - Windows Native &amp; CI/CD Overhaul 🪟</h3>
                 <span class="version-date">13 de Abril, 2026</span>
             </div>
             <p><strong>Compatibilidad Multiplataforma (Windows / Linux):</strong></p>
