@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -127,9 +126,6 @@ public final class PerformanceModsService {
 
     private static String resolveDownloadUrl(String slug, String mcVersion, String loader, Consumer<String> log) {
         try {
-            String facets = URLEncoder.encode(
-                "[[\"project_type:mod\"],[\"game_versions:" + mcVersion + "\"],[\"categories:" + loader + "\"]]",
-                StandardCharsets.UTF_8);
             String searchUrl = MODRINTH_API + "/project/" + slug + "/version?game_versions=[\"" +
                     URLEncoder.encode(mcVersion, StandardCharsets.UTF_8) + "\"]&loaders=[\"" +
                     URLEncoder.encode(loader, StandardCharsets.UTF_8) + "\"]";

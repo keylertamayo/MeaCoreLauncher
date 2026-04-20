@@ -33,7 +33,6 @@ public final class SystemInfoService {
 
     public static HardwareInfo getInfo() {
         if (cachedInfo != null) {
-            CentralProcessor cpu = HAL.getProcessor();
             GlobalMemory mem = HAL.getMemory();
             return new HardwareInfo(
                     cachedInfo.cpuName(),

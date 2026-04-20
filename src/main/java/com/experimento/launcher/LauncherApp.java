@@ -1416,7 +1416,6 @@ public class LauncherApp extends Application {
                     log("Instancia [" + selected.displayName + "] iniciada.");
                 });
                 
-                final String vcopy = selected.lastVersionId;
                 proc.onExit().thenAccept(p -> {
                     int exitCode = p.exitValue();
                     Platform.runLater(() -> {
