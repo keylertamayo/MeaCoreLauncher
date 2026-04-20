@@ -127,19 +127,42 @@ public final class LauncherFacade {
         jvm.add("--add-opens=java.base/java.lang=ALL-UNNAMED");
         
         String effectiveJava = p.javaExecutable;
+        int requiredVer = getRequiredJavaVersion(merged, versionId);
         
-        // Detección inteligente de la versión de Java requerida
+        // Detección inteligente de la versión de Java requerida si no hay una manual
         if (effectiveJava == null || effectiveJava.isBlank()) {
-            int requiredVer = getRequiredJavaVersion(merged, versionId);
-            if (requiredVer == 8 || requiredVer == 17 || requiredVer == 21) {
+            if (requiredVer > 0) {
                 Path portable = runtimeService.getExecutable(requiredVer);
                 if (portable != null) {
                     effectiveJava = portable.toAbsolutePath().toString();
                 } else if (requiredVer == 21) {
-                    // Fallback a Java 17 si no hay Java 21 portátil
+                    // Fallback a Java 17 si no hay Java 21 portátil (algunas versiones 1.20 funcionan con 17)
                     portable = runtimeService.getExecutable(17);
                     if (portable != null) effectiveJava = portable.toAbsolutePath().toString();
                 }
+            }
+        }
+
+        // VALIDACIÓN CRÍTICA: Verificar que el ejecutable realmente exista antes de intentar lanzar
+        if (effectiveJava == null || effectiveJava.isBlank() || effectiveJava.equalsIgnoreCase("java")) {
+            // Intentar resolver el java del sistema como último recurso
+            effectiveJava = com.experimento.launcher.mojang.GameLauncher.resolveJavaBinary();
+            
+            // Si después de todo sigue siendo solo "java" o nulo, verificar si "java" existe en el PATH
+            if (effectiveJava.equalsIgnoreCase("java")) {
+                if (!isJavaInPath()) {
+                    String msg = (requiredVer > 0) 
+                        ? "Falta Java " + requiredVer + ". Por favor, descárgalo desde la pestaña de Java en el launcher."
+                        : "No se encontró Java en el sistema. Por favor, instala Java o descarga una versión portátil desde el launcher.";
+                    throw new IllegalStateException(msg);
+                }
+            }
+        } else {
+            // Si hay una ruta específica (portátil o manual), verificar que el archivo físico exista
+            Path javaPath = Path.of(effectiveJava);
+            if (!Files.exists(javaPath)) {
+                throw new IllegalStateException("El ejecutable de Java no existe en la ruta: " + effectiveJava + 
+                    ". Por favor, intenta descargar la versión de Java de nuevo desde la pestaña Java.");
             }
         }
 
@@ -231,6 +254,16 @@ public final class LauncherFacade {
         }
     }
 
+    private boolean isJavaInPath() {
+        String cmd = com.experimento.launcher.mojang.OsContext.current().isWindows() ? "where java" : "which java";
+        try {
+            Process p = new ProcessBuilder(cmd.split(" ")).start();
+            return p.waitFor() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private int getRequiredJavaVersion(JsonNode merged, String versionId) {
         if (merged.has("javaVersion")) {
             int major = merged.get("javaVersion").path("majorVersion").asInt(0);
@@ -242,8 +275,8 @@ public final class LauncherFacade {
             return 8;
         }
 
-        // Java 21 para 1.20.5+ (NeoForge/Fabric modernos lo requieren)
-        if (versionId.matches("1\\.2[1-9].*") || versionId.matches("1\\.[3-9]\\d.*")) {
+        // Java 21 para 1.20.5+ y versiones futuras (IDs altos como 26.x.x)
+        if (versionId.matches("1\\.2[1-9].*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d.*")) {
             return 21;
         }
         if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {

@@ -129,7 +129,7 @@ public final class GameLauncher {
         return Files.exists(p) ? p : null;
     }
 
-    private static String resolveJavaBinary() {
+    public static String resolveJavaBinary() {
         String home = System.getProperty("java.home");
         if (home != null) {
             Path bin = Path.of(home, "bin", "java");
