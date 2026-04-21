@@ -1323,15 +1323,17 @@ public class LauncherApp extends Application {
         Button downloadBtn = new Button("✅ Descargar Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : "Recomendado") + " Portátil");
         downloadBtn.getStyleClass().add("button-primary");
         downloadBtn.setPrefWidth(300);
+
+        Button download21Btn = new Button("⚡ Descargar Java 21 (NeoForge / Modpacks modernos)");
+        download21Btn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 12;");
+        download21Btn.setPrefWidth(300);
+
         downloadBtn.setOnAction(e -> {
             downloadBtn.setDisable(true);
             download21Btn.setDisable(true);
             runTask(createJavaDownloadTask(detectedJavaVersion > 0 ? detectedJavaVersion : 17));
         });
 
-        Button download21Btn = new Button("⚡ Descargar Java 21 (NeoForge / Modpacks modernos)");
-        download21Btn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 12;");
-        download21Btn.setPrefWidth(300);
         download21Btn.setOnAction(e -> {
             downloadBtn.setDisable(true);
             download21Btn.setDisable(true);
