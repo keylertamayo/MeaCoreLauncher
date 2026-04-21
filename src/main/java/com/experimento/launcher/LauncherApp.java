@@ -1320,11 +1320,11 @@ public class LauncherApp extends Application {
         javaProgress.setMaxWidth(Double.MAX_VALUE);
         javaProgress.setStyle("-fx-accent: #0E639C;");
 
-        Button downloadBtn = new Button("✅ Descargar Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : "Recomendado") + " Portátil");
+        final Button downloadBtn = new Button("✅ Descargar Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : "Recomendado") + " Portátil");
         downloadBtn.getStyleClass().add("button-primary");
         downloadBtn.setPrefWidth(300);
 
-        Button download21Btn = new Button("⚡ Descargar Java 21 (NeoForge / Modpacks modernos)");
+        final Button download21Btn = new Button("⚡ Descargar Java 21 (NeoForge / Modpacks modernos)");
         download21Btn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 12;");
         download21Btn.setPrefWidth(300);
 
@@ -1358,7 +1358,9 @@ public class LauncherApp extends Application {
                 
                 Path path = facade.runtime().downloadJavaSync(version, p -> {
                     updateProgress(p * 100, 100);
-                    Platform.runLater(() -> javaProgress.setProgress(p));
+                    Platform.runLater(() -> {
+                        if (javaProgress != null) javaProgress.setProgress(p);
+                    });
                 });
                 
                 if (path != null) {
@@ -1375,9 +1377,11 @@ public class LauncherApp extends Application {
             
             @Override
             protected void failed() {
-                javaDownloadOverlay.setVisible(false);
-                log("Error descargando Java " + version + ": " + getException().getMessage());
-                new Alert(Alert.AlertType.ERROR, "Error al descargar Java: " + getException().getMessage()).show();
+                Platform.runLater(() -> {
+                    javaDownloadOverlay.setVisible(false);
+                    log("Error descargando Java " + version + ": " + getException().getMessage());
+                    new Alert(Alert.AlertType.ERROR, "Error al descargar Java: " + getException().getMessage()).show();
+                });
             }
         };
     }
