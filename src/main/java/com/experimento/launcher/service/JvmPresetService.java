@@ -22,13 +22,17 @@ public final class JvmPresetService {
     }
 
     public static List<String> argsFor(LauncherProfile p, long totalRamMiB) {
+        return argsFor(p, totalRamMiB, HardwareProbe.physicalCores(), HardwareProbe.availableProcessors());
+    }
+
+    public static List<String> argsFor(LauncherProfile p, long totalRamMiB, int physCores, int logicCores) {
         JvmPresetKind kind = p.jvmPreset == JvmPresetKind.AUTO ? resolveAutoKind(totalRamMiB) : p.jvmPreset;
         List<String> base =
                 switch (kind) {
-                    case LOW -> lowPreset();
-                    case BALANCED -> balancedPreset(totalRamMiB);
-                    case HIGH -> highPreset(totalRamMiB);
-                    case AUTO -> lowPreset();
+                    case LOW -> lowPreset(physCores, logicCores);
+                    case BALANCED -> balancedPreset(totalRamMiB, physCores, logicCores);
+                    case HIGH -> highPreset(totalRamMiB, physCores, logicCores);
+                    case AUTO -> lowPreset(physCores, logicCores);
                 };
         List<String> out = new ArrayList<>(base);
         if (p.customJvmArgs != null && !p.customJvmArgs.isBlank()) {
@@ -51,8 +55,8 @@ public final class JvmPresetService {
         return out;
     }
 
-    public static List<String> lowPreset() {
-        return List.of(
+    public static List<String> lowPreset(int physCores, int logicCores) {
+        List<String> args = new ArrayList<>(List.of(
                 "-Xms512M",
                 "-Xmx2G",
                 "-XX:+UnlockExperimentalVMOptions",
@@ -67,17 +71,20 @@ public final class JvmPresetService {
                 "-XX:+PerfDisableSharedMem",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8");
+                "-Dfile.encoding=UTF-8"));
+        
+        applyCpuArgs(args, physCores, logicCores);
+        return args;
     }
 
-    public static List<String> balancedPreset(long totalRamMiB) {
+    public static List<String> balancedPreset(long totalRamMiB, int physCores, int logicCores) {
         String mx;
         if (totalRamMiB >= 16 * 1024L) mx = "6G";
         else if (totalRamMiB >= 12 * 1024L) mx = "5G";
         else if (totalRamMiB >= 8 * 1024L) mx = "4G";
         else mx = "3G";
 
-        return List.of(
+        List<String> args = new ArrayList<>(List.of(
                 "-Xms2G",
                 "-Xmx" + mx,
                 "-XX:+UnlockExperimentalVMOptions",
@@ -102,10 +109,13 @@ public final class JvmPresetService {
                 "-XX:+UseNUMA",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8");
+                "-Dfile.encoding=UTF-8"));
+
+        applyCpuArgs(args, physCores, logicCores);
+        return args;
     }
 
-    public static List<String> highPreset(long totalRamMiB) {
+    public static List<String> highPreset(long totalRamMiB, int physCores, int logicCores) {
         String mx;
         if (totalRamMiB >= 32 * 1024L) mx = "12G";
         else if (totalRamMiB >= 16 * 1024L) mx = "8G";
@@ -115,7 +125,7 @@ public final class JvmPresetService {
         if (totalRamMiB >= 16 * 1024L) ms = "4G";
         else ms = "3G";
 
-        return List.of(
+        List<String> args = new ArrayList<>(List.of(
                 "-Xms" + ms,
                 "-Xmx" + mx,
                 "-XX:+UnlockExperimentalVMOptions",
@@ -130,6 +140,26 @@ public final class JvmPresetService {
                 "-XX:+ParallelRefProcEnabled",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8");
+                "-Dfile.encoding=UTF-8"));
+
+        applyCpuArgs(args, physCores, logicCores);
+        return args;
+    }
+
+    private static void applyCpuArgs(List<String> args, int physCores, int logicCores) {
+        // Hilos de GC Paralelo: idealmente 1 por núcleo físico, cap de 12 para estabilidad
+        int parallelGC = Math.max(2, Math.min(physCores, 12));
+        // Hilos de GC Concurrente: 1/4 de los hilos paralelos
+        int concGC = Math.max(1, parallelGC / 4);
+        // CICompilerCount: hilos para compilación JIT (Jave se encarga de repartirlos entre C1 y C2)
+        int ciCompiler = Math.max(2, Math.min(logicCores / 2, 8));
+
+        args.add("-XX:ParallelGCThreads=" + parallelGC);
+        args.add("-XX:ConcGCThreads=" + concGC);
+        args.add("-XX:G1ConcRefinementThreads=" + parallelGC);
+        args.add("-XX:CICompilerCount=" + ciCompiler);
+        
+        // Forzar a la JVM a reconocer la cantidad exacta de cores si detectamos discrepancias
+        args.add("-XX:ActiveProcessorCount=" + logicCores);
     }
 }

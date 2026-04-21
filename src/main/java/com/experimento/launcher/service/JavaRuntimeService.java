@@ -19,6 +19,11 @@ public final class JavaRuntimeService {
 
     private static final String ADOPTIUM_API_TEMPLATE =
             "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse?project=jdk";
+    
+    // Fallbacks de GitHub para casos donde Adoptium falle (repositorio oficial MeaCore o mirrors)
+    private static final String GITHUB_JRE_8_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre8-windows.zip";
+    private static final String GITHUB_JRE_21_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre21-windows.zip";
+
     private static final int DOWNLOAD_BUFFER_SIZE = 65536;
 
     private final Path runtimeDir;
@@ -60,50 +65,69 @@ public final class JavaRuntimeService {
     public void downloadJavaAsync(int version, Consumer<Double> progress, Consumer<Path> onResult, Consumer<String> onError) {
         new Thread(() -> {
             try {
-                Files.createDirectories(runtimeDir);
-                String ext = os.archiveExtension();
-                Path archiveFile = runtimeDir.resolve("java" + version + ext);
-                Path extractDir = runtimeDir.resolve("java" + version);
-
-                if (Files.exists(extractDir)) {
-                    deleteDirectory(extractDir);
-                }
-                Files.createDirectories(extractDir);
-
-                String url = String.format(ADOPTIUM_API_TEMPLATE, version, os.name(), os.arch());
-                downloadWithProgress(url, archiveFile, progress);
-
-                boolean success;
-                if (os.isWindows()) {
-                    extractZip(archiveFile, extractDir);
-                    success = true;
-                } else {
-                    ProcessBuilder pb = new ProcessBuilder(
-                            "tar", "-xzf",
-                            archiveFile.toAbsolutePath().toString(),
-                            "-C", extractDir.toAbsolutePath().toString());
-                    Process p = pb.start();
-                    success = p.waitFor() == 0;
-                }
-
-                Files.deleteIfExists(archiveFile);
-
-                if (success) {
-                    Path exe = getExecutable(version);
-                    if (exe != null) {
-                        if (!os.isWindows()) exe.toFile().setExecutable(true);
-                        onResult.accept(exe);
-                    } else {
-                        onError.accept("No se encontró el ejecutable tras la extracción.");
-                    }
-                } else {
-                    onError.accept("Error al extraer el archivo " + ext);
-                }
-
+                Path result = downloadJavaSync(version, progress);
+                if (result != null) onResult.accept(result);
+                else onError.accept("No se pudo instalar Java " + version);
             } catch (Exception e) {
                 onError.accept(e.getMessage());
             }
         }).start();
+    }
+
+    /** Versión síncrona para ser usada dentro de Tasks o hilos controlados. */
+    public Path downloadJavaSync(int version, Consumer<Double> progress) throws Exception {
+        Files.createDirectories(runtimeDir);
+        String ext = os.archiveExtension();
+        Path archiveFile = runtimeDir.resolve("java" + version + ext);
+        Path extractDir = runtimeDir.resolve("java" + version);
+
+        if (Files.exists(extractDir)) {
+            deleteDirectory(extractDir);
+        }
+        Files.createDirectories(extractDir);
+
+        String url = String.format(ADOPTIUM_API_TEMPLATE, version, os.name(), os.arch());
+        
+        try {
+            downloadWithProgress(url, archiveFile, progress);
+        } catch (Exception e) {
+            // Intento de fallback a GitHub si es Windows y falla el API principal
+            if (os.isWindows()) {
+                String fallback = (version == 8) ? GITHUB_JRE_8_WIN : (version == 21 ? GITHUB_JRE_21_WIN : null);
+                if (fallback != null) {
+                    System.out.println("[JRE] Fallback detectado para Java " + version);
+                    downloadWithProgress(fallback, archiveFile, progress);
+                } else {
+                    throw e;
+                }
+            } else {
+                throw e;
+            }
+        }
+
+        boolean success;
+        if (os.isWindows()) {
+            extractZip(archiveFile, extractDir);
+            success = true;
+        } else {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "tar", "-xzf",
+                    archiveFile.toAbsolutePath().toString(),
+                    "-C", extractDir.toAbsolutePath().toString());
+            Process p = pb.start();
+            success = p.waitFor() == 0;
+        }
+
+        Files.deleteIfExists(archiveFile);
+
+        if (success) {
+            Path exe = getExecutable(version);
+            if (exe != null) {
+                if (!os.isWindows()) exe.toFile().setExecutable(true);
+                return exe;
+            }
+        }
+        return null;
     }
 
     private void extractZip(Path zipFile, Path destDir) throws IOException {

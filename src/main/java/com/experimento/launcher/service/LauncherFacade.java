@@ -119,7 +119,7 @@ public final class LauncherFacade {
                     "El UUID offline no coincide con el nombre; renombrar puede romper datos en servidor.");
         }
         Path gameDir = gameDirFor(p);
-        List<String> jvm = JvmPresetService.argsFor(p, ramMiB);
+        List<String> jvm = JvmPresetService.argsFor(p, ramMiB, HardwareProbe.physicalCores(), HardwareProbe.availableProcessors());
         
         // Fixes de compatibilidad de módulos para Java 17+
         jvm.add("-Djdk.module.illegalAccess.silent=true");

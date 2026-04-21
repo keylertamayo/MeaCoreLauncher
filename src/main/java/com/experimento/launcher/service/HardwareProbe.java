@@ -12,4 +12,8 @@ public final class HardwareProbe {
     public static int availableProcessors() {
         return SystemInfoService.getInfo().logicalCores();
     }
+
+    public static int physicalCores() {
+        return SystemInfoService.getInfo().physicalCores();
+    }
 }

@@ -1324,7 +1324,8 @@ public class LauncherApp extends Application {
         downloadBtn.getStyleClass().add("button-primary");
         downloadBtn.setPrefWidth(300);
         downloadBtn.setOnAction(e -> {
-            javaDownloadOverlay.setVisible(false);
+            downloadBtn.setDisable(true);
+            download21Btn.setDisable(true);
             runTask(createJavaDownloadTask(detectedJavaVersion > 0 ? detectedJavaVersion : 17));
         });
 
@@ -1332,7 +1333,8 @@ public class LauncherApp extends Application {
         download21Btn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 12;");
         download21Btn.setPrefWidth(300);
         download21Btn.setOnAction(e -> {
-            javaDownloadOverlay.setVisible(false);
+            downloadBtn.setDisable(true);
+            download21Btn.setDisable(true);
             runTask(createJavaDownloadTask(21));
         });
 
@@ -1350,14 +1352,30 @@ public class LauncherApp extends Application {
             @Override
             protected Void call() throws Exception {
                 updateMessage("Iniciando descarga de Java " + version + "...");
-                facade.runtime().downloadJavaAsync(version, p -> {
-                    updateProgress(p, 1.0);
-                }, path -> {
-                    Platform.runLater(() -> log("Java " + version + " Portable instalado en: " + path));
-                }, err -> {
-                    Platform.runLater(() -> log("Error descargando Java " + version + ": " + err));
+                updateProgress(0, 100);
+                
+                Path path = facade.runtime().downloadJavaSync(version, p -> {
+                    updateProgress(p * 100, 100);
+                    Platform.runLater(() -> javaProgress.setProgress(p));
                 });
+                
+                if (path != null) {
+                    Platform.runLater(() -> {
+                        log("Java " + version + " Portable instalado en: " + path);
+                        javaDownloadOverlay.setVisible(false);
+                        new Alert(Alert.AlertType.INFORMATION, "Java " + version + " se ha instalado correctamente.").show();
+                    });
+                } else {
+                    throw new Exception("No se pudo encontrar el ejecutable tras la extracción.");
+                }
                 return null;
+            }
+            
+            @Override
+            protected void failed() {
+                javaDownloadOverlay.setVisible(false);
+                log("Error descargando Java " + version + ": " + getException().getMessage());
+                new Alert(Alert.AlertType.ERROR, "Error al descargar Java: " + getException().getMessage()).show();
             }
         };
     }
