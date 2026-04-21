@@ -53,14 +53,20 @@
         <!-- v1.4.0 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.4.0 - CPU Optimization & Java Installer UX 🚀 (Actual)</h3>
+                <h3 style="color: #00d2ff;">v1.4.0 - Engine Evolution 🧠 (Actual)</h3>
                 <span class="version-date">21 de Abril, 2026</span>
             </div>
-            <p><strong>Optimizaciones y Mejoras de UX:</strong></p>
+            <p><strong>Optimización de CPU (Avanzada):</strong></p>
             <ul>
-                <li><strong>Optimización de CPU Inteligente:</strong> El launcher ahora reconoce entre núcleos físicos y lógicos de tu procesador. Ajusta automáticamente los parámetros de la JVM (GC threads, JIT compilers) para maximizar los FPS, con perfiles especiales para sistemas de alto rendimiento de hasta 12 núcleos.</li>
-                <li><strong>Instalador de Java Sincrónico:</strong> Se rediseñó la experiencia al descargar versiones portátiles de Java. La pantalla de descarga se mantendrá visible, mostrando el progreso real e impidiendo acciones cruzadas hasta que termine. Al finalizar recibirás una alerta de confirmación.</li>
-                <li><strong>Java Fallback desde GitHub:</strong> Si los servidores de Adoptium fallan, el launcher tiene una ruta de respaldo (fallback) automática para descargar el JRE 8 y 21 empaquetado directamente desde las releases oficiales en GitHub.</li>
+                <li><strong>Detección de Cores:</strong> Ahora el launcher distingue entre núcleos físicos y hilos lógicos para una optimización precisa.</li>
+                <li><strong>JVM Adaptativa:</strong> Los argumentos de hilos (GC y JIT) se calculan dinámicamente según tu procesador, mejorando drásticamente el rendimiento en equipos de 8, 12 o más núcleos.</li>
+                <li><strong>Prioridad de Proceso:</strong> Refinado el motor de arranque para asegurar que Minecraft use la potencia total del procesador sin interferencias del sistema.</li>
+            </ul>
+            <p><strong>Mejoras en el Ecosistema Java:</strong></p>
+            <ul>
+                <li><strong>Instalador Robusto:</strong> La descarga de JREs portátiles ahora es síncrona con la UI, mostrando una barra de progreso real que no desaparece hasta finalizar la instalación.</li>
+                <li><strong>Mirrors de Respaldo:</strong> Se han integrado servidores espejo (GitHub Releases) para Java 8 y 21 en caso de que el API oficial de Adoptium no esté disponible.</li>
+                <li><strong>Alertas de Instalación:</strong> Nuevas ventanas de confirmación al terminar descargas exitosas o fallidas para mantener al usuario informado.</li>
             </ul>
         </div>
 
