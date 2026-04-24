@@ -45,7 +45,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch GitHub Latest Release
     updateReleaseInfo();
+
+    // Bug report form
+    setupBugReportForm();
 });
+
+const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024; // 4 MB
+
+function setupBugReportForm() {
+    const form     = document.getElementById('bug-form');
+    const statusEl = document.getElementById('bug-status');
+    const submit   = document.getElementById('bug-submit');
+    if (!form || !statusEl || !submit) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setStatus(statusEl, 'info', 'Enviando reporte…');
+        submit.disabled = true;
+
+        try {
+            const name        = form.name.value.trim();
+            const email       = form.email.value.trim();
+            const title       = form.title.value.trim();
+            const description = form.description.value.trim();
+            const honeypot    = form.company.value;
+            const fileInput   = document.getElementById('bug-screenshot');
+            const file        = fileInput && fileInput.files && fileInput.files[0];
+
+            if (!email || !title || !description) {
+                throw new Error('Por favor completa correo, título y descripción.');
+            }
+
+            let screenshot = null;
+            let screenshotName = null;
+            if (file) {
+                if (!/^image\//.test(file.type)) {
+                    throw new Error('La captura debe ser una imagen.');
+                }
+                if (file.size > MAX_SCREENSHOT_BYTES) {
+                    throw new Error('La captura supera el tamaño máximo de 4 MB.');
+                }
+                screenshot     = await fileToBase64(file);
+                screenshotName = file.name;
+            }
+
+            const res = await fetch('/.netlify/functions/report-bug', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name, email, title, description,
+                    screenshot, screenshotName, honeypot
+                })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) {
+                throw new Error(data.error || 'No se pudo enviar el reporte. Intenta de nuevo.');
+            }
+
+            setStatus(
+                statusEl,
+                'success',
+                `¡Gracias! Tu reporte se publicó como <a href="${data.url}" target="_blank" rel="noopener">issue #${data.number}</a> en GitHub.`
+            );
+            form.reset();
+        } catch (err) {
+            setStatus(statusEl, 'error', err.message || 'Error inesperado.');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+}
+
+function setStatus(el, kind, html) {
+    el.className = `bug-status ${kind}`;
+    el.innerHTML = html;
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => {
+            const result = String(reader.result || '');
+            // result viene como "data:<mime>;base64,XXXX" — necesitamos solo XXXX
+            const comma = result.indexOf(',');
+            resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo de captura.'));
+        reader.readAsDataURL(file);
+    });
+}
 
 async function updateReleaseInfo() {
     const badge          = document.getElementById('version-badge');

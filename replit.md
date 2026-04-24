@@ -52,3 +52,19 @@ The `./gradlew run --no-daemon` command is configured as the primary workflow. U
 
 ## Deployment
 Configured as VM deployment type (required for JavaFX desktop apps).
+
+## Website (`website/`)
+Static site hosted on Netlify (`netlify.toml`, `_redirects`).
+- `index.html` — landing page with hero, features, install guide and **Reportar un Bug** form section (`#report`)
+- `changelog.html` — changelog timeline
+- `app.js` — handles smooth scroll, hamburger menu, GitHub release fetch, and bug-report form submit
+- `style.css` — site-wide styles, including the bug-report form
+- `netlify/functions/report-bug.js` — Netlify Function that receives the bug-report form, optionally uploads the screenshot to the GitHub repo and creates a GitHub Issue via the GitHub REST API
+
+### Bug-report form requirements (Netlify env vars)
+The serverless function needs these environment variables in the Netlify site:
+- `GITHUB_TOKEN` — GitHub PAT with `Issues: Read & Write` and `Contents: Read & Write` (fine-grained) for the target repo. Used to create issues and (optionally) commit attached screenshots to `bug-reports/`.
+- `GITHUB_REPO` — `owner/name`, e.g. `MeaCore-Enterprise/MeaCoreLauncher`.
+- `GITHUB_BRANCH` — optional, defaults to `main`. Branch where screenshot files are committed.
+
+Without these vars the form returns a 500 with a clear error message.

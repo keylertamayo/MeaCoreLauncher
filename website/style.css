@@ -325,6 +325,124 @@ nav {
     }
 }
 
+/* Bug Report */
+.report-sec {
+    padding: 5rem 5%;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-color);
+}
+.report-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+}
+.report-wrap h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.report-intro {
+    text-align: center;
+    color: var(--text-sec);
+    margin-bottom: 2.5rem;
+}
+.bug-form {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 2rem;
+}
+.form-row {
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+.form-row label {
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.form-row .muted {
+    font-weight: normal;
+    color: var(--text-sec);
+    font-size: 0.85rem;
+}
+.form-row input[type="text"],
+.form-row input[type="email"],
+.form-row textarea {
+    background: #111;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.7rem 0.9rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-row input[type="text"]:focus,
+.form-row input[type="email"]:focus,
+.form-row textarea:focus {
+    outline: none;
+    border-color: var(--green-accent);
+    box-shadow: 0 0 0 3px rgba(45, 129, 52, 0.25);
+}
+.form-row textarea {
+    resize: vertical;
+    min-height: 130px;
+}
+.form-row input[type="file"] {
+    color: var(--text-sec);
+    font-size: 0.9rem;
+}
+.form-row input[type="file"]::file-selector-button {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 0.45rem 0.9rem;
+    margin-right: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.form-row input[type="file"]::file-selector-button:hover {
+    border-color: var(--green-accent);
+}
+.form-actions {
+    align-items: flex-start;
+    margin-top: 0.5rem;
+}
+.form-actions .btn {
+    margin: 0;
+}
+.bug-form .hp {
+    position: absolute;
+    left: -10000px;
+    top: -10000px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.bug-status {
+    margin-top: 1rem;
+    min-height: 1.5rem;
+    font-size: 0.95rem;
+}
+.bug-status.success {
+    color: var(--green-hover);
+}
+.bug-status.error {
+    color: #ff6b6b;
+}
+.bug-status.info {
+    color: var(--text-sec);
+}
+.bug-status a {
+    color: var(--green-hover);
+    text-decoration: underline;
+}
+button[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Footer */
 footer {
     text-align: center;
