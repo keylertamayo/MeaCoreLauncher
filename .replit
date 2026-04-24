@@ -1,6 +1,7 @@
-modules = ["java-graalvm22.3", "web", "nodejs-20"]
+modules = ["java-graalvm22.3", "web", "nodejs-20", "nix"]
 [agent]
 expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
 channel = "stable-25_05"
