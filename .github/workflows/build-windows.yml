@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build .msi (Windows)
+    name: Build .exe (Windows)
     runs-on: windows-latest
 
     steps:
@@ -53,12 +53,26 @@ jobs:
           magick icon.png -resize 256x256 icon.ico
           Write-Host "icon.ico generado OK"
 
+      # ── Inno Setup (requerido por jpackage para producir .exe) ───────────────
+      # jpackage --type exe usa Inno Setup 6 internamente. Viene preinstalado
+      # en windows-latest pero no está en el PATH; lo añadimos.
+      - name: Add Inno Setup to PATH
+        shell: pwsh
+        run: |
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6"
+          if (-not (Test-Path $innoPath)) {
+              Write-Host "Inno Setup no encontrado, instalando con Chocolatey..."
+              choco install innosetup -y --no-progress
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $innoPath
+          Write-Host "Inno Setup listo en $innoPath"
+
       # ── Empaquetar ────────────────────────────────────────────────────────────
       # jpackage toma el JAR principal + todas las dependencias que Gradle
       # copió en build/libs gracias a la tarea copyDependencies.
       # --win-per-user-install: no requiere UAC al instalar (más compat.)
       # --win-console:          muestra consola solo si se integra con CMD (debug)
-      - name: Create .msi with jpackage
+      - name: Create .exe with jpackage
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build/dist | Out-Null
@@ -74,7 +88,7 @@ jobs:
             --input build/libs `
             --main-jar $MainJar `
             --main-class com.experimento.launcher.Main `
-            --type msi `
+            --type exe `
             --icon icon.ico `
             --win-shortcut `
             --win-menu `
@@ -93,9 +107,9 @@ jobs:
       - name: Rename artifact
         shell: pwsh
         run: |
-          $msi = Get-ChildItem -Filter "*.msi" -Path build/dist | Select-Object -First 1
-          $newName = "meacore-launcher-$env:VERSION.msi"
-          Rename-Item $msi.FullName $newName
+          $exe = Get-ChildItem -Filter "*.exe" -Path build/dist | Select-Object -First 1
+          $newName = "meacore-launcher-$env:VERSION.exe"
+          Rename-Item $exe.FullName $newName
           Write-Host "Renamed to $newName"
 
       # ── Crear Versión Portable (ZIP) para usuarios con SmartScreen estricto ──
@@ -125,7 +139,7 @@ jobs:
         with:
           name: MeaCoreLauncher-Windows
           path: |
-            build/dist/*.msi
+            build/dist/*.exe
             build/dist/*.zip
 
       - name: GitHub Release
@@ -133,6 +147,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            build/dist/*.msi
+            build/dist/*.exe
             build/dist/*.zip
           generate_release_notes: true

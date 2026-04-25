@@ -221,7 +221,7 @@ public class LauncherApp extends Application {
             public void onDownloadComplete(Path installerPath) {
                 Platform.runLater(() -> {
                     String msg = com.experimento.launcher.mojang.OsContext.current().isWindows()
-                            ? "¡Descarga lista! El instalador (.msi) se ejecutará en un momento."
+                            ? "¡Descarga lista! El instalador (.exe) se ejecutará en un momento."
                             : "¡Descarga lista! Por favor, autoriza la instalación en la ventana de sistema que aparecerá.";
                     updateStatus.setText(msg);
                     updateProgress.setProgress(1.0);

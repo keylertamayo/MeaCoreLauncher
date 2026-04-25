@@ -238,13 +238,17 @@ async function updateReleaseInfo() {
             }
         }
 
-        // Botón Windows (.msi)
+        // Botón Windows (.exe). Mantenemos un fallback a .msi por si la
+        // release aún es la antigua durante la transición.
+        const exeAsset = data.assets.find(a => a.name.endsWith('.exe'));
         const msiAsset = data.assets.find(a => a.name.endsWith('.msi'));
-        if (msiAsset && downloadWin) {
-            downloadWin.href = msiAsset.browser_download_url;
-            downloadWin.textContent = `⬇ Descargar .MSI (Windows)`;
+        const winAsset = exeAsset || msiAsset;
+        if (winAsset && downloadWin) {
+            downloadWin.href = winAsset.browser_download_url;
+            const ext = winAsset.name.endsWith('.exe') ? '.EXE' : '.MSI';
+            downloadWin.textContent = `⬇ Descargar ${ext} (Windows)`;
         } else if (downloadWin) {
-            // Si aún no hay .msi en esta release, apuntar a releases general
+            // Si aún no hay instalador en esta release, apuntar a releases general
             downloadWin.href = 'https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/latest';
         }
 

@@ -15,7 +15,7 @@ import java.time.Duration;
 
 /**
  * Servicio de auto-actualización del launcher.
- * Multiplataforma: usa .msi en Windows y .deb en Linux.
+ * Multiplataforma: usa .exe en Windows y .deb en Linux.
  */
 public class AutoUpdateService {
 
@@ -65,7 +65,7 @@ public class AutoUpdateService {
                     if (!latestVersion.isBlank() && isNewer(latestVersion, currentVersion)) {
                         // Elegir la extensión correcta según el SO
                         boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-                        String preferredExt = isWindows ? ".msi" : ".deb";
+                        String preferredExt = isWindows ? ".exe" : ".deb";
 
                         String downloadUrl = null;
                         JsonNode assets = release.path("assets");
@@ -92,14 +92,14 @@ public class AutoUpdateService {
 
     /**
      * Descarga el instalador y lo ejecuta.
-     * En Windows usa {@code msiexec /i ... /passive /norestart}.
+     * En Windows ejecuta el instalador .exe (Inno Setup) con {@code /VERYSILENT /NORESTART}.
      * En Linux usa {@code pkexec apt install -y ...}.
      */
     public static void downloadAndInstallAsync(String installerUrl) {
         Thread t = new Thread(() -> {
             try {
                 boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-                String ext = isWindows ? ".msi" : ".deb";
+                String ext = isWindows ? ".exe" : ".deb";
 
                 // Directorio temporal apropiado según el SO
                 Path tempDir;
@@ -158,9 +158,10 @@ public class AutoUpdateService {
         try {
             String path = installerPath.toAbsolutePath().toString();
             if (isWindows) {
-                // /passive: UI de progreso mínima, sin interacción.
-                // /norestart: no reinicia automáticamente el sistema.
-                new ProcessBuilder("msiexec", "/i", path, "/passive", "/norestart").start();
+                // /VERYSILENT: instalación sin UI (Inno Setup).
+                // /NORESTART:  no reinicia automáticamente el sistema.
+                // /SUPPRESSMSGBOXES: ignora cuadros informativos no críticos.
+                new ProcessBuilder(path, "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES").start();
             } else {
                 // sleep 1: tiempo para que el launcher se cierre antes que pkexec tome control.
                 // setsid nohup: el nuevo proceso es independiente del proceso padre.
