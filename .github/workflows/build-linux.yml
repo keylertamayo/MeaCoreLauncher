@@ -3,7 +3,7 @@ name: Release Linux Installer
 on:
   push:
     tags:
-      - "bat-*"
+      - "v*"
 
 permissions:
   contents: write
