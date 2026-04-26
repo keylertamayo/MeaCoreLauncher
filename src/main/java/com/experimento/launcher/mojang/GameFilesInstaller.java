@@ -41,13 +41,18 @@ public final class GameFilesInstaller {
         Path versionRoot = versionsDir.resolve(versionId);
         Files.createDirectories(versionRoot);
 
-        progress.log("Descargando cliente…");
         JsonNode client = merged.get("downloads").get("client");
         Path clientJar = versionRoot.resolve(versionId + ".jar");
-        HttpFiles.downloadIfHashMismatch(
-                client.get("url").asText(), clientJar, client.get("sha1").asText());
+        if (!Files.exists(clientJar)) {
+            progress.log("⬇ Descargando cliente JAR (" + (client.get("size").asLong() / (1024 * 1024)) + " MB)…");
+            HttpFiles.downloadIfHashMismatch(
+                    client.get("url").asText(), clientJar, client.get("sha1").asText());
+            progress.log("✓ Cliente JAR descargado");
+        } else {
+            progress.log("✓ Cliente JAR ya presente");
+        }
 
-        progress.log("Descargando bibliotecas en paralelo…");
+        progress.log("⬇ Descargando bibliotecas en paralelo…");
         Path nativesDir = versionRoot.resolve("natives");
         Files.createDirectories(nativesDir);
 
@@ -74,14 +79,16 @@ public final class GameFilesInstaller {
                 f.get();
             }
         }
+        progress.log("✓ Librerías completadas (" + libraries.size() + " procesadas)");
 
-        progress.log("Descargando índice de assets…");
+        progress.log("⬇ Descargando índice de assets…");
         JsonNode assetIndex = merged.get("assetIndex");
         Path indexesDir = assetsDir.resolve("indexes");
         Files.createDirectories(indexesDir);
         Path indexFile = indexesDir.resolve(assetIndex.get("id").asText() + ".json");
         HttpFiles.downloadIfHashMismatch(
                 assetIndex.get("url").asText(), indexFile, assetIndex.get("sha1").asText());
+        progress.log("✓ Índice descargado");
 
         JsonNode indexJson = M.readTree(Files.readAllBytes(indexFile));
         JsonNode objects = indexJson.get("objects");
@@ -100,12 +107,12 @@ public final class GameFilesInstaller {
             });
             toRemove.forEach(objNode::remove);
             M.writeValue(indexFile.toFile(), indexJson);
-            if (!toRemove.isEmpty()) progress.log("Deep Clean: Ocultados " + toRemove.size() + " idiomas del menú.");
+            if (!toRemove.isEmpty()) progress.log("🧹 Deep Clean: Ocultados " + toRemove.size() + " idiomas");
         }
 
         int total = objects.size();
         AtomicInteger done = new AtomicInteger();
-        progress.log("Sincronizando assets (" + total + " objetos) con " + DOWNLOAD_THREADS + " hilos…");
+        progress.log("📦 Sincronizando assets (" + total + " objetos)…");
 
         Path objectsDir = assetsDir.resolve("objects");
         Files.createDirectories(objectsDir);
@@ -123,7 +130,7 @@ public final class GameFilesInstaller {
                                 String got = com.experimento.launcher.util.Hashing.sha1Hex(in);
                                 if (hash.equalsIgnoreCase(got)) {
                                     int c = done.incrementAndGet();
-                                    if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
+                                    if (c % 500 == 0 || c == total) progress.log("  🔄 Assets: " + c + "/" + total);
                                     return;
                                 }
                             }
@@ -131,7 +138,7 @@ public final class GameFilesInstaller {
                         String url = RESOURCE_HOST + prefix + "/" + hash;
                         HttpFiles.downloadIfHashMismatch(url, dest, hash);
                         int c = done.incrementAndGet();
-                        if (c % 500 == 0) progress.log("Assets: " + c + "/" + total);
+                        if (c % 500 == 0 || c == total) progress.log("  🔄 Assets: " + c + "/" + total);
                     } catch (Exception ex) {
                         throw new RuntimeException(ex);
                     }
@@ -143,27 +150,34 @@ public final class GameFilesInstaller {
         } catch (Exception e) {
             progress.log("[ERROR] Error en descarga de assets: " + e.getMessage());
         }
+        progress.log("✓ Assets completados");
 
-        progress.log("Descargando configuración de logging…");
+        progress.log("📝 Descargando configuración de logging…");
         JsonNode logging = merged.path("logging").path("client").path("file");
         if (!logging.isMissingNode() && logging.has("url")) {
             Path logCfg = versionRoot.resolve(logging.get("id").asText());
             HttpFiles.downloadIfHashMismatch(
                     logging.get("url").asText(), logCfg, logging.path("sha1").asText(null));
+            progress.log("✓ Config de logging descargada");
         }
 
-        progress.log("Instalación de " + versionId + " completada.");
+        progress.log("✅ Instalación de " + versionId + " COMPLETADA.");
         return merged;
     }
 
     private void downloadLibrary(JsonNode lib, Path nativesDir, ProgressSink progress) throws Exception {
+        String libName = lib.has("name") ? lib.get("name").asText() : "unknown";
         JsonNode downloads = lib.get("downloads");
         boolean downloaded = false;
 
         if (downloads != null && downloads.has("artifact")) {
             JsonNode art = downloads.get("artifact");
             Path dest = librariesDir.resolve(art.get("path").asText());
-            HttpFiles.downloadIfHashMismatch(art.get("url").asText(), dest, art.get("sha1").asText());
+            String fileName = dest.getFileName().toString();
+            if (!Files.exists(dest)) {
+                progress.log("⬇ Descargando librería: " + fileName);
+                HttpFiles.downloadIfHashMismatch(art.get("url").asText(), dest, art.get("sha1").asText());
+            }
             downloaded = true;
         }
 
@@ -177,8 +191,12 @@ public final class GameFilesInstaller {
             if (key != null && cls.has(key)) {
                 JsonNode nat = cls.get(key);
                 Path zipPath = librariesDir.resolve(nat.get("path").asText());
-                HttpFiles.downloadIfHashMismatch(nat.get("url").asText(), zipPath, nat.get("sha1").asText());
+                if (!Files.exists(zipPath)) {
+                    progress.log("⬇ Descargando nativo: " + libName);
+                    HttpFiles.downloadIfHashMismatch(nat.get("url").asText(), zipPath, nat.get("sha1").asText());
+                }
                 synchronized (nativesDir) {
+                    progress.log("📦 Extrayendo nativo: " + libName);
                     extractNatives(zipPath, nativesDir);
                 }
             }
@@ -189,6 +207,7 @@ public final class GameFilesInstaller {
                     Path jarPath = librariesDir.resolve(art.get("path").asText());
                     if (Files.exists(jarPath)) {
                         synchronized (nativesDir) {
+                            progress.log("📦 Extrayendo text2speech");
                             extractNatives(jarPath, nativesDir);
                         }
                     }

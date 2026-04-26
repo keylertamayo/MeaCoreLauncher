@@ -324,25 +324,54 @@ public final class LauncherFacade {
         log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(gameDirFor(p).toFile());
-        // Redirigir errorStream al inputStream para leer todo en un solo hilo
         pb.redirectErrorStream(true);
         Process process = pb.start();
         
-        // Hilo de lectura de consola del juego
+        // Crear servicio de crash report para esta sesión
+        CrashReportService crashReporter;
+        try {
+            crashReporter = new CrashReportService(dirs.launcherData());
+        } catch (Exception e) {
+            crashReporter = null;
+            log.accept("[LAUNCHER] ⚠️ No se pudo inicializar telemetría de crashes: " + e.getMessage());
+        }
+        
+        // Hilo de lectura de consola del juego con captura de logs
+        final CrashReportService reporter = crashReporter;
         new Thread(() -> {
             try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     final String captured = line;
                     String prefix = "";
+                    
                     if (captured.contains("WARN")) prefix = "⚠️ ";
-                    else if (captured.contains("ERROR") || captured.contains("FATAL") || captured.contains("Exception")) prefix = "❌ ";
+                    else if (captured.contains("ERROR") || captured.contains("FATAL") || captured.contains("Exception")) {
+                        prefix = "❌ ";
+                    }
                     else if (captured.contains("INFO")) prefix = "ℹ️ ";
                     
                     log.accept("[GAME] " + prefix + captured);
+                    
+                    // Capturar línea para reporte de crash
+                    if (reporter != null) {
+                        reporter.processLogLine(captured);
+                    }
                 }
             } catch (Exception e) {
                 log.accept("[LAUNCHER] Error leyendo consola del juego: " + e.getMessage());
+            }
+            
+            // Finalizar reporte de crash cuando el proceso termina
+            if (reporter != null) {
+                try {
+                    Path crashReport = reporter.finalizeCrashReport(p.displayName, p.lastVersionId);
+                    if (crashReport != null) {
+                        log.accept("[LAUNCHER] 📋 Reporte de telemetría guardado en: " + crashReport.getFileName());
+                    }
+                } catch (Exception e) {
+                    log.accept("[LAUNCHER] Error guardando telemetría: " + e.getMessage());
+                }
             }
         }).start();
 

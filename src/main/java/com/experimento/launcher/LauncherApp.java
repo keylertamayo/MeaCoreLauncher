@@ -82,6 +82,8 @@ public class LauncherApp extends Application {
     private StackPane javaDownloadOverlay;
     private ProgressBar javaProgress;
     private Label javaStatus;
+    private Label javaProgressLabel;
+    private Button javaDownloadCloseBtn;
     private int detectedJavaVersion = 8;
 
     // Nuevo Header Dinámico
@@ -1320,6 +1322,9 @@ public class LauncherApp extends Application {
         javaProgress.setMaxWidth(Double.MAX_VALUE);
         javaProgress.setStyle("-fx-accent: #0E639C;");
 
+        javaProgressLabel = new Label("0%");
+        javaProgressLabel.setStyle("-fx-text-fill: #0E639C; -fx-font-size: 12px;");
+
         final Button downloadBtn = new Button("✅ Descargar Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : "Recomendado") + " Portátil");
         downloadBtn.getStyleClass().add("button-primary");
         downloadBtn.setPrefWidth(300);
@@ -1331,42 +1336,43 @@ public class LauncherApp extends Application {
         downloadBtn.setOnAction(e -> {
             downloadBtn.setDisable(true);
             download21Btn.setDisable(true);
-            runTask(createJavaDownloadTask(detectedJavaVersion > 0 ? detectedJavaVersion : 17));
+            if (javaDownloadCloseBtn != null) javaDownloadCloseBtn.setDisable(true);
+            updateJavaDownloadStatus("Descargando Java " + (detectedJavaVersion > 0 ? detectedJavaVersion : 17) + "...", 0);
+            runTask(createJavaDownloadTask(detectedJavaVersion > 0 ? detectedJavaVersion : 17, downloadBtn, download21Btn));
         });
 
         download21Btn.setOnAction(e -> {
             downloadBtn.setDisable(true);
             download21Btn.setDisable(true);
-            runTask(createJavaDownloadTask(21));
+            if (javaDownloadCloseBtn != null) javaDownloadCloseBtn.setDisable(true);
+            updateJavaDownloadStatus("Descargando Java 21...", 0);
+            runTask(createJavaDownloadTask(21, downloadBtn, download21Btn));
         });
 
-        Button closeBtn = new Button("Cancelar");
-        closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888;");
-        closeBtn.setOnAction(e -> javaDownloadOverlay.setVisible(false));
+        javaDownloadCloseBtn = new Button("Cancelar");
+        javaDownloadCloseBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888;");
+        javaDownloadCloseBtn.setOnAction(e -> javaDownloadOverlay.setVisible(false));
 
-        card.getChildren().addAll(title, javaStatus, javaInfoLabel, javaProgress, downloadBtn, download21Btn, closeBtn);
+        card.getChildren().addAll(title, javaStatus, javaInfoLabel, javaProgress, javaProgressLabel, downloadBtn, download21Btn, javaDownloadCloseBtn);
         dim.getChildren().add(card);
         return dim;
     }
 
-    private javafx.concurrent.Task<Void> createJavaDownloadTask(int version) {
+    private javafx.concurrent.Task<Void> createJavaDownloadTask(int version, Button downloadBtn, Button download21Btn) {
         return new javafx.concurrent.Task<>() {
             @Override
             protected Void call() throws Exception {
-                updateMessage("Iniciando descarga de Java " + version + "...");
-                updateProgress(0, 100);
-                
+                updateJavaDownloadStatus("Iniciando descarga de Java " + version + "...", 0);
+
                 Path path = facade.runtime().downloadJavaSync(version, p -> {
-                    updateProgress(p * 100, 100);
-                    Platform.runLater(() -> {
-                        if (javaProgress != null) javaProgress.setProgress(p);
-                    });
+                    Platform.runLater(() -> updateJavaDownloadStatus(null, p));
                 });
-                
+
                 if (path != null) {
                     Platform.runLater(() -> {
                         log("Java " + version + " Portable instalado en: " + path);
                         javaDownloadOverlay.setVisible(false);
+                        closeJavaDownloadOverlay(downloadBtn, download21Btn);
                         new Alert(Alert.AlertType.INFORMATION, "Java " + version + " se ha instalado correctamente.").show();
                     });
                 } else {
@@ -1374,16 +1380,46 @@ public class LauncherApp extends Application {
                 }
                 return null;
             }
-            
+
             @Override
             protected void failed() {
                 Platform.runLater(() -> {
-                    javaDownloadOverlay.setVisible(false);
+                    closeJavaDownloadOverlay(downloadBtn, download21Btn);
                     log("Error descargando Java " + version + ": " + getException().getMessage());
                     new Alert(Alert.AlertType.ERROR, "Error al descargar Java: " + getException().getMessage()).show();
                 });
             }
         };
+    }
+
+    private void updateJavaDownloadStatus(String message, double progress) {
+        if (message != null && javaStatus != null) {
+            javaStatus.setText(message);
+        }
+        if (javaProgress != null) {
+            if (progress < 0) {
+                javaProgress.setProgress(-1);
+                if (javaProgressLabel != null) javaProgressLabel.setText("Descargando...");
+            } else {
+                javaProgress.setProgress(progress);
+                if (javaProgressLabel != null) javaProgressLabel.setText(String.format("%.0f%%", progress * 100));
+            }
+        }
+    }
+
+    private void closeJavaDownloadOverlay(Button downloadBtn, Button download21Btn) {
+        if (javaDownloadOverlay != null) {
+            javaDownloadOverlay.setVisible(false);
+        }
+        if (downloadBtn != null) {
+            downloadBtn.setDisable(false);
+        }
+        if (download21Btn != null) {
+            download21Btn.setDisable(false);
+        }
+        if (javaDownloadCloseBtn != null) {
+            javaDownloadCloseBtn.setDisable(false);
+        }
     }
 
     private void saveProfiles() {

@@ -133,16 +133,28 @@ public final class JavaRuntimeService {
     private void extractZip(Path zipFile, Path destDir) throws IOException {
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry entry;
+            int extractedCount = 0;
             while ((entry = zis.getNextEntry()) != null) {
                 Path newPath = destDir.resolve(entry.getName());
                 if (entry.isDirectory()) {
                     Files.createDirectories(newPath);
                 } else {
                     Files.createDirectories(newPath.getParent());
-                    Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
+                    try {
+                        Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
+                        extractedCount++;
+                    } catch (IOException e) {
+                        System.err.println("[JRE] Error extracting " + entry.getName() + ": " + e.getMessage());
+                        throw new IOException("ZIP corrupted or incomplete: " + e.getMessage(), e);
+                    }
                 }
                 zis.closeEntry();
             }
+            if (extractedCount == 0) {
+                throw new IOException("No files extracted from ZIP - file may be corrupted");
+            }
+        } catch (java.util.zip.ZipException e) {
+            throw new IOException("ZIP file corrupted: " + e.getMessage() + ". Try downloading again.", e);
         }
     }
 
@@ -169,10 +181,24 @@ public final class JavaRuntimeService {
                 byte[] buf = new byte[DOWNLOAD_BUFFER_SIZE];
                 long read = 0;
                 int n;
+                if (progress != null) {
+                    if (total > 0) {
+                        progress.accept(0.0);
+                    } else {
+                        progress.accept(-1.0);
+                    }
+                }
                 while ((n = is.read(buf)) != -1) {
                     os2.write(buf, 0, n);
                     read += n;
-                    if (total > 0) progress.accept((double) read / total);
+                    if (progress != null) {
+                        if (total > 0) {
+                            progress.accept((double) read / total);
+                        }
+                    }
+                }
+                if (progress != null) {
+                    progress.accept(1.0);
                 }
                 return;
             } catch (IOException e) {
