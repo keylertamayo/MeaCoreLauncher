@@ -26,6 +26,7 @@
             <a href="#features">Características</a>
             <a href="#download">Descargar</a>
             <a href="changelog.html">Registro de Cambios</a>
+            <a href="#report">Reportar Bug</a>
             <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank">GitHub</a>
         </div>
     </nav>
@@ -36,7 +37,7 @@
         <p>El launcher de Minecraft de alto rendimiento para Linux y Windows. Gratis, sin anuncios, sin cuentas premium.</p>
         <div>
             <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases/latest" id="download-btn-hero" class="btn btn-primary">⬇ Descargar .DEB (Linux)</a>
-            <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases/latest" id="download-btn-windows" class="btn btn-windows">⬇ Descargar .MSI (Windows)</a>
+            <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases/latest" id="download-btn-windows" class="btn btn-windows">⬇ Descargar .EXE (Windows)</a>
             <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank" class="btn btn-outline">Ver en GitHub</a>
         </div>
     </section>
@@ -93,11 +94,58 @@
         <a href="https://github.com/keylertamayo/MeaCoreLauncher/releases" class="btn btn-outline" style="margin-top: 2rem;">Ver todas las versiones</a>
     </section>
 
+    <section id="report" class="report-sec">
+        <div class="report-wrap">
+            <h2>Reportar un Bug</h2>
+            <p class="report-intro">
+                ¿Encontraste un fallo? Cuéntanoslo aquí. Tu reporte se publica directamente
+                como <em>issue</em> en GitHub para que el equipo de MeaCore lo revise.
+                Si quieres, adjunta una captura de pantalla.
+            </p>
+
+            <form id="bug-form" class="bug-form" novalidate>
+                <div class="form-row">
+                    <label for="bug-name">Nombre <span class="muted">(opcional)</span></label>
+                    <input id="bug-name" name="name" type="text" maxlength="80" autocomplete="name">
+                </div>
+
+                <div class="form-row">
+                    <label for="bug-email">Correo de contacto *</label>
+                    <input id="bug-email" name="email" type="email" required maxlength="120" autocomplete="email" placeholder="tucorreo@ejemplo.com">
+                </div>
+
+                <div class="form-row">
+                    <label for="bug-title">Título del problema *</label>
+                    <input id="bug-title" name="title" type="text" required maxlength="200" placeholder="Ej: El launcher no abre con Java 21">
+                </div>
+
+                <div class="form-row">
+                    <label for="bug-desc">Describe el problema *</label>
+                    <textarea id="bug-desc" name="description" required maxlength="8000" rows="6" placeholder="¿Qué intentaste hacer? ¿Qué pasó? ¿Qué esperabas que pasara? Pasos para reproducirlo, sistema operativo, versión del launcher…"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <label for="bug-screenshot">Captura de pantalla <span class="muted">(opcional, máx. 4 MB)</span></label>
+                    <input id="bug-screenshot" name="screenshot" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                    <small class="muted">Acepta PNG, JPG, WEBP o GIF.</small>
+                </div>
+
+                <input type="text" name="company" id="bug-honeypot" class="hp" tabindex="-1" autocomplete="off">
+
+                <div class="form-row form-actions">
+                    <button type="submit" id="bug-submit" class="btn btn-primary">Enviar reporte</button>
+                </div>
+
+                <div id="bug-status" class="bug-status" role="status" aria-live="polite"></div>
+            </form>
+        </div>
+    </section>
+
     <footer>
         <p>© 2026 MeaCore-Enterprise — Arica, Chile. Todos los derechos reservados.</p>
         <div style="margin-top: 1rem;">
             <a href="https://github.com/keylertamayo/MeaCoreLauncher" target="_blank">GitHub</a>
-            <a href="https://github.com/keylertamayo/MeaCoreLauncher/issues" target="_blank">Reportar Bug</a>
+            <a href="#report">Reportar Bug</a>
         </div>
     </footer>
 

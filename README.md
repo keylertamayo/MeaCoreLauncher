@@ -34,7 +34,7 @@ Este repositorio utiliza un flujo de trabajo dinámico para garantizar la estabi
 3. Inicia "MeaCore Launcher" desde tu menú de aplicaciones.
 
 ### 🪟 Windows
-1. Descarga el archivo `meacorelauncher_1.2.2.msi`.
+1. Descarga el archivo `meacore-launcher-X.Y.Z.exe`.
 2. Haz doble clic y sigue el asistente de instalación.
 
 ---
