@@ -3,7 +3,7 @@ name: Release Windows Installer
 on:
   push:
     tags:
-      - "v*"
+      - "bat-*"
 
 permissions:
   contents: write
