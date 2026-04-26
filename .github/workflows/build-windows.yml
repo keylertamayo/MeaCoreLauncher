@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "bat-*"
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a re-construir (ej: v1.5.0)"
+        required: true
 
 permissions:
   contents: write
@@ -16,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -112,41 +120,16 @@ jobs:
           Rename-Item $exe.FullName $newName
           Write-Host "Renamed to $newName"
 
-      # ── Crear Versión Portable (ZIP) para usuarios con SmartScreen estricto ──
-      - name: Create Portable ZIP
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build/dist-portable | Out-Null
-          $MainJar = (Get-ChildItem -Filter "meacore-launcher-*.jar" -Path build/libs | Select-Object -First 1).Name
-          jpackage `
-            --name "MeaCore Launcher" `
-            --app-version "$env:VERSION" `
-            --vendor "MeaCore-Enterprise" `
-            --input build/libs `
-            --main-jar $MainJar `
-            --main-class com.experimento.launcher.Main `
-            --type app-image `
-            --icon icon.ico `
-            --java-options "-Xmx512m" `
-            --dest build/dist-portable
-            
-          # Comprimir la carpeta en un ZIP
-          Compress-Archive -Path "build/dist-portable/MeaCore Launcher" -DestinationPath "build/dist/meacore-launcher-$env:VERSION-portable.zip"
-          Write-Host "ZIP Portable creado"
-
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MeaCoreLauncher-Windows
-          path: |
-            build/dist/*.exe
-            build/dist/*.zip
+          path: build/dist/*.exe
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            build/dist/*.exe
-            build/dist/*.zip
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: build/dist/*.exe
           generate_release_notes: true
+          fail_on_unmatched_files: true
