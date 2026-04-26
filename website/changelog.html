@@ -50,50 +50,46 @@
 
     <div class="timeline">
 
-        <!-- v1.5.0 -->
-        <div class="log-item">
-            <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.5.0 - Telemetry & Download Overhaul 📊 (Actual)</h3>
-                <span class="version-date">26 de Abril, 2026</span>
-            </div>
-            <p><strong>Telemetría Integrada de Errores:</strong></p>
-            <ul>
-                <li><strong>CrashReportService:</strong> Nuevo servicio que captura automáticamente errores, excepciones y crashes de Minecraft en tiempo real, guardando reportes detallados con información del sistema y logs completos.</li>
-                <li><strong>Análisis Inteligente:</strong> Detecta tipos de error comunes (OutOfMemoryError, StackOverflowError, ClassNotFoundException) y proporciona causas probables con recomendaciones específicas.</li>
-                <li><strong>Reportes Locales:</strong> Los crashes se almacenan en <code>launcher-data/crash-reports/</code> con timestamps y nombres de perfil, permitiendo revisión histórica sin enviar datos a Microsoft.</li>
-            </ul>
-            <p><strong>Mejoras en Descargas y Instalación:</strong></p>
-            <ul>
-                <li><strong>Progreso de Java en Tiempo Real:</strong> La descarga de JREs portátiles ahora muestra porcentaje exacto (0%-100%) que se actualiza continuamente, sin cierres prematuros de la UI.</li>
-                <li><strong>Descargas Streaming Optimizadas:</strong> Reemplazado el sistema de descarga por streaming con buffers de 8MB, reduciendo uso de memoria y mejorando estabilidad en conexiones lentas.</li>
-                <li><strong>Reintentos Exponenciales:</strong> Implementado sistema de reintentos automáticos (1s, 2s, 4s, máximo 10s) para descargas fallidas por problemas de red.</li>
-                <li><strong>Feedback Detallado:</strong> Instalación de versiones ahora muestra progreso con emojis (⬇ descargando, 📦 assets, ✅ completado) y nombres específicos de archivos siendo procesados.</li>
-            </ul>
-            <p><strong>Correcciones Críticas de Compatibilidad:</strong></p>
-            <ul>
-                <li><strong>JVM Preset HIGH Corregido:</strong> Cambiado de ZGC (Java 21+) a G1GC para compatibilidad universal, resolviendo errores "Option -XX:+UseZGC not supported" en sistemas con Java versiones mixtas.</li>
-                <li><strong>Extracción de Java Robusta:</strong> Añadida validación de integridad ZIP durante extracción, detectando archivos corruptos y mostrando errores específicos en lugar de fallos genéricos.</li>
-                <li><strong>Integración de Telemetría:</strong> LauncherFacade ahora captura output del juego línea por línea, procesando logs para detección automática de crashes sin afectar rendimiento.</li>
-            </ul>
-        </div>
-
         <!-- v1.4.0 -->
         <div class="log-item">
             <div class="version-header">
-                <h3>v1.4.0 - Engine Evolution 🧠</h3>
-                <span class="version-date">21 de Abril, 2026</span>
+                <h3 style="color: #00d2ff;">v1.4.0 - Engine Evolution 🧠 (Actual)</h3>
+                <span class="version-date">26 de Abril, 2026</span>
             </div>
+
+            <p><strong>Nuevo Instalador Windows (.EXE):</strong></p>
+            <ul>
+                <li><strong>Adiós al .MSI:</strong> El instalador de Windows ahora se distribuye como <code>.exe</code> generado con Inno Setup. Resuelve los falsos positivos más comunes de SmartScreen y elimina la necesidad del ZIP portable.</li>
+                <li><strong>Instalación silenciosa:</strong> El auto-actualizador ejecuta el instalador con <code>/VERYSILENT /NORESTART /SUPPRESSMSGBOXES</code>: cero ventanas, cero clics.</li>
+                <li><strong>⚠️ Migración manual una sola vez:</strong> Los usuarios que vengan de la versión <code>.msi</code> deben descargar este <code>.exe</code> a mano la primera vez. A partir de ahí, las actualizaciones vuelven a ser automáticas.</li>
+            </ul>
+
+            <p><strong>Reporta bugs sin salir de la web:</strong></p>
+            <ul>
+                <li><strong>Formulario integrado:</strong> Nueva sección <em>Reportar un bug</em> en la página principal. Adjunta capturas de pantalla y describe el problema sin crear cuenta de GitHub ni instalar nada.</li>
+                <li><strong>Auto-relleno inteligente:</strong> El formulario detecta tu sistema operativo y la última versión publicada del launcher para incluirlos automáticamente en el reporte.</li>
+                <li><strong>Issues automáticos:</strong> Cada reporte se convierte en un issue de GitHub real (con la captura adjunta), listo para que el equipo lo revise.</li>
+            </ul>
+
             <p><strong>Optimización de CPU (Avanzada):</strong></p>
             <ul>
                 <li><strong>Detección de Cores:</strong> Ahora el launcher distingue entre núcleos físicos y hilos lógicos para una optimización precisa.</li>
                 <li><strong>JVM Adaptativa:</strong> Los argumentos de hilos (GC y JIT) se calculan dinámicamente según tu procesador, mejorando drásticamente el rendimiento en equipos de 8, 12 o más núcleos.</li>
                 <li><strong>Prioridad de Proceso:</strong> Refinado el motor de arranque para asegurar que Minecraft use la potencia total del procesador sin interferencias del sistema.</li>
             </ul>
+
             <p><strong>Mejoras en el Ecosistema Java:</strong></p>
             <ul>
                 <li><strong>Instalador Robusto:</strong> La descarga de JREs portátiles ahora es síncrona con la UI, mostrando una barra de progreso real que no desaparece hasta finalizar la instalación.</li>
                 <li><strong>Mirrors de Respaldo:</strong> Se han integrado servidores espejo (GitHub Releases) para Java 8 y 21 en caso de que el API oficial de Adoptium no esté disponible.</li>
                 <li><strong>Alertas de Instalación:</strong> Nuevas ventanas de confirmación al terminar descargas exitosas o fallidas para mantener al usuario informado.</li>
+            </ul>
+
+            <p><strong>Build &amp; CI/CD:</strong></p>
+            <ul>
+                <li><strong>Tags simplificados:</strong> Los workflows de release ahora también disparan con tags <code>v*</code> (ej. <code>v1.4.0</code>), no solo <code>bat-*</code>. Más natural y compatible con cualquier herramienta de versionado.</li>
+                <li><strong>Re-construir releases viejas:</strong> Nuevo disparador manual desde GitHub Actions que permite regenerar los instaladores de cualquier tag publicado sin tener que crear una versión nueva.</li>
+                <li><strong>Validación estricta:</strong> Si jpackage no produce el instalador esperado, el workflow falla en lugar de subir una release vacía.</li>
             </ul>
         </div>
 
