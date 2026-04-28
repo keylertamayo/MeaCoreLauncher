@@ -78,6 +78,8 @@ public class LauncherApp extends Application {
     private ProgressBar updateProgress;
     private Label updateStatus;
     private Button updateBtn;
+    private Label sidebarVersionLabel;
+    private HBox sidebarStatusBox;
     private final Map<String, Button> navButtons = new HashMap<>();
     private StackPane javaDownloadOverlay;
     private ProgressBar javaProgress;
@@ -148,8 +150,44 @@ public class LauncherApp extends Application {
         
         Label brandLabel = new Label("MeaCore Launcher");
         brandLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 20 10;");
+
+        sidebarVersionLabel = new Label("v" + LauncherMetadata.VERSION);
+        sidebarVersionLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 11px;");
         
-        sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu());
+        sidebarStatusBox = new HBox(5);
+        sidebarStatusBox.setAlignment(Pos.CENTER_LEFT);
+        sidebarStatusBox.setVisible(false);
+        sidebarStatusBox.setManaged(false);
+        Label statusDot = new Label("●");
+        statusDot.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 14px;");
+        Label statusTxt = new Label("Actualización lista");
+        statusTxt.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px; -fx-font-weight: bold;");
+        sidebarStatusBox.getChildren().addAll(statusDot, statusTxt);
+        sidebarStatusBox.setCursor(Cursor.HAND);
+        sidebarStatusBox.setOnMouseClicked(e -> {
+            updateBanner.setVisible(true);
+            updateBanner.setManaged(true);
+        });
+
+        Button checkUpdateBtn = new Button("Buscar Actualizaciones");
+        checkUpdateBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 10px; -fx-padding: 0; -fx-cursor: hand;");
+        checkUpdateBtn.setOnAction(e -> {
+            checkUpdateBtn.setText("Buscando...");
+            AutoUpdateService.checkForUpdatesAsync();
+            // Reset text after a bit
+            new Thread(() -> {
+                try { Thread.sleep(3000); } catch (Exception ignored) {}
+                Platform.runLater(() -> checkUpdateBtn.setText("Buscar Actualizaciones"));
+            }).start();
+        });
+
+        VBox sidebarFooter = new VBox(5, sidebarStatusBox, sidebarVersionLabel, checkUpdateBtn);
+        sidebarFooter.setPadding(new Insets(10, 20, 15, 20));
+
+        Region sidebarSpacer = new Region();
+        VBox.setVgrow(sidebarSpacer, Priority.ALWAYS);
+
+        sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu(), sidebarSpacer, sidebarFooter);
 
         contentStack = new StackPane();
         contentStack.setPadding(new Insets(20));
@@ -225,8 +263,13 @@ public class LauncherApp extends Application {
                     updateStatus.setText("✅ Actualización lista. Cierra el launcher para aplicar.");
                     updateBtn.setText("Reiniciar Ahora");
                     updateBtn.setDisable(false);
-                    updateBtn.setOnAction(e -> System.exit(0)); // El instalador ya está programado para correr al salir
+                    updateBtn.setOnAction(e -> System.exit(0)); 
                     updateProgress.setProgress(1.0);
+                    
+                    // Actualizar estado en sidebar
+                    sidebarStatusBox.setVisible(true);
+                    sidebarStatusBox.setManaged(true);
+                    sidebarVersionLabel.setText("v" + LauncherMetadata.VERSION + " → Nueva lista");
                 });
             }
 
