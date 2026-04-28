@@ -90,6 +90,7 @@
                 <li><strong>Tags simplificados:</strong> Los workflows de release ahora también disparan con tags <code>v*</code> (ej. <code>v1.4.0</code>), no solo <code>bat-*</code>. Más natural y compatible con cualquier herramienta de versionado.</li>
                 <li><strong>Re-construir releases viejas:</strong> Nuevo disparador manual desde GitHub Actions que permite regenerar los instaladores de cualquier tag publicado sin tener que crear una versión nueva.</li>
                 <li><strong>Validación estricta:</strong> Si jpackage no produce el instalador esperado, el workflow falla en lugar de subir una release vacía.</li>
+                <li><strong>Corrección de empaquetado Windows:</strong> El workflow de Windows ahora pasa <code>--add-modules javafx.controls,javafx.fxml</code> directamente a <code>jpackage</code>, asegurando que el runtime embebido incluya JavaFX y evitando instalaciones rotas.</li>
             </ul>
         </div>
 
