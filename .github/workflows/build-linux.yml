@@ -85,18 +85,18 @@ jobs:
           # Buscar SOLO el .desktop de la aplicación, ignorando los de legal/runtime
           DESKTOP=$(find /tmp/debpatch/opt -maxdepth 3 -name "*.desktop" | head -n 1)
           echo "Parcheando: $DESKTOP"
-          cat > "$DESKTOP" << 'EOF'
-[Desktop Entry]
-Name=MeaCore Launcher
-Comment=Tu plataforma definitiva para inyectar mods de Minecraft
-Exec="/opt/meacore-launcher/bin/MeaCore Launcher"
-Icon=/opt/meacore-launcher/lib/MeaCore_Launcher.png
-Terminal=false
-Type=Application
-Categories=Game
-MimeType=
-StartupWMClass=com.experimento.launcher.LauncherApp
-EOF
+          {
+            echo "[Desktop Entry]"
+            echo "Name=MeaCore Launcher"
+            echo "Comment=Tu plataforma definitiva para inyectar mods de Minecraft"
+            echo 'Exec="/opt/meacore-launcher/bin/MeaCore Launcher"'
+            echo "Icon=/opt/meacore-launcher/lib/MeaCore_Launcher.png"
+            echo "Terminal=false"
+            echo "Type=Application"
+            echo "Categories=Game"
+            echo "MimeType="
+            echo "StartupWMClass=com.experimento.launcher.LauncherApp"
+          } > "$DESKTOP"
           dpkg-deb -b /tmp/debpatch $DEB
 
       - name: Upload Linux Artifact
@@ -104,6 +104,22 @@ EOF
         with:
           name: MeaCoreLauncher-Linux
           path: build/dist/*.deb
+
+      - name: Delete existing release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          # Obtener ID del release
+          RELEASE_ID=$(gh release view "$TAG" --json id -q '.id' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_ID" ]; then
+            echo "Eliminando assets existentes del release $TAG..."
+            # Listar y eliminar assets .deb existentes
+            gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null | grep '\.deb$' | while read -r asset; do
+              echo "Eliminando: $asset"
+              gh release delete-asset "$TAG" "$asset" --yes 2>/dev/null || true
+            done
+          fi
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2

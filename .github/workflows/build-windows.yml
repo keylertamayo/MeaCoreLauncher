@@ -141,6 +141,22 @@ jobs:
           name: MeaCoreLauncher-Windows
           path: build/dist/*.exe
 
+      - name: Delete existing release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          try {
+            $assets = gh release view $tag --json assets -q '.assets[].name' 2>$null | Select-String '\.exe$'
+            foreach ($asset in $assets) {
+              Write-Host "Eliminando: $asset"
+              gh release delete-asset $tag $asset --yes 2>$null
+            }
+          } catch {
+            Write-Host "No hay assets existentes que eliminar"
+          }
+
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
