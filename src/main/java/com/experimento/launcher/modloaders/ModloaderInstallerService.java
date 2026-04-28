@@ -51,7 +51,9 @@ public class ModloaderInstallerService {
             Files.writeString(fakeProfile, "{ \"profiles\": {} }");
         }
 
-        String javaExe = resolveJavaExecutable(runtime, 17);
+        int requiredJava = resolveJavaVersionForMinecraft(mcVersion);
+        String javaExe = resolveJavaExecutable(runtime, requiredJava);
+        logger.accept("[Forge] Usando Java " + requiredJava + " para Minecraft " + mcVersion);
         logger.accept("[Forge] Inyectando Forge. ¡Paciencia, esto puede tomar unos minutos!");
         ProcessBuilder pb = new ProcessBuilder(javaExe, "-jar", tempInstaller.toAbsolutePath().toString(), "--installClient", launcherDir.toAbsolutePath().toString());
         pb.directory(tempInstaller.getParent().toFile());
@@ -223,13 +225,39 @@ public class ModloaderInstallerService {
         return "1.0.1";
     }
 
+    /**
+     * Determina la versión de Java requerida según la versión de Minecraft.
+     * - Minecraft 1.8-1.16 → Java 8
+     * - Minecraft 1.17-1.20.4 → Java 17
+     * - Minecraft 1.20.5+ → Java 21
+     */
+    private static int resolveJavaVersionForMinecraft(String mcVersion) {
+        if (mcVersion.contains("1.20.5") || mcVersion.contains("1.20.6") || mcVersion.contains("1.21")) {
+            return 21;
+        } else if (mcVersion.contains("1.17") || mcVersion.contains("1.18") || mcVersion.contains("1.19") ||
+                   mcVersion.contains("1.20.1") || mcVersion.contains("1.20.2") || mcVersion.contains("1.20.3") ||
+                   mcVersion.contains("1.20.4")) {
+            return 17;
+        } else {
+            // 1.16.5 y anteriores usan Java 8
+            return 8;
+        }
+    }
+
     private static String resolveJavaExecutable(JavaRuntimeService runtime, int preferredVersion) {
         if (runtime != null) {
             java.nio.file.Path exe = runtime.getExecutable(preferredVersion);
             if (exe != null) return exe.toAbsolutePath().toString();
+            // Fallbacks: si no hay Java 21, usar 17. Si no hay 8, intentar 17.
             if (preferredVersion == 21) {
                 exe = runtime.getExecutable(17);
                 if (exe != null) return exe.toAbsolutePath().toString();
+            } else if (preferredVersion == 8) {
+                exe = runtime.getExecutable(17);
+                if (exe != null) {
+                    System.out.println("[Java] Advertencia: Java 8 no encontrado, usando Java 17 como fallback");
+                    return exe.toAbsolutePath().toString();
+                }
             }
         }
         String home = System.getProperty("java.home");
