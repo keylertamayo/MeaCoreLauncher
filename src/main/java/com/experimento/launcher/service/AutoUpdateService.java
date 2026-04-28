@@ -20,7 +20,7 @@ import java.time.Duration;
 public class AutoUpdateService {
 
     private static final String GITHUB_API_LATEST =
-            "https://api.github.com/repos/keylertamayo/MeaCoreLauncher/releases/latest";
+            "https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest";
     private static final ObjectMapper M = new ObjectMapper();
     private static UpdateListener listener;
 
