@@ -71,12 +71,20 @@ val copyDependencies by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("libs"))
 }
 
+val copyJavaFXDependencies by tasks.registering(Copy::class) {
+    val javaFXModules = configurations.runtimeClasspath.get().files.filter { 
+        it.name.startsWith("javafx-") 
+    }
+    from(javaFXModules)
+    into(layout.buildDirectory.dir("libs"))
+}
+
 tasks.named<Jar>("jar") {
     dependsOn(copyDependencies)
+    dependsOn(copyJavaFXDependencies)
     manifest {
         attributes["Main-Class"] = "com.experimento.launcher.Main"
         // Crea el Class-Path del manifiesto uniendo los nombres de todas las dependencias
         attributes["Class-Path"] = configurations.runtimeClasspath.get().files.joinToString(" ") { it.name }
     }
 }
-
