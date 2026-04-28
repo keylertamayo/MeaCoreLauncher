@@ -85,16 +85,19 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path build/dist | Out-Null
 
-          # Obtener JAVA_HOME del entorno (setup-java action lo configura)
-          # Para jpackage, necesitamos el módulo path del JDK para resolver módulos
-          $javaHome = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { ((java -XshowSettings:properties -version 2>&1) | Select-String 'java.home = (.+)' | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }) }
-          $modulePath = "$javaHome\jmods"
+          # Priorizar JAVA_HOME_21_X64 definido por setup-java@v4
+          $javaHome = $env:JAVA_HOME_21_X64
+          if (-not $javaHome) { $javaHome = $env:JAVA_HOME }
+          if (-not $javaHome) {
+              $javaHome = ((java -XshowSettings:properties -version 2>&1) | 
+                           Select-String 'java.home = (.+)' | 
+                           ForEach-Object { $_.Matches.Groups[1].Value.Trim() })
+          }
           
+          $modulePath = "$javaHome\jmods"
           if (-not (Test-Path $modulePath)) {
               Write-Error "Module path not found: $modulePath"
               Write-Host "JAVA_HOME: $javaHome"
-              Write-Host "Available directories:"
-              Get-ChildItem $javaHome | ForEach-Object { Write-Host "  $_" }
               exit 1
           }
           
@@ -147,14 +150,17 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          try {
-            $assets = gh release view $tag --json assets -q '.assets[].name' 2>$null | Select-String '\.exe$'
+          Write-Host "Buscando release existente para el tag: $tag"
+          $releaseId = gh release view $tag --json id -q '.id' 2>$null
+          if ($releaseId) {
+            Write-Host "Release encontrado. Limpiando assets .exe antiguos..."
+            $assets = gh release view $tag --json assets -q '.assets[].name' | Select-String '\.exe$'
             foreach ($asset in $assets) {
-              Write-Host "Eliminando: $asset"
-              gh release delete-asset $tag $asset --yes 2>$null
+              Write-Host "Eliminando asset: $asset"
+              gh release delete-asset $tag $asset --yes
             }
-          } catch {
-            Write-Host "No hay assets existentes que eliminar"
+          } else {
+            Write-Host "No existe un release previo para el tag $tag. Saltando limpieza."
           }
 
       - name: GitHub Release
