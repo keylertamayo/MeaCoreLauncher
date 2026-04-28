@@ -128,7 +128,9 @@ public class ModloaderInstallerService {
             Files.writeString(fakeProfile, "{ \"profiles\": {} }");
         }
 
-        String javaExe = resolveJavaExecutable(runtime, 21);
+        int requiredJava = resolveJavaVersionForMinecraft(mcVersion);
+        String javaExe = resolveJavaExecutable(runtime, requiredJava);
+        logger.accept("[NeoForge] Usando Java " + requiredJava + " para Minecraft " + mcVersion);
         logger.accept("[NeoForge] Inyectando NeoForge. Puede tardar 2-5 minutos...");
         ProcessBuilder pb = new ProcessBuilder(
                 javaExe, "-jar",
@@ -173,7 +175,9 @@ public class ModloaderInstallerService {
         HttpFiles.downloadIfHashMismatch(jarUrl, tempInstaller, null);
 
         logger.accept("[Fabric] Inyectando Fabric para Minecraft " + mcVersion + "...");
-        String javaExe = resolveJavaExecutable(runtime, 17);
+        int requiredJava = resolveJavaVersionForMinecraft(mcVersion);
+        String javaExe = resolveJavaExecutable(runtime, requiredJava);
+        logger.accept("[Fabric] Usando Java " + requiredJava + " para Minecraft " + mcVersion);
         ProcessBuilder pb = new ProcessBuilder(
                 javaExe, "-jar",
                 tempInstaller.toAbsolutePath().toString(),
