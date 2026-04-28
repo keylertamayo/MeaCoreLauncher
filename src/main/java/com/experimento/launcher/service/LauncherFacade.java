@@ -126,6 +126,9 @@ public final class LauncherFacade {
         jvm.add("-XX:+IgnoreUnrecognizedVMOptions");
         jvm.add("--add-opens=java.base/java.lang=ALL-UNNAMED");
         
+        // Fix de Red / LAN (IPv4 preferido para multicast)
+        jvm.addAll(LanFixService.getNetworkFixArgs());
+        
         String effectiveJava = p.javaExecutable;
         int requiredVer = getRequiredJavaVersion(merged, versionId);
         
@@ -297,7 +300,12 @@ public final class LauncherFacade {
         Path profileDir = gameDirFor(p);
         enforceVersionIsolation(profileDir, p.lastVersionId, log);
 
-        // Alerta informativa sobre RAM total (sin bloqueos ni límites forzados)
+        // Log de información de red para facilitar LAN
+        String localIp = LanFixService.getLocalIpAddress();
+        log.accept("[NETWORK] Tu IP Local es: " + localIp);
+        log.accept("[NETWORK] Si tus amigos no ven tu mundo, diles que usen Conexión Directa a: " + localIp + ":[PUERTO]");
+
+        // Alerta informativa sobre RAM total
         try {
             var hw = SystemInfoService.getInfo();
             long totalMiB = hw.totalRamBytes() / (1024 * 1024);

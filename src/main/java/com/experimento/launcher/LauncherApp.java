@@ -655,60 +655,8 @@ public class LauncherApp extends Application {
         grid.add(new Label("Optimización RAM:"), 0, r); grid.add(presetCombo, 1, r++);
         grid.add(new Label("Argumentos JVM:"), 0, r); grid.add(jvmArea, 1, r++);
         grid.add(globalMcCheck, 1, r++);
-
-        VBox javaCard = new VBox(10, new Label("Configuración Global"), grid);
-        javaCard.getStyleClass().add("mc-card");
-
-        Button fixLanBtn = new Button("🌐 Arreglar LAN (Firewall)");
-        fixLanBtn.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;");
-        fixLanBtn.setOnAction(e -> handleFixLan(fixLanBtn));
-
-        Label lanDesc = new Label("Si tus amigos no ven tu mundo LAN, este botón añade reglas al Firewall de Windows para permitir la conexión entrante de Minecraft.");
-        lanDesc.setWrapText(true);
-        lanDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
-
-        VBox lanCard = new VBox(10, new Label("Red y Multijugador LAN"), lanDesc, fixLanBtn);
-        lanCard.getStyleClass().add("mc-card");
         
-        return new VBox(20, javaCard, lanCard, new Separator(), createHintSection());
-    }
-
-    private void handleFixLan(Button btn) {
-        btn.setDisable(true);
-        btn.setText("Configurando...");
-        
-        workers.submit(() -> {
-            try {
-                // Intentamos arreglar para todas las versiones de Java que el launcher gestiona
-                for (int v : new int[]{8, 17, 21}) {
-                    Path exe = facade.runtime().getExecutable(v);
-                    if (exe != null) {
-                        LanService.fixWindowsFirewallAsync(exe, msg -> Platform.runLater(() -> log(msg)));
-                    }
-                }
-                
-                // También intentamos con el Java del sistema por si acaso
-                String javaHome = System.getProperty("java.home");
-                if (javaHome != null) {
-                    Path systemJava = Path.of(javaHome, "bin", System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java");
-                    if (java.nio.file.Files.exists(systemJava)) {
-                        LanService.fixWindowsFirewallAsync(systemJava, msg -> Platform.runLater(() -> log(msg)));
-                    }
-                }
-
-                Platform.runLater(() -> {
-                    btn.setDisable(false);
-                    btn.setText("✅ Firewall Configurado");
-                    new Alert(Alert.AlertType.INFORMATION, "Se han enviado comandos para abrir el firewall. Si ves una ventana negra o de sistema, dale a 'Sí/Permitir'.\n\nSi aún no funciona, asegúrate de que AMBOS computadores tengan la misma versión de Minecraft.").show();
-                });
-            } catch (Exception ex) {
-                Platform.runLater(() -> {
-                    btn.setDisable(false);
-                    btn.setText("🌐 Arreglar LAN (Firewall)");
-                    log("[LAN] Error: " + ex.getMessage());
-                });
-            }
-        });
+        return new VBox(15, new Label("Motor de Ejecución Java"), grid, new Separator(), createHintSection());
     }
 
     private VBox createServersView() {
