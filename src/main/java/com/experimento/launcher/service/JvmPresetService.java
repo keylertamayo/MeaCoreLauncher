@@ -71,6 +71,7 @@ public final class JvmPresetService {
                 "-XX:+PerfDisableSharedMem",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Djava.net.preferIPv4Stack=true",
                 "-Dfile.encoding=UTF-8"));
         
         applyCpuArgs(args, physCores, logicCores);
@@ -109,6 +110,7 @@ public final class JvmPresetService {
                 "-XX:+UseNUMA",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Djava.net.preferIPv4Stack=true",
                 "-Dfile.encoding=UTF-8"));
 
         applyCpuArgs(args, physCores, logicCores);

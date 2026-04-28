@@ -50,10 +50,24 @@
 
     <div class="timeline">
 
+        <!-- v1.4.4 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.4.4 - Conectividad LAN ✨ (Actual)</h3>
+                <span class="version-date">28 de Abril, 2026</span>
+            </div>
+            <p><strong>Mejoras en Multijugador LAN:</strong></p>
+            <ul>
+                <li><strong>Fix de Descubrimiento:</strong> Se ha inyectado el flag <code>-Djava.net.preferIPv4Stack=true</code> en todos los presets. Esto obliga a Minecraft a usar IPv4 para el descubrimiento de mundos, solucionando el problema donde los mundos LAN no aparecen en la lista.</li>
+                <li><strong>Reparador de Firewall:</strong> Añadido un nuevo botón en la pestaña de Configuración Java que configura automáticamente las reglas del Firewall de Windows para permitir las conexiones entrantes de Minecraft.</li>
+                <li><strong>Compatibilidad Dual:</strong> El reparador aplica reglas tanto para los JRE portátiles (8, 17, 21) como para el Java del sistema.</li>
+            </ul>
+        </div>
+
         <!-- v1.4.3 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.4.3 - Correcciones Finales 🎯 (Actual)</h3>
+                <h3 style="color: #888888;">v1.4.3 - Correcciones Finales 🎯</h3>
                 <span class="version-date">28 de Abril, 2026</span>
             </div>
 
@@ -100,6 +114,7 @@
                 <li><strong>Fixes YAML:</strong> Corregidos errores de sintaxis en los workflows de GitHub Actions.</li>
             </ul>
         </div>
+
 
         <!-- v1.4.0 -->
         <div class="log-item">
