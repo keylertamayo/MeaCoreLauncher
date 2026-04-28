@@ -1256,15 +1256,17 @@ public class LauncherApp extends Application {
                     }
                 }
 
-                // Forzar Java 17 para versiones entre 1.17 y 1.20.4 si no se detectó (por seguridad para mods)
+                // Forzar Java 17 para versiones entre 1.17 y 1.20.4, o Java 21 para 1.20.5+ y 1.21.x
                 if (requiredJava == 0 || requiredJava > 17) {
                     String vid = selected.lastVersionId;
                     if (vid.contains("1.17") || vid.contains("1.18") || vid.contains("1.19") || vid.contains("1.20.1") || vid.contains("1.20.2") || vid.contains("1.20.4")) {
                         requiredJava = 17;
+                    } else if (vid.contains("1.20.5") || vid.contains("1.20.6") || vid.contains("1.21")) {
+                        requiredJava = 21;
                     }
                 }
 
-                if (requiredJava == 8 || requiredJava == 17) {
+                if (requiredJava == 8 || requiredJava == 17 || requiredJava == 21) {
                     final int ver = requiredJava;
                     if (facade.runtime().getExecutable(ver) == null) {
                         Platform.runLater(() -> {
