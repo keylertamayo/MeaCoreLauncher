@@ -69,8 +69,8 @@ jobs:
             --icon icon-256.png \
             --linux-shortcut \
             --linux-app-category Game \
+            --add-modules javafx.controls,javafx.fxml \
             --java-options "-Xmx512m" \
-            --java-options "--add-modules javafx.controls,javafx.fxml" \
             --java-options "--add-opens=java.base/java.lang=ALL-UNNAMED" \
             --java-options "-Dfile.encoding=UTF-8" \
             --dest build/dist
