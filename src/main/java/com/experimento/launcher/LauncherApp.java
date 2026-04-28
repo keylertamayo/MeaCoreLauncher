@@ -74,7 +74,7 @@ public class LauncherApp extends Application {
     private Label deleteConfirmMsg;
     private StackPane modloaderOverlay;
     private Label modloaderMcLabel;
-    private StackPane updateOverlay;
+    private HBox updateBanner;
     private ProgressBar updateProgress;
     private Label updateStatus;
     private Button updateBtn;
@@ -146,7 +146,7 @@ public class LauncherApp extends Application {
         sidebarArea.setPrefWidth(260);
         sidebarArea.setStyle("-fx-background-color: #252526;"); // Carbón Premium
         
-        Label brandLabel = new Label("🎮 MeaCore Launcher");
+        Label brandLabel = new Label("MeaCore Launcher");
         brandLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 20 10;");
         
         sidebarArea.getChildren().addAll(brandLabel, createProfileSidebar(), new Separator(), createNavigationMenu());
@@ -170,25 +170,27 @@ public class LauncherApp extends Application {
         topHeader.setPrefHeight(120);
         topHeader.setMinHeight(120);
         topHeader.setMaxHeight(120);
-        topHeader.setStyle("-fx-background-color: linear-gradient(to right, #111111, #094771);");
+        topHeader.setStyle("-fx-background-color: linear-gradient(to right, #111111, #094771); -fx-background-insets: 0;");
+
+        updateBanner = buildUpdateBanner();
+        updateBanner.setVisible(false);
+        updateBanner.setManaged(false);
 
         VBox rightArea = new VBox();
-        rightArea.getChildren().addAll(topHeader, contentStack, createPersistentFooter());
+        rightArea.getChildren().addAll(updateBanner, topHeader, contentStack, createPersistentFooter());
         VBox.setVgrow(contentStack, Priority.ALWAYS);
 
         HBox mainLayout = new HBox(sidebarArea, rightArea);
         HBox.setHgrow(rightArea, Priority.ALWAYS);
 
-        // Overlays internos (sin ventanas secundarias del OS)
+        // Overlays internos
         deleteConfirmOverlay = buildDeleteOverlay();
         deleteConfirmOverlay.setVisible(false);
         modloaderOverlay = buildModloaderOverlay();
         modloaderOverlay.setVisible(false);
-        updateOverlay = buildUpdateOverlay();
-        updateOverlay.setVisible(false);
         javaDownloadOverlay = buildJavaDownloadOverlay();
         javaDownloadOverlay.setVisible(false);
-        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, updateOverlay, javaDownloadOverlay);
+        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, javaDownloadOverlay);
 
         Scene scene = new Scene(rootPane, 1080, 720);
         stage.setMinWidth(1080);
@@ -199,15 +201,13 @@ public class LauncherApp extends Application {
             @Override
             public void onUpdateFound(String version, String url) {
                 Platform.runLater(() -> {
-                    updateStatus.setText("MeaCore Launcher v" + version + " disponible.");
-                    updateBtn.setText("🚀 Actualizar Ahora");
-                    updateBtn.setDisable(false);
-                    updateBtn.setOnAction(e -> {
-                        updateBtn.setDisable(true);
-                        updateBtn.setText("Descargando...");
-                        AutoUpdateService.downloadAndInstallAsync(url);
-                    });
-                    updateOverlay.setVisible(true);
+                    updateStatus.setText("🚀 Descargando v" + version + " en segundo plano...");
+                    updateBtn.setText("Instalando...");
+                    updateBtn.setDisable(true);
+                    updateBanner.setVisible(true);
+                    updateBanner.setManaged(true);
+                    // Iniciar descarga automáticamente
+                    AutoUpdateService.downloadAndInstallAsync(url);
                 });
             }
 
@@ -222,10 +222,10 @@ public class LauncherApp extends Application {
             @Override
             public void onDownloadComplete(Path installerPath) {
                 Platform.runLater(() -> {
-                    String msg = com.experimento.launcher.mojang.OsContext.current().isWindows()
-                            ? "¡Descarga lista! El instalador (.exe) se ejecutará en un momento."
-                            : "¡Descarga lista! Por favor, autoriza la instalación en la ventana de sistema que aparecerá.";
-                    updateStatus.setText(msg);
+                    updateStatus.setText("✅ Actualización lista. Cierra el launcher para aplicar.");
+                    updateBtn.setText("Reiniciar Ahora");
+                    updateBtn.setDisable(false);
+                    updateBtn.setOnAction(e -> System.exit(0)); // El instalador ya está programado para correr al salir
                     updateProgress.setProgress(1.0);
                 });
             }
@@ -233,8 +233,9 @@ public class LauncherApp extends Application {
             @Override
             public void onDownloadError(String message) {
                 Platform.runLater(() -> {
-                    updateOverlay.setVisible(false);
-                    new Alert(Alert.AlertType.ERROR, "Error al actualizar: " + message).show();
+                    updateBanner.setVisible(false);
+                    updateBanner.setManaged(false);
+                    log("Error de actualización: " + message);
                 });
             }
         });
@@ -247,7 +248,7 @@ public class LauncherApp extends Application {
         stage.setTitle(LauncherMetadata.DISPLAY_NAME);
         stage.getProperties().put("glass.gtk.wm_class", "meacorelauncher");
         try {
-            for (String s : new String[]{"/icon-256.png", "/icon-128.png", "/icon.png"}) {
+            for (String s : new String[]{"/com/experimento/launcher/ui/icon-256.png", "/com/experimento/launcher/ui/icon-128.png", "/com/experimento/launcher/ui/icon.png"}) {
                 var stream = LauncherApp.class.getResourceAsStream(s);
                 if (stream != null) stage.getIcons().add(new javafx.scene.image.Image(stream));
             }
@@ -1182,46 +1183,35 @@ public class LauncherApp extends Application {
     }
 
     /** Construye el overlay de actualización. */
-    private StackPane buildUpdateOverlay() {
-        StackPane dim = new StackPane();
-        dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+    private HBox buildUpdateBanner() {
+        HBox banner = new HBox(15);
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setPadding(new Insets(10, 20, 10, 20));
+        banner.setStyle("-fx-background-color: #0E639C; -fx-border-color: transparent transparent #1177BB transparent; -fx-border-width: 0 0 1 0;");
 
-        VBox card = new VBox(16);
-        card.setMaxWidth(460);
-        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
-        card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
-                + "-fx-border-radius: 10; -fx-border-color: #0E639C; -fx-border-width: 2; "
-                + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 8);");
-
-        Label title = new Label("✨ ¡Actualización Disponible!");
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-
-        updateStatus = new Label("Buscando actualizaciones...");
-        updateStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
-        updateStatus.setWrapText(true);
+        updateStatus = new Label("Actualización disponible");
+        updateStatus.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
 
         updateProgress = new ProgressBar(0);
-        updateProgress.setMaxWidth(Double.MAX_VALUE);
-        updateProgress.setStyle("-fx-accent: #0E639C;");
+        updateProgress.setPrefWidth(200);
+        updateProgress.setMaxHeight(10);
+        updateProgress.setStyle("-fx-accent: #ffffff;");
 
-        Label note = new Label("Se te pedirá tu contraseña para instalar el paquete .deb nativamente.");
-        note.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
-        note.setWrapText(true);
+        updateBtn = new Button("Actualizar");
+        updateBtn.setStyle("-fx-background-color: white; -fx-text-fill: #0E639C; -fx-font-size: 11px; -fx-padding: 4 12;");
 
-        updateBtn = new Button("🚀 Actualizar");
-        updateBtn.setMaxWidth(Double.MAX_VALUE);
-        updateBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 5;");
+        Button closeBtn = new Button("✕");
+        closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 0 5;");
+        closeBtn.setOnAction(e -> {
+            updateBanner.setVisible(false);
+            updateBanner.setManaged(false);
+        });
 
-        Button laterBtn = new Button("Más tarde");
-        laterBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 8 16;");
-        laterBtn.setOnAction(e -> updateOverlay.setVisible(false));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox bottom = new HBox(laterBtn);
-        bottom.setAlignment(Pos.CENTER_RIGHT);
-
-        card.getChildren().addAll(title, updateStatus, updateProgress, note, new Separator(), updateBtn, bottom);
-        dim.getChildren().add(card);
-        return dim;
+        banner.getChildren().addAll(updateStatus, updateProgress, spacer, updateBtn, closeBtn);
+        return banner;
     }
 
     private void handlePlayClick() {
