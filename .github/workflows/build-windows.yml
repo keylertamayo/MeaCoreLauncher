@@ -87,7 +87,7 @@ jobs:
 
           # Obtener JAVA_HOME del entorno (setup-java action lo configura)
           # Para jpackage, necesitamos el módulo path del JDK para resolver módulos
-          $javaHome = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { $((java -XshowSettings:properties -version 2>&1) -match 'java.home' -replace '.*java.home = ') }
+          $javaHome = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { ((java -XshowSettings:properties -version 2>&1) | Select-String 'java.home = (.+)' | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }) }
           $modulePath = "$javaHome\jmods"
           
           if (-not (Test-Path $modulePath)) {

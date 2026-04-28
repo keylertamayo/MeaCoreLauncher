@@ -69,7 +69,6 @@ jobs:
             --icon icon-256.png \
             --linux-shortcut \
             --linux-app-category Game \
-            --add-modules javafx.controls,javafx.fxml \
             --java-options "-Xmx512m" \
             --java-options "--add-opens=java.base/java.lang=ALL-UNNAMED" \
             --java-options "-Dfile.encoding=UTF-8" \
@@ -87,17 +86,17 @@ jobs:
           DESKTOP=$(find /tmp/debpatch/opt -maxdepth 3 -name "*.desktop" | head -n 1)
           echo "Parcheando: $DESKTOP"
           cat > "$DESKTOP" << 'EOF'
-          [Desktop Entry]
-          Name=MeaCore Launcher
-          Comment=Tu plataforma definitiva para inyectar mods de Minecraft
-          Exec="/opt/meacore-launcher/bin/MeaCore Launcher"
-          Icon=/opt/meacore-launcher/lib/MeaCore_Launcher.png
-          Terminal=false
-          Type=Application
-          Categories=Game
-          MimeType=
-          StartupWMClass=com.experimento.launcher.LauncherApp
-          EOF
+[Desktop Entry]
+Name=MeaCore Launcher
+Comment=Tu plataforma definitiva para inyectar mods de Minecraft
+Exec="/opt/meacore-launcher/bin/MeaCore Launcher"
+Icon=/opt/meacore-launcher/lib/MeaCore_Launcher.png
+Terminal=false
+Type=Application
+Categories=Game
+MimeType=
+StartupWMClass=com.experimento.launcher.LauncherApp
+EOF
           dpkg-deb -b /tmp/debpatch $DEB
 
       - name: Upload Linux Artifact
