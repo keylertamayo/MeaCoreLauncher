@@ -247,9 +247,11 @@ public class AutoUpdateService {
                     "echo  Ejecutando instalador...\r\n" +
                     "start /wait \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
                     "echo  Relanzando MeaCore Launcher...\r\n" +
-                    "set \"APPDIR=%LOCALAPPDATA%\\MeaCore Launcher\\app\"\r\n" +
+                    "set \"APPDIR=%LOCALAPPDATA%\\MeaCore Launcher\"\r\n" +
                     "if exist \"%APPDIR%\\MeaCore Launcher.exe\" (\r\n" +
                     "    start \"\" \"%APPDIR%\\MeaCore Launcher.exe\"\r\n" +
+                    ") else if exist \"%APPDIR%\\app\\MeaCore Launcher.exe\" (\r\n" +
+                    "    start \"\" \"%APPDIR%\\app\\MeaCore Launcher.exe\"\r\n" +
                     ")\r\n" +
                     "exit\r\n";
 
