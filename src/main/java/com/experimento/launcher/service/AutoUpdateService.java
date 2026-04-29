@@ -14,8 +14,17 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 /**
- * Servicio de auto-actualización del launcher.
- * Multiplataforma: usa .exe en Windows y .deb en Linux.
+ * Servicio de auto-actualización del launcher — Windows & Linux.
+ *
+ * Correcciones aplicadas (v1.4.9):
+ *  1. SmartScreen  → Unblock-File vía PowerShell antes de ejecutar el .exe.
+ *  2. Directorio   → %LOCALAPPDATA%\MeaCore\updates en vez de %TEMP%.
+ *  3. Confirmación → downloadAndInstallAsync ya NO inicia la instalación
+ *                    automáticamente; sólo avisa al listener (onDownloadComplete).
+ *                    La instalación real la inicia el usuario desde el banner.
+ *  4. Detach       → cmd /c start desacopla completamente el proceso hijo
+ *                    del launcher. El .bat usa `timeout` nativo de Windows.
+ *  5. URL          → Unificada a MeaCore-Enterprise/MeaCoreLauncher.
  */
 public class AutoUpdateService {
 
@@ -27,6 +36,7 @@ public class AutoUpdateService {
     public interface UpdateListener {
         void onUpdateFound(String version, String url);
         void onDownloadProgress(double fraction);
+        /** Descarga finalizada. El listener decide si lanzar installFromPath(). */
         void onDownloadComplete(Path installerPath);
         void onDownloadError(String message);
     }
@@ -34,6 +44,10 @@ public class AutoUpdateService {
     public static void setListener(UpdateListener l) {
         listener = l;
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CHECK
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Consulta GitHub Releases en segundo plano y notifica al listener si hay
@@ -43,11 +57,12 @@ public class AutoUpdateService {
         Thread thread = new Thread(() -> {
             try {
                 HttpClient client = HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofSeconds(5))
+                        .connectTimeout(Duration.ofSeconds(8))
                         .build();
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create(GITHUB_API_LATEST))
                         .header("Accept", "application/vnd.github.v3+json")
+                        .header("User-Agent", "MeaCoreLauncher/" + LauncherMetadata.VERSION)
                         .GET()
                         .build();
 
@@ -56,15 +71,19 @@ public class AutoUpdateService {
                     JsonNode release = M.readTree(res.body());
                     String tagName = release.path("tag_name").asText("");
 
-                    // "bat-1.2.2" -> "1.2.2", "v1.5.0" -> "1.5.0"
-                    String latestVersion = tagName.replace("bat-", "").replace("v", "")
-                            .replaceAll("-alfa", "").replaceAll("-alpha", "").trim();
-                    String currentVersion = LauncherMetadata.VERSION.replace("v", "")
-                            .replaceAll("-alfa", "").replaceAll("-alpha", "").trim();
+                    // Normalizar: "bat-1.2.2" → "1.2.2", "v1.4.9" → "1.4.9"
+                    String latestVersion = tagName
+                            .replace("bat-", "")
+                            .replaceFirst("^[vV]", "")
+                            .replaceAll("-(alfa|alpha)", "")
+                            .trim();
+                    String currentVersion = LauncherMetadata.VERSION
+                            .replaceFirst("^[vV]", "")
+                            .replaceAll("-(alfa|alpha)", "")
+                            .trim();
 
                     if (!latestVersion.isBlank() && isNewer(latestVersion, currentVersion)) {
-                        // Elegir la extensión correcta según el SO
-                        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+                        boolean isWindows = isWindows();
                         String preferredExt = isWindows ? ".exe" : ".deb";
 
                         String downloadUrl = null;
@@ -78,127 +97,196 @@ public class AutoUpdateService {
                         }
 
                         if (downloadUrl != null && listener != null) {
-                            listener.onUpdateFound(latestVersion, downloadUrl);
+                            final String url = downloadUrl;
+                            listener.onUpdateFound(latestVersion, url);
                         }
                     }
                 }
             } catch (Exception ignored) {
                 // Fallo silencioso: sin conexión o API no disponible
             }
-        });
+        }, "meacore-update-check");
         thread.setDaemon(true);
         thread.start();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // DOWNLOAD  (solo descarga — NO ejecuta automáticamente)
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
-     * Descarga el instalador y lo ejecuta.
-     * En Windows ejecuta el instalador .exe (Inno Setup) con {@code /VERYSILENT /NORESTART}.
-     * En Linux usa {@code pkexec apt install -y ...}.
+     * Descarga el instalador al directorio de actualizaciones de MeaCore y
+     * notifica onDownloadComplete cuando termina.
+     * La instalación real se lanza SÓLO cuando el usuario confirma desde la UI
+     * (botón "Reiniciar Ahora") invocando {@link #installFromPath(Path)}.
      */
     public static void downloadAndInstallAsync(String installerUrl) {
         Thread t = new Thread(() -> {
             try {
-                boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+                boolean isWindows = isWindows();
                 String ext = isWindows ? ".exe" : ".deb";
 
-                // Directorio temporal apropiado según el SO
-                Path tempDir;
-                if (isWindows) {
-                    String tmp = System.getenv("TEMP");
-                    tempDir = Path.of(tmp != null ? tmp : System.getProperty("java.io.tmpdir"));
-                } else {
-                    tempDir = Path.of(System.getProperty("user.home"), ".cache", "meacore");
-                }
-                Files.createDirectories(tempDir);
+                // CORRECCIÓN 2: usar %LOCALAPPDATA%\MeaCore\updates (más limpio y
+                // menos sospechoso para el antivirus que %TEMP%)
+                Path updateDir = isWindows
+                        ? Path.of(System.getenv().getOrDefault("LOCALAPPDATA",
+                                  System.getProperty("java.io.tmpdir")), "MeaCore", "updates")
+                        : Path.of(System.getProperty("user.home"), ".cache", "meacore", "updates");
 
-                Path dest = tempDir.resolve("meacore-update" + ext);
+                Files.createDirectories(updateDir);
+
+                Path dest = updateDir.resolve("meacore-update" + ext);
                 Files.deleteIfExists(dest);
 
                 downloadWithProgress(installerUrl, dest);
 
+                // CORRECCIÓN 3: NO ejecutar automáticamente.
+                // Avisamos al listener y él decide (normalmente el banner le pregunta al usuario).
                 if (listener != null) listener.onDownloadComplete(dest);
-                executeInstaller(dest, isWindows);
+
             } catch (Exception ex) {
-                if (listener != null) listener.onDownloadError(ex.getMessage());
+                if (listener != null) listener.onDownloadError(
+                        ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
             }
-        });
+        }, "meacore-update-download");
         t.setDaemon(true);
         t.start();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTALL  (llamado desde la UI cuando el usuario confirma)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Lanza el instalador de forma apropiada según la plataforma y cierra el
+     * launcher. Llamar únicamente tras confirmación explícita del usuario.
+     */
+    public static void installFromPath(Path installerPath) {
+        new Thread(() -> executeInstaller(installerPath, isWindows()), "meacore-update-install")
+                .start();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // IMPLEMENTACIÓN INTERNA
+    // ─────────────────────────────────────────────────────────────────────────
+
     private static void downloadWithProgress(String urlStr, Path dest) throws Exception {
         HttpClient client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.ALWAYS)
+                .connectTimeout(Duration.ofSeconds(15))
                 .build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlStr)).build();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(urlStr))
+                .header("User-Agent", "MeaCoreLauncher/" + LauncherMetadata.VERSION)
+                .build();
         HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
-        long totalBytes = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
+        long totalBytes;
+        try {
+            totalBytes = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
+        } catch (NumberFormatException e) {
+            totalBytes = -1;
+        }
 
         try (InputStream is = response.body();
              OutputStream os = Files.newOutputStream(dest)) {
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[16384]; // 16 KB
             long readBytes = 0;
             int n;
             while ((n = is.read(buffer)) != -1) {
                 os.write(buffer, 0, n);
                 readBytes += n;
                 if (totalBytes > 0 && listener != null) {
-                    listener.onDownloadProgress((double) readBytes / totalBytes);
+                    final double progress = (double) readBytes / totalBytes;
+                    listener.onDownloadProgress(progress);
                 }
             }
         }
     }
 
     /**
-     * Lanza el instalador de forma apropiada para cada plataforma.
-     * El launcher se cierra tras arrancar el proceso instalador.
+     * Lanza el instalador de forma completamente desacoplada del proceso Java.
+     *
+     * Windows:
+     *   1. Desbloquea el .exe con PowerShell (elimina Zone.Identifier / SmartScreen).
+     *   2. Escribe un .bat en el mismo directorio que usa `timeout` nativo.
+     *   3. Lanza el .bat con `cmd /c start` para desacoplarlo completamente.
+     *   Resultado: Inno Setup arranca 3 s después de que la JVM haya muerto.
+     *
+     * Linux:
+     *   Usa bash + setsid + nohup para desacoplar de la sesión actual.
      */
     private static void executeInstaller(Path installerPath, boolean isWindows) {
         try {
-            String path = installerPath.toAbsolutePath().toString();
+            String absPath = installerPath.toAbsolutePath().toString();
+
             if (isWindows) {
-                // TRUCO AVANZADO DE WINDOWS: Creamos un script .bat temporal que espera 3 segundos
-                // de forma externa. Esto garantiza al 100% que la JVM de Java está muerta y los archivos
-                // no están bloqueados antes de que Inno Setup intente sobreescribirlos.
+                // CORRECCIÓN 1: Eliminar Zone.Identifier (SmartScreen)
+                // PowerShell Unblock-File quita el ADS que marca el archivo
+                // como "descargado de Internet" y que activa SmartScreen.
+                try {
+                    new ProcessBuilder(
+                            "powershell", "-NonInteractive", "-Command",
+                            "Unblock-File -Path '" + absPath + "'")
+                            .start()
+                            .waitFor();
+                } catch (Exception ignored) {
+                    // Si falla el unblock, intentamos de todas formas
+                }
+
+                // CORRECCIÓN 4: .bat con timeout nativo y cmd /c start (detach total)
                 Path batFile = installerPath.getParent().resolve("meacore_updater.bat");
-                String batContent = 
+                String bat =
                     "@echo off\r\n" +
-                    "echo ==========================================\r\n" +
-                    "echo  MeaCore Launcher - Instalando actualizacion\r\n" +
-                    "echo ==========================================\r\n" +
-                    "echo Esperando a que el launcher se cierre por completo...\r\n" +
-                    "timeout /t 3 /nobreak > nul\r\n" +
-                    "echo Ejecutando instalador...\r\n" +
-                    "start \"\" \"" + path + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n";
-                Files.writeString(batFile, batContent);
-                
-                // Ejecutamos el .bat en una consola independiente
-                new ProcessBuilder("cmd", "/c", "start", "\"MeaCore Updater\"", batFile.toString()).start();
+                    "title MeaCore Updater\r\n" +
+                    "echo.\r\n" +
+                    "echo  === MeaCore Launcher - Actualizacion ===\r\n" +
+                    "echo  Esperando que el launcher se cierre...\r\n" +
+                    "timeout /t 4 /nobreak > nul\r\n" +
+                    "echo  Ejecutando instalador...\r\n" +
+                    // CORRECCIÓN 4: start \"\" desacopla; comillas dobles escapadas correctamente
+                    "start \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
+                    "exit\r\n";
+
+                Files.writeString(batFile, bat);
+
+                // Lanzar el .bat de forma completamente independiente (detached)
+                new ProcessBuilder(
+                        "cmd", "/c", "start", "\"MeaCore Updater\"",
+                        "/min", batFile.toAbsolutePath().toString())
+                        .start();
+
             } else {
-                // sleep 1: tiempo para que el launcher se cierre antes que pkexec tome control.
-                // setsid nohup: el nuevo proceso es independiente del proceso padre.
+                // Linux: setsid + nohup para desacoplar de la sesión padre
                 String cmd = String.format(
-                        "sleep 1; pkexec apt install -y %s && setsid nohup meacorelauncher > /dev/null 2>&1 &",
-                        path);
+                        "sleep 2 && pkexec apt install -y \"%s\"" +
+                        " && setsid nohup meacorelauncher > /dev/null 2>&1 &",
+                        absPath);
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
-            // Pequeño delay para que el proceso hijo arranque antes de salir
-            Thread.sleep(1000);
+
+            // Dar tiempo al proceso hijo para arrancar antes de que la JVM muera
+            Thread.sleep(1200);
             System.exit(0);
-        } catch (Exception ignored) {
+
+        } catch (Exception e) {
+            // Si algo falla, no dejar el launcher sin salida
             System.exit(1);
         }
     }
 
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
+    }
+
     private static boolean isNewer(String latest, String current) {
         try {
-            String[] lParts = latest.split("\\.");
-            String[] cParts = current.split("\\.");
-            int max = Math.max(lParts.length, cParts.length);
+            String[] lp = latest.split("\\.");
+            String[] cp = current.split("\\.");
+            int max = Math.max(lp.length, cp.length);
             for (int i = 0; i < max; i++) {
-                int l = i < lParts.length ? Integer.parseInt(lParts[i]) : 0;
-                int c = i < cParts.length ? Integer.parseInt(cParts[i]) : 0;
+                int l = i < lp.length ? Integer.parseInt(lp[i].replaceAll("[^0-9]", "")) : 0;
+                int c = i < cp.length ? Integer.parseInt(cp[i].replaceAll("[^0-9]", "")) : 0;
                 if (l > c) return true;
                 if (l < c) return false;
             }

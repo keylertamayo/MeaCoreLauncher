@@ -252,11 +252,13 @@ public class LauncherApp extends Application {
             public void onUpdateFound(String version, String url) {
                 Platform.runLater(() -> {
                     updateStatus.setText("🚀 Descargando v" + version + " en segundo plano...");
-                    updateBtn.setText("Instalando...");
+                    updateBtn.setText("Descargando...");
                     updateBtn.setDisable(true);
                     updateBanner.setVisible(true);
                     updateBanner.setManaged(true);
-                    // Iniciar descarga automáticamente
+                    sidebarStatusBox.setVisible(true);
+                    sidebarStatusBox.setManaged(true);
+                    // Solo descarga — la instalación la dispara el usuario con "Reiniciar Ahora"
                     AutoUpdateService.downloadAndInstallAsync(url);
                 });
             }
@@ -272,15 +274,13 @@ public class LauncherApp extends Application {
             @Override
             public void onDownloadComplete(Path installerPath) {
                 Platform.runLater(() -> {
-                    updateStatus.setText("✅ Actualización lista. Cierra el launcher para aplicar.");
+                    updateProgress.setProgress(1.0);
+                    updateStatus.setText("✅ Actualización lista. Haz clic en 'Reiniciar Ahora' para instalar.");
                     updateBtn.setText("Reiniciar Ahora");
                     updateBtn.setDisable(false);
-                    updateBtn.setOnAction(e -> System.exit(0)); 
-                    updateProgress.setProgress(1.0);
-                    
-                    // Actualizar estado en sidebar
-                    sidebarStatusBox.setVisible(true);
-                    sidebarStatusBox.setManaged(true);
+                    // CORRECCIÓN: el botón llama installFromPath (que desbloquea SmartScreen,
+                    // escribe el .bat y lo lanza de forma desacoplada) en lugar de System.exit(0)
+                    updateBtn.setOnAction(e -> AutoUpdateService.installFromPath(installerPath));
                     sidebarVersionLabel.setText("v" + LauncherMetadata.VERSION + " → Nueva lista");
                 });
             }
@@ -290,7 +290,7 @@ public class LauncherApp extends Application {
                 Platform.runLater(() -> {
                     updateBanner.setVisible(false);
                     updateBanner.setManaged(false);
-                    log("Error de actualización: " + message);
+                    log("⚠ Error de actualización: " + message);
                 });
             }
         });
