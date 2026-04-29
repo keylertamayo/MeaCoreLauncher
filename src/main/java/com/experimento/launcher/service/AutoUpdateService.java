@@ -139,6 +139,17 @@ public class AutoUpdateService {
 
                 downloadWithProgress(installerUrl, dest);
 
+                // CORRECCIÓN 1: Eliminar Zone.Identifier (SmartScreen) en background
+                // Se lanza aquí mientras el usuario lee el banner, para que al clicsar "Reiniciar" ya esté listo.
+                if (isWindows) {
+                    try {
+                        new ProcessBuilder(
+                                "powershell", "-NonInteractive", "-WindowStyle", "Hidden",
+                                "-Command", "Unblock-File -Path '" + dest.toAbsolutePath() + "'")
+                                .start(); // fire-and-forget
+                    } catch (Exception ignored) {}
+                }
+
                 // CORRECCIÓN 3: NO ejecutar automáticamente.
                 // Avisamos al listener y él decide (normalmente el banner le pregunta al usuario).
                 if (listener != null) listener.onDownloadComplete(dest);
@@ -189,7 +200,7 @@ public class AutoUpdateService {
 
         try (InputStream is = response.body();
              OutputStream os = Files.newOutputStream(dest)) {
-            byte[] buffer = new byte[16384]; // 16 KB
+            byte[] buffer = new byte[524288]; // 512 KB
             long readBytes = 0;
             int n;
             while ((n = is.read(buffer)) != -1) {
@@ -220,18 +231,7 @@ public class AutoUpdateService {
             String absPath = installerPath.toAbsolutePath().toString();
 
             if (isWindows) {
-                // CORRECCIÓN 1: Eliminar Zone.Identifier (SmartScreen)
-                // PowerShell Unblock-File quita el ADS que marca el archivo
-                // como "descargado de Internet" y que activa SmartScreen.
-                try {
-                    new ProcessBuilder(
-                            "powershell", "-NonInteractive", "-Command",
-                            "Unblock-File -Path '" + absPath + "'")
-                            .start()
-                            .waitFor();
-                } catch (Exception ignored) {
-                    // Si falla el unblock, intentamos de todas formas
-                }
+                // El Unblock-File ahora se hace en downloadAndInstallAsync para no bloquear el hilo principal.
 
                 // CORRECCIÓN 4: .bat con timeout nativo y cmd /c start (detach total)
                 Path batFile = installerPath.getParent().resolve("meacore_updater.bat");
@@ -240,13 +240,17 @@ public class AutoUpdateService {
                     "title MeaCore Updater\r\n" +
                     "echo.\r\n" +
                     "echo  === MeaCore Launcher - Actualizacion ===\r\n" +
-                    "echo  Esperando que el launcher se cierre (10 segundos)...\r\n" +
-                    "timeout /t 10 /nobreak > nul\r\n" +
+                    "echo  Esperando que el launcher se cierre (3 segundos)...\r\n" +
+                    "timeout /t 3 /nobreak > nul\r\n" +
                     "echo  Asegurando cierre del proceso...\r\n" +
                     "taskkill /F /IM \"MeaCore Launcher.exe\" /T > nul 2>&1\r\n" +
                     "echo  Ejecutando instalador...\r\n" +
-                    // CORRECCION 4: start \"\" desacopla; comillas dobles escapadas correctamente
-                    "start \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
+                    "start /wait \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
+                    "echo  Relanzando MeaCore Launcher...\r\n" +
+                    "set \"APPDIR=%LOCALAPPDATA%\\MeaCore Launcher\\app\"\r\n" +
+                    "if exist \"%APPDIR%\\MeaCore Launcher.exe\" (\r\n" +
+                    "    start \"\" \"%APPDIR%\\MeaCore Launcher.exe\"\r\n" +
+                    ")\r\n" +
                     "exit\r\n";
 
                 Files.writeString(batFile, bat);
@@ -259,9 +263,10 @@ public class AutoUpdateService {
 
             } else {
                 // Linux: setsid + nohup para desacoplar de la sesión padre
+                // && encadena la reapertura solo si el install fue exitoso
                 String cmd = String.format(
-                        "sleep 2 && pkexec apt install -y \"%s\"" +
-                        " && setsid nohup meacorelauncher > /dev/null 2>&1 &",
+                        "sleep 2 && pkexec apt install -y \"%s\" && " +
+                        "setsid nohup meacorelauncher > /dev/null 2>&1 &",
                         absPath);
                 new ProcessBuilder("bash", "-c", cmd).start();
             }

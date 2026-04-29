@@ -24,7 +24,7 @@ public final class JavaRuntimeService {
     private static final String GITHUB_JRE_8_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre8-windows.zip";
     private static final String GITHUB_JRE_21_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre21-windows.zip";
 
-    private static final int DOWNLOAD_BUFFER_SIZE = 65536;
+    private static final int DOWNLOAD_BUFFER_SIZE = 524288;
 
     private final Path runtimeDir;
     private final OsContext os = OsContext.current();
