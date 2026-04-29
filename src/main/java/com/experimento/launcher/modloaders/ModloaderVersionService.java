@@ -1,0 +1,111 @@
+package com.experimento.launcher.modloaders;
+
+import com.experimento.launcher.mojang.HttpFiles;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Consulta las APIs oficiales para listar TODAS las versiones disponibles
+ * de Forge, Fabric y NeoForge para una versión de Minecraft dada.
+ */
+public final class ModloaderVersionService {
+
+    private static final ObjectMapper M = new ObjectMapper();
+
+    private ModloaderVersionService() {}
+
+    /**
+     * Lista todas las versiones de Forge para la MC version dada.
+     * Devuelve solo la parte "forge" (ej: "47.4.20"), más reciente primero.
+     * Ejemplo: getForgeVersions("1.20.1") → ["47.4.20", "47.4.19", ..., "47.0.1"]
+     */
+    public static List<String> getForgeVersions(String mcVersion) throws Exception {
+        byte[] bytes = HttpFiles.getBytes(
+            "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml");
+        String xml = new String(bytes, StandardCharsets.UTF_8);
+        List<String> versions = new ArrayList<>();
+        String prefix = mcVersion + "-";
+
+        int idx = 0;
+        while ((idx = xml.indexOf("<version>", idx)) != -1) {
+            int end = xml.indexOf("</version>", idx);
+            if (end == -1) break;
+            String ver = xml.substring(idx + 9, end).trim();
+            // Excluir variantes internas de mappings que no son instalables
+            if (ver.startsWith(prefix) && !ver.contains("_mapped_") && !ver.contains("_recomp")) {
+                versions.add(ver.substring(prefix.length())); // solo "47.4.20"
+            }
+            idx = end + 10;
+        }
+        Collections.reverse(versions); // más reciente primero
+        return versions;
+    }
+
+    /**
+     * Lista todas las versiones del Fabric Loader compatibles con la MC version dada.
+     * Ya viene más reciente primero desde la API de FabricMC.
+     */
+    public static List<String> getFabricLoaderVersions(String mcVersion) throws Exception {
+        byte[] bytes = HttpFiles.getBytes(
+            "https://meta.fabricmc.net/v2/versions/loader/" + mcVersion);
+        JsonNode arr = M.readTree(bytes);
+        List<String> versions = new ArrayList<>();
+        for (JsonNode entry : arr) {
+            String ver = entry.path("loader").path("version").asText(null);
+            if (ver != null && !ver.isBlank()) {
+                versions.add(ver);
+            }
+        }
+        return versions;
+    }
+
+    /**
+     * Lista todas las versiones de NeoForge para la MC version dada.
+     * MC "1.21.1" → busca versiones que empiecen con "21.1.", más reciente primero.
+     */
+    public static List<String> getNeoForgeVersions(String mcVersion) throws Exception {
+        byte[] bytes = HttpFiles.getBytes(
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml");
+        String xml = new String(bytes, StandardCharsets.UTF_8);
+        List<String> versions = new ArrayList<>();
+
+        // "1.21.1" → prefix "21.1."
+        String mcShort = mcVersion.startsWith("1.") ? mcVersion.substring(2) : mcVersion;
+        String prefix = mcShort + ".";
+
+        int idx = 0;
+        while ((idx = xml.indexOf("<version>", idx)) != -1) {
+            int end = xml.indexOf("</version>", idx);
+            if (end == -1) break;
+            String ver = xml.substring(idx + 9, end).trim();
+            if (ver.startsWith(prefix)) {
+                versions.add(ver);
+            }
+            idx = end + 10;
+        }
+        Collections.reverse(versions);
+        return versions;
+    }
+
+    /**
+     * Obtiene la versión recomendada (stable) de Forge para una MC version.
+     * Retorna null si no existe recomendada.
+     */
+    public static String getForgeRecommended(String mcVersion) {
+        try {
+            byte[] bytes = HttpFiles.getBytes(
+                "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json");
+            JsonNode promos = M.readTree(bytes).path("promos");
+            String rec = promos.path(mcVersion + "-recommended").asText(null);
+            if (rec == null) rec = promos.path(mcVersion + "-latest").asText(null);
+            return rec;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+}

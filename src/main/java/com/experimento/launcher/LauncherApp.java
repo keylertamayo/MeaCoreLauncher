@@ -89,6 +89,17 @@ public class LauncherApp extends Application {
     private Button javaDownloadCloseBtn;
     private int detectedJavaVersion = 8;
 
+    // Modloader overlay — Paso 2 (selector de versión específica)
+    private VBox modloaderStep1;
+    private VBox modloaderStep2;
+    private ComboBox<String> modloaderVersionCombo;
+    private Label modloaderStep2Title;
+    private javafx.scene.control.ProgressIndicator modloaderVersionSpinner;
+    private String currentSelectedLoaderType;
+
+    // Gestor de mods instalados
+    private javafx.scene.control.ListView<com.experimento.launcher.service.InstalledModsService.InstalledMod> modListView;
+
     // Nuevo Header Dinámico
     private Label headerProfileName;
     private Label headerProfileVersion;
@@ -479,40 +490,154 @@ public class LauncherApp extends Application {
     }
 
     private VBox createModdingView() {
-        Button installModloaderBtn = new Button("✨ Inyectar Forge / Fabric / NeoForge");
-        installModloaderBtn.setStyle("-fx-font-size: 15px; -fx-padding: 10 20; -fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold;");
+        // ── Card: Gestión de Modloaders ────────────────────────────────────────
+        Button installModloaderBtn = new Button("✨ Inyectar Modloader (con versión específica)");
+        installModloaderBtn.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold;");
+        installModloaderBtn.setMaxWidth(Double.MAX_VALUE);
         installModloaderBtn.setOnAction(e -> handleInstallModloader());
-
-        Label perfTitle = new Label("⚡ Mods de Rendimiento (GRATIS)");
-        perfTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
-
-        Label perfDesc = new Label(
-            "Instala automáticamente Sodium, Lithium, FerriteCore e ImmediatelyFast.\n" +
-            "Estos mods son 100% gratuitos y pueden subir los FPS de 30 a 60+ en modpacks pesados.\n" +
-            "Requiere que el perfil use Fabric o Forge.");
-        perfDesc.setWrapText(true);
-        perfDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
-
-        Button perfModsBtn = new Button("🚀 Instalar Mods de Rendimiento");
-        perfModsBtn.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;");
-        perfModsBtn.setOnAction(e -> handleInstallPerformanceMods(perfModsBtn));
 
         Label modloaderTitle = new Label("🔧 Gestión de Modloaders");
         modloaderTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
-        Label modloaderDesc = new Label("Inyecta Forge, Fabric o NeoForge automáticamente sin salir del launcher.");
+        Label modloaderDesc = new Label("Instala Forge, Fabric o NeoForge — ahora con selector de versión exacta.");
         modloaderDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
 
         modLoaderBadgeLabel = new Label("Modloader activo: (selecciona un perfil)");
         modLoaderBadgeLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 4 10; -fx-background-radius: 4;");
 
-        VBox perfCard = new VBox(10, perfTitle, perfDesc, perfModsBtn);
-        perfCard.getStyleClass().add("mc-card");
-
         VBox loaderCard = new VBox(10, modloaderTitle, modloaderDesc, modLoaderBadgeLabel, installModloaderBtn);
         loaderCard.getStyleClass().add("mc-card");
 
-        VBox modding = new VBox(20, loaderCard, perfCard);
+        // ── Card: Mods de Rendimiento ─────────────────────────────────────────
+        Label perfTitle = new Label("⚡ Mods de Rendimiento (GRATIS)");
+        perfTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        Label perfDesc = new Label(
+            "Instala automáticamente Sodium, Lithium, FerriteCore e ImmediatelyFast.\n" +
+            "Pueden subir los FPS de 30 a 60+ en modpacks pesados. Requiere Fabric, Forge o NeoForge.");
+        perfDesc.setWrapText(true);
+        perfDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+        Button perfModsBtn = new Button("🚀 Instalar Mods de Rendimiento");
+        perfModsBtn.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;");
+        perfModsBtn.setOnAction(e -> handleInstallPerformanceMods(perfModsBtn));
+
+        VBox perfCard = new VBox(10, perfTitle, perfDesc, perfModsBtn);
+        perfCard.getStyleClass().add("mc-card");
+
+        // ── Card: Mis Mods Instalados ─────────────────────────────────────────
+        Label modsTitle = new Label("🧩 Mis Mods");
+        modsTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        Label modsDesc = new Label("Mods instalados en la instancia activa. Haz clic derecho para eliminar.");
+        modsDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+
+        modListView = new javafx.scene.control.ListView<>();
+        modListView.setPrefHeight(220);
+        modListView.setPlaceholder(new Label("📭 No hay mods instalados en esta instancia"));
+
+        // Cell factory: [●toggle] [nombre] [tamaño]
+        modListView.setCellFactory(lv -> new javafx.scene.control.ListCell<
+                com.experimento.launcher.service.InstalledModsService.InstalledMod>() {
+            @Override
+            protected void updateItem(
+                    com.experimento.launcher.service.InstalledModsService.InstalledMod item,
+                    boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                    setText(null);
+                    setStyle("");
+                } else {
+                    HBox row = new HBox(10);
+                    row.setAlignment(Pos.CENTER_LEFT);
+
+                    // Botón toggle 🟢/🔴
+                    Button toggle = new Button(item.enabled() ? "🟢" : "🔴");
+                    toggle.setStyle("-fx-background-color: transparent; -fx-font-size: 14px; -fx-padding: 0 4; -fx-cursor: hand;");
+                    toggle.setOnAction(ev -> {
+                        workers.submit(() -> {
+                            try {
+                                if (item.enabled()) {
+                                    com.experimento.launcher.service.InstalledModsService.disableMod(item);
+                                } else {
+                                    com.experimento.launcher.service.InstalledModsService.enableMod(item);
+                                }
+                                Platform.runLater(() -> refreshModList());
+                            } catch (Exception ex) {
+                                Platform.runLater(() -> log("[Mods] Error: " + ex.getMessage()));
+                            }
+                        });
+                    });
+
+                    // Nombre del mod
+                    Label nameLbl = new Label(item.cleanName());
+                    nameLbl.setMaxWidth(Double.MAX_VALUE);
+                    if (!item.enabled()) {
+                        nameLbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px; " +
+                                "-fx-underline: false; text-decoration: line-through;");
+                        // JavaFX no soporta strikethrough en Label directamente, usamos opacidad
+                        nameLbl.setOpacity(0.45);
+                    } else {
+                        nameLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 12px;");
+                        nameLbl.setOpacity(1.0);
+                    }
+                    HBox.setHgrow(nameLbl, Priority.ALWAYS);
+
+                    row.getChildren().addAll(toggle, nameLbl);
+                    setGraphic(row);
+                    setText(null);
+                    setStyle("-fx-background-color: transparent;");
+                }
+            }
+        });
+
+        // Menú contextual clic derecho: Eliminar
+        javafx.scene.control.ContextMenu ctxMenu = new javafx.scene.control.ContextMenu();
+        javafx.scene.control.MenuItem deleteItem = new javafx.scene.control.MenuItem("🗑  Eliminar mod seleccionado");
+        deleteItem.setStyle("-fx-text-fill: #f44336;");
+        deleteItem.setOnAction(e -> {
+            var sel = modListView.getSelectionModel().getSelectedItem();
+            if (sel == null) return;
+            workers.submit(() -> {
+                try {
+                    com.experimento.launcher.service.InstalledModsService.deleteMod(sel);
+                    Platform.runLater(() -> {
+                        log("[Mods] Eliminado: " + sel.cleanName());
+                        refreshModList();
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> log("[Mods] Error al eliminar: " + ex.getMessage()));
+                }
+            });
+        });
+        ctxMenu.getItems().add(deleteItem);
+        modListView.setContextMenu(ctxMenu);
+
+        // Barra de herramientas del mod manager
+        Button refreshModsBtn = new Button("🔄 Actualizar");
+        refreshModsBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 14;");
+        refreshModsBtn.setOnAction(e -> refreshModList());
+
+        Button openFolderBtn = new Button("📂 Abrir Carpeta de Mods");
+        openFolderBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 14; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
+        openFolderBtn.setOnAction(e -> {
+            if (selected == null) return;
+            Path modsDir = facade.gameDirFor(selected).resolve("mods");
+            try {
+                java.nio.file.Files.createDirectories(modsDir);
+                java.awt.Desktop.getDesktop().open(modsDir.toFile());
+            } catch (Exception ex) {
+                log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());
+            }
+        });
+
+        HBox modToolbar = new HBox(8, refreshModsBtn, openFolderBtn);
+        modToolbar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox myModsCard = new VBox(10, modsTitle, modsDesc, modToolbar, modListView);
+        myModsCard.getStyleClass().add("mc-card");
+
+        // ── Layout final ──────────────────────────────────────────────────────
+        VBox modding = new VBox(20, myModsCard, loaderCard, perfCard);
         modding.setAlignment(Pos.TOP_LEFT);
+        modding.setPadding(new Insets(0, 10, 10, 0));
 
         ScrollPane scroll = new ScrollPane(modding);
         scroll.setFitToWidth(true);
@@ -521,6 +646,18 @@ public class LauncherApp extends Application {
         VBox wrapper = new VBox(scroll);
         VBox.setVgrow(scroll, Priority.ALWAYS);
         return wrapper;
+    }
+
+    /** Refresca la lista de mods del perfil activo. */
+    private void refreshModList() {
+        if (modListView == null) return;
+        if (selected == null) {
+            modListView.getItems().clear();
+            return;
+        }
+        Path modsDir = facade.gameDirFor(selected).resolve("mods");
+        var mods = com.experimento.launcher.service.InstalledModsService.scanMods(modsDir);
+        modListView.getItems().setAll(mods);
     }
 
     private void handleInstallPerformanceMods(Button btn) {
@@ -923,6 +1060,7 @@ public class LauncherApp extends Application {
         if (p.offlineUuid == null || p.offlineUuid.isBlank()) syncUuidFromUsername();
         refreshHints();
         refreshStatusCard();
+        refreshModList();
     }
 
     private void refreshStatusCard() {
@@ -1047,62 +1185,197 @@ public class LauncherApp extends Application {
         modloaderOverlay.setVisible(true);
     }
 
-    /** Construye el overlay de selección de Forge/Fabric/NeoForge. */
+    /** Construye el overlay de selección de Forge/Fabric/NeoForge (2 pasos). */
     private StackPane buildModloaderOverlay() {
         StackPane dim = new StackPane();
         dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
 
         VBox card = new VBox(16);
-        card.setMaxWidth(520);
+        card.setMaxWidth(540);
         card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
                 + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
                 + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 6);");
 
-        Label titleLbl = new Label("✨ Instalar Modloader Automático");
-        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+        // ── PASO 1: Elegir tipo de modloader ──────────────────────────────────
+        modloaderStep1 = new VBox(14);
+
+        Label titleLbl = new Label("✨ Instalar Modloader");
+        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 17px; -fx-font-weight: bold;");
 
         modloaderMcLabel = new Label();
         modloaderMcLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
 
-        Label hint = new Label("Elige el motor de mods. Se descargará e inyectará automáticamente:");
+        Label hint = new Label("Elige el motor de mods — podrás seleccionar la versión exacta:");
         hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
         hint.setWrapText(true);
 
-        Button forgeBtn = new Button("⚙ Forge");
-        forgeBtn.setPrefWidth(150);
-        forgeBtn.setStyle("-fx-background-color: #b07833; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
-        forgeBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("Forge"); });
+        Button forgeBtn = new Button("⚙  Forge");
+        forgeBtn.setPrefWidth(155);
+        forgeBtn.setStyle("-fx-background-color: #b07833; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 11 14; -fx-background-radius: 6;");
+        forgeBtn.setOnAction(e -> showModloaderStep2("Forge"));
 
-        Button neoforgeBtn = new Button("🔥 NeoForge");
-        neoforgeBtn.setPrefWidth(150);
-        neoforgeBtn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
-        neoforgeBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("NeoForge"); });
+        Button neoforgeBtn = new Button("🔥  NeoForge");
+        neoforgeBtn.setPrefWidth(155);
+        neoforgeBtn.setStyle("-fx-background-color: #c0522a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 11 14; -fx-background-radius: 6;");
+        neoforgeBtn.setOnAction(e -> showModloaderStep2("NeoForge"));
 
-        Button fabricBtn = new Button("🪡 Fabric");
-        fabricBtn.setPrefWidth(150);
-        fabricBtn.setStyle("-fx-background-color: #4a7c40; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 14; -fx-background-radius: 5;");
-        fabricBtn.setOnAction(e -> { modloaderOverlay.setVisible(false); executeInstallModloader("Fabric"); });
+        Button fabricBtn = new Button("🪡  Fabric");
+        fabricBtn.setPrefWidth(155);
+        fabricBtn.setStyle("-fx-background-color: #4a7c40; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 11 14; -fx-background-radius: 6;");
+        fabricBtn.setOnAction(e -> showModloaderStep2("Fabric"));
 
-        Label forgeNote = new Label("Forge: 1.12.2–1.20.1 | NeoForge: 1.20.2+ (recomendado) | Fabric: todas las versiones");
-        forgeNote.setStyle("-fx-text-fill: #666666; -fx-font-size: 11px;");
+        Label forgeNote = new Label("Forge: 1.12.2–1.20.1  ·  NeoForge: 1.20.2+ (recomendado)  ·  Fabric: todas las versiones");
+        forgeNote.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
         forgeNote.setWrapText(true);
 
-        Button cancelBtn = new Button("Cancelar");
-        cancelBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #666666; -fx-border-radius: 5; -fx-text-fill: #cccccc; -fx-padding: 8 16;");
-        cancelBtn.setOnAction(e -> modloaderOverlay.setVisible(false));
+        Button cancelBtn1 = new Button("Cancelar");
+        cancelBtn1.setStyle("-fx-background-color: transparent; -fx-border-color: #555555; -fx-border-radius: 5; -fx-text-fill: #aaaaaa; -fx-padding: 8 16;");
+        cancelBtn1.setOnAction(e -> modloaderOverlay.setVisible(false));
 
         HBox loaderBtns = new HBox(10, forgeBtn, neoforgeBtn, fabricBtn);
         loaderBtns.setAlignment(Pos.CENTER);
-        HBox cancelRow = new HBox(cancelBtn);
-        cancelRow.setAlignment(Pos.CENTER_RIGHT);
+        HBox cancel1Row = new HBox(cancelBtn1);
+        cancel1Row.setAlignment(Pos.CENTER_RIGHT);
 
-        card.getChildren().addAll(titleLbl, modloaderMcLabel, hint, new Separator(), loaderBtns, forgeNote, cancelRow);
+        modloaderStep1.getChildren().addAll(titleLbl, modloaderMcLabel, hint, new Separator(), loaderBtns, forgeNote, cancel1Row);
+
+        // ── PASO 2: Elegir versión específica ─────────────────────────────────
+        modloaderStep2 = new VBox(14);
+        modloaderStep2.setVisible(false);
+        modloaderStep2.setManaged(false);
+
+        modloaderStep2Title = new Label();
+        modloaderStep2Title.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label step2Hint = new Label("Selecciona la versión a instalar (más reciente primero):");
+        step2Hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
+
+        modloaderVersionCombo = new ComboBox<>();
+        modloaderVersionCombo.setMaxWidth(Double.MAX_VALUE);
+        modloaderVersionCombo.setPromptText("Cargando versiones...");
+
+        modloaderVersionSpinner = new javafx.scene.control.ProgressIndicator(-1);
+        modloaderVersionSpinner.setPrefSize(22, 22);
+        modloaderVersionSpinner.setVisible(true);
+
+        HBox comboRow = new HBox(10, modloaderVersionCombo, modloaderVersionSpinner);
+        comboRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(modloaderVersionCombo, Priority.ALWAYS);
+
+        Button installSpecificBtn = new Button("✅ Instalar versión seleccionada");
+        installSpecificBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 6;");
+        installSpecificBtn.setMaxWidth(Double.MAX_VALUE);
+        installSpecificBtn.setOnAction(e -> {
+            String ver = modloaderVersionCombo.getValue();
+            if (ver == null || ver.isBlank()) {
+                log("[Modloader] Selecciona una versión primero.");
+                return;
+            }
+            modloaderOverlay.setVisible(false);
+            resetModloaderOverlayToStep1();
+            executeInstallModloaderSpecific(currentSelectedLoaderType, ver);
+        });
+
+        Button backBtn = new Button("← Volver");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #555555; -fx-border-radius: 5; -fx-text-fill: #aaaaaa; -fx-padding: 8 16;");
+        backBtn.setOnAction(e -> resetModloaderOverlayToStep1());
+
+        Button cancelBtn2 = new Button("Cancelar");
+        cancelBtn2.setStyle("-fx-background-color: transparent; -fx-text-fill: #666666; -fx-padding: 8 16;");
+        cancelBtn2.setOnAction(e -> { modloaderOverlay.setVisible(false); resetModloaderOverlayToStep1(); });
+
+        HBox step2Btns = new HBox(10, backBtn, cancelBtn2);
+        step2Btns.setAlignment(Pos.CENTER_RIGHT);
+
+        modloaderStep2.getChildren().addAll(modloaderStep2Title, step2Hint, comboRow, new Separator(), installSpecificBtn, step2Btns);
+
+        card.getChildren().addAll(modloaderStep1, modloaderStep2);
         dim.getChildren().add(card);
         return dim;
     }
 
-    /** Lógica real de instalación del modloader tras seleccionar en el overlay. */
+    private void showModloaderStep2(String loaderType) {
+        currentSelectedLoaderType = loaderType;
+        String mcVersion = (selected != null && selected.lastVersionId != null) ? selected.lastVersionId : "?";
+        modloaderStep2Title.setText("Instalar " + loaderType + " para Minecraft " + mcVersion);
+        modloaderStep1.setVisible(false);
+        modloaderStep1.setManaged(false);
+        modloaderStep2.setVisible(true);
+        modloaderStep2.setManaged(true);
+        modloaderVersionCombo.getItems().clear();
+        modloaderVersionCombo.setPromptText("Cargando versiones...");
+        modloaderVersionSpinner.setVisible(true);
+        workers.submit(() -> {
+            try {
+                List<String> versions = switch (loaderType) {
+                    case "Forge" -> com.experimento.launcher.modloaders.ModloaderVersionService.getForgeVersions(mcVersion);
+                    case "Fabric" -> com.experimento.launcher.modloaders.ModloaderVersionService.getFabricLoaderVersions(mcVersion);
+                    case "NeoForge" -> com.experimento.launcher.modloaders.ModloaderVersionService.getNeoForgeVersions(mcVersion);
+                    default -> List.of();
+                };
+                Platform.runLater(() -> {
+                    modloaderVersionSpinner.setVisible(false);
+                    modloaderVersionCombo.getItems().addAll(versions);
+                    if (!versions.isEmpty()) {
+                        modloaderVersionCombo.getSelectionModel().selectFirst();
+                        modloaderVersionCombo.setPromptText(null);
+                    } else {
+                        modloaderVersionCombo.setPromptText("Sin versiones disponibles para " + mcVersion);
+                    }
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    modloaderVersionSpinner.setVisible(false);
+                    modloaderVersionCombo.setPromptText("Error al cargar versiones");
+                    log("[Modloader] Error cargando versiones de " + loaderType + ": " + ex.getMessage());
+                });
+            }
+        });
+    }
+
+    private void resetModloaderOverlayToStep1() {
+        modloaderStep1.setVisible(true);
+        modloaderStep1.setManaged(true);
+        modloaderStep2.setVisible(false);
+        modloaderStep2.setManaged(false);
+        modloaderVersionCombo.getItems().clear();
+    }
+
+    /** Instala la versión específica elegida en el ComboBox. */
+    private void executeInstallModloaderSpecific(String choice, String specificVersion) {
+        if (selected == null) return;
+        String mcVersion = selected.lastVersionId;
+        Path baseDir = facade.directories().launcherData();
+        log("Iniciando instalación de " + choice + " " + specificVersion + " para Minecraft " + mcVersion + "...");
+        showView("Log");
+        workers.submit(() -> {
+            try {
+                var runtime = facade.runtime();
+                switch (choice) {
+                    case "Forge" -> ModloaderInstallerService.installForgeSpecific(mcVersion, specificVersion, baseDir,
+                            msg -> Platform.runLater(() -> log(msg)), runtime);
+                    case "NeoForge" -> ModloaderInstallerService.installNeoForgeSpecific(mcVersion, specificVersion, baseDir,
+                            msg -> Platform.runLater(() -> log(msg)), runtime);
+                    case "Fabric" -> ModloaderInstallerService.installFabricSpecific(mcVersion, specificVersion, baseDir,
+                            msg -> Platform.runLater(() -> log(msg)), runtime);
+                }
+                Platform.runLater(() -> {
+                    log("✅ " + choice + " " + specificVersion + " instalado correctamente.");
+                    if (selected != null) {
+                        selected.modLoader = choice.toLowerCase();
+                        saveProfiles();
+                        refreshHints();
+                    }
+                    loadVersionManifestAsync();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("[CRITICAL] Falló la instalación de " + choice + " " + specificVersion + ": " + ex.getMessage()));
+            }
+        });
+    }
+
+    /** Lógica de instalación del modloader — delega al método específico con la última versión. */
     private void executeInstallModloader(String choice) {
         if (selected == null) return;
         String mcVersion = selected.lastVersionId;

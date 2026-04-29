@@ -50,10 +50,50 @@
 
     <div class="timeline">
 
+        <!-- v1.5.0 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.5.0 - Mod Manager & Version Control 🧩 (Actual)</h3>
+                <span class="version-date">29 de Abril, 2026</span>
+            </div>
+
+            <p><strong>🧩 Gestor de Mods Instalados (nuevo):</strong></p>
+            <ul>
+                <li><strong>Vista "Mis Mods":</strong> Nueva sección en la pestaña Modding que muestra todos los mods instalados en la instancia activa, con nombre y estado visual.</li>
+                <li><strong>Activar / Desactivar:</strong> Botón toggle 🟢/🔴 al lado de cada mod. El mod desactivado se renombra a <code>.jar.disabled</code> y Minecraft lo ignora — sin borrar nada.</li>
+                <li><strong>Eliminar con clic derecho:</strong> Menú contextual al hacer clic derecho sobre un mod → "🗑 Eliminar mod seleccionado". Elimina el archivo permanentemente del disco.</li>
+                <li><strong>Abrir Carpeta:</strong> Botón directo para abrir la carpeta <code>mods/</code> de la instancia en el explorador de archivos.</li>
+                <li><strong>Auto-refresh:</strong> La lista se actualiza automáticamente al cambiar de perfil.</li>
+            </ul>
+
+            <p><strong>⚙️ Selector de Versión Específica de Modloaders (nuevo):</strong></p>
+            <ul>
+                <li><strong>Overlay en 2 pasos:</strong> Al hacer clic en "Instalar Modloader", ahora aparece un paso 1 para elegir el tipo (Forge / NeoForge / Fabric) y un paso 2 con un <strong>ComboBox de todas las versiones disponibles</strong> para tu versión de Minecraft.</li>
+                <li><strong>Forge:</strong> Lista completa de versiones desde <code>maven.minecraftforge.net</code>, más reciente primero. Ahora puedes instalar exactamente <code>47.4.20</code> o cualquier otra.</li>
+                <li><strong>Fabric:</strong> Todas las versiones del Fabric Loader desde <code>meta.fabricmc.net</code>, compatibles con tu MC version.</li>
+                <li><strong>NeoForge:</strong> Todas las versiones desde <code>maven.neoforged.net</code>, filtradas por tu MC version.</li>
+                <li><strong>Carga asíncrona:</strong> Las versiones se cargan en segundo plano con un spinner — la UI no se bloquea.</li>
+                <li><strong>Botón "← Volver":</strong> Puedes regresar al paso 1 sin cancelar.</li>
+            </ul>
+
+            <p><strong>🌐 Red y Conectividad (mejorada):</strong></p>
+            <ul>
+                <li><strong>Fix de conexión a servidores:</strong> Eliminado <code>-Djava.net.preferIPv4Stack=true</code> que desactivaba IPv6 completamente y podía romper la conexión a servidores externos como Aternos.</li>
+                <li><strong>Detección de IP mejorada:</strong> Sistema de puntuación para elegir la interfaz de red más adecuada — prioriza Ethernet y WiFi, penaliza VMs, Docker y VPN.</li>
+                <li><strong>Guía en consola:</strong> Al lanzar el juego, el log muestra instrucciones claras para LAN y un recordatorio del modo "Cracked" para Aternos.</li>
+                <li><strong>Nuevos args seguros:</strong> <code>-Djava.net.useSystemProxies=false</code> para evitar proxies corporativos que interrumpen la conexión.</li>
+            </ul>
+
+            <p><strong>🌍 Idiomas (Deep Clean mejorado):</strong></p>
+            <ul>
+                <li>Ahora solo se conservan los idiomas necesarios: <code>en_us</code> (fallback), <code>es_ar</code>, <code>es_cl</code>, <code>es_es</code>, <code>es_mx</code>, <code>es_uy</code>, <code>es_ve</code>. El resto se elimina durante la instalación para ahorrar espacio en disco.</li>
+            </ul>
+        </div>
+
         <!-- v1.4.4 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.4.4 - LAN Connectivity Update 🌐 (Actual)</h3>
+                <h3 style="color: #888888;">v1.4.4 - LAN Connectivity Update 🌐</h3>
                 <span class="version-date">28 de Abril, 2026</span>
             </div>
             <p><strong>Mejoras de Red y LAN:</strong></p>
@@ -388,6 +428,17 @@
 
     <footer>
         <p>© 2026 MeaCore-Enterprise — Arica, Chile.</p>
+        <div style="margin-top: 0.75rem; display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+            <a href="https://github.com/MeaCore-Enterprise/MeaCoreLauncher" target="_blank">GitHub</a>
+            <a href="index.html">Inicio</a>
+            <a href="index.html#report">Reportar Bug</a>
+        </div>
+        <p style="margin-top: 0.75rem; font-size: 0.78rem; color: #555;">
+            🛡️ Sitio alternativo (siempre disponible):
+            <a href="https://meacorelauncher.pages.dev" target="_blank" style="color: #0E639C;">
+                meacorelauncher.pages.dev
+            </a>
+        </p>
     </footer>
 
     <script src="app.js"></script>

@@ -97,11 +97,15 @@ public final class GameFilesInstaller {
             List<String> toRemove = new ArrayList<>();
             objNode.fieldNames().forEachRemaining(key -> {
                 if (key.startsWith("minecraft/lang/")) {
-                    boolean keep = key.contains("/en_us") || key.contains("/en_gb")
-                               || key.contains("/es_ar") || key.contains("/es_cl")
-                               || key.contains("/es_ec") || key.contains("/es_es")
-                               || key.contains("/es_mx") || key.contains("/es_uy")
-                               || key.contains("/es_ve");
+                    // Deep Clean MeaCore: solo en_us (fallback obligatorio) +
+                    // variantes español latinoamérica/españa solicitadas.
+                    boolean keep = key.contains("/en_us")   // Inglés (fallback Minecraft)
+                               || key.contains("/es_ar")    // Español argentino
+                               || key.contains("/es_cl")    // Español chileno
+                               || key.contains("/es_es")    // Español (España)
+                               || key.contains("/es_mx")    // Español mexicano
+                               || key.contains("/es_uy")    // Español uruguayo
+                               || key.contains("/es_ve");   // Español venezolano
                     if (!keep) toRemove.add(key);
                 }
             });

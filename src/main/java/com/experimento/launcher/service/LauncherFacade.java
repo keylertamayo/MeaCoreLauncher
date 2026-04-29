@@ -126,8 +126,9 @@ public final class LauncherFacade {
         jvm.add("-XX:+IgnoreUnrecognizedVMOptions");
         jvm.add("--add-opens=java.base/java.lang=ALL-UNNAMED");
         
-        // Fix de Red / LAN (IPv4 preferido para multicast)
-        jvm.addAll(LanFixService.getNetworkFixArgs());
+        // Fix de Red / LAN — separados en LAN (local) + servidores externos (Aternos etc.)
+        jvm.addAll(LanFixService.getLanArgs());
+        jvm.addAll(LanFixService.getServerConnectArgs());
         
         String effectiveJava = p.javaExecutable;
         int requiredVer = getRequiredJavaVersion(merged, versionId);
@@ -300,10 +301,15 @@ public final class LauncherFacade {
         Path profileDir = gameDirFor(p);
         enforceVersionIsolation(profileDir, p.lastVersionId, log);
 
-        // Log de información de red para facilitar LAN
+        // Log de información de red para facilitar LAN y conexión a servidores
         String localIp = LanFixService.getLocalIpAddress();
-        log.accept("[NETWORK] Tu IP Local es: " + localIp);
-        log.accept("[NETWORK] Si tus amigos no ven tu mundo, diles que usen Conexión Directa a: " + localIp + ":[PUERTO]");
+        log.accept("══════════════ 🌐 INFO DE RED ══════════════");
+        log.accept("[NETWORK] Tu IP Local: " + localIp);
+        log.accept("[NETWORK] LAN: Para que tus amigos se conecten, abre el mundo → 'Abrir a la LAN'.");
+        log.accept("[NETWORK]      Ellos deben usar 'Conexión Directa' → " + localIp + ":[PUERTO_QUE_MUESTRA_EL_JUEGO]");
+        log.accept("[NETWORK] Aternos: Asegúrate de que tu servidor tenga el modo 'Cracked' activado");
+        log.accept("[NETWORK]         (Panel Aternos → Options → Cracked = ON)");
+        log.accept("════════════════════════════════════════════");
 
         // Alerta informativa sobre RAM total
         try {
