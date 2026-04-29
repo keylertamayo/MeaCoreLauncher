@@ -240,10 +240,12 @@ public class AutoUpdateService {
                     "title MeaCore Updater\r\n" +
                     "echo.\r\n" +
                     "echo  === MeaCore Launcher - Actualizacion ===\r\n" +
-                    "echo  Esperando que el launcher se cierre...\r\n" +
-                    "timeout /t 4 /nobreak > nul\r\n" +
+                    "echo  Esperando que el launcher se cierre (10 segundos)...\r\n" +
+                    "timeout /t 10 /nobreak > nul\r\n" +
+                    "echo  Asegurando cierre del proceso...\r\n" +
+                    "taskkill /F /IM \"MeaCore Launcher.exe\" /T > nul 2>&1\r\n" +
                     "echo  Ejecutando instalador...\r\n" +
-                    // CORRECCIÓN 4: start \"\" desacopla; comillas dobles escapadas correctamente
+                    // CORRECCION 4: start \"\" desacopla; comillas dobles escapadas correctamente
                     "start \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
                     "exit\r\n";
 
