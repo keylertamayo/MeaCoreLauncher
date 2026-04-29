@@ -56,10 +56,10 @@ public class AutoUpdateService {
                     JsonNode release = M.readTree(res.body());
                     String tagName = release.path("tag_name").asText("");
 
-                    // "bat-1.2.2" -> "1.2.2"
-                    String latestVersion = tagName.replace("bat-", "")
+                    // "bat-1.2.2" -> "1.2.2", "v1.5.0" -> "1.5.0"
+                    String latestVersion = tagName.replace("bat-", "").replace("v", "")
                             .replaceAll("-alfa", "").replaceAll("-alpha", "").trim();
-                    String currentVersion = LauncherMetadata.VERSION
+                    String currentVersion = LauncherMetadata.VERSION.replace("v", "")
                             .replaceAll("-alfa", "").replaceAll("-alpha", "").trim();
 
                     if (!latestVersion.isBlank() && isNewer(latestVersion, currentVersion)) {
@@ -158,10 +158,23 @@ public class AutoUpdateService {
         try {
             String path = installerPath.toAbsolutePath().toString();
             if (isWindows) {
-                // /VERYSILENT: instalación sin UI (Inno Setup).
-                // /NORESTART:  no reinicia automáticamente el sistema.
-                // /SUPPRESSMSGBOXES: ignora cuadros informativos no críticos.
-                new ProcessBuilder(path, "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES").start();
+                // TRUCO AVANZADO DE WINDOWS: Creamos un script .bat temporal que espera 3 segundos
+                // de forma externa. Esto garantiza al 100% que la JVM de Java está muerta y los archivos
+                // no están bloqueados antes de que Inno Setup intente sobreescribirlos.
+                Path batFile = installerPath.getParent().resolve("meacore_updater.bat");
+                String batContent = 
+                    "@echo off\r\n" +
+                    "echo ==========================================\r\n" +
+                    "echo  MeaCore Launcher - Instalando actualizacion\r\n" +
+                    "echo ==========================================\r\n" +
+                    "echo Esperando a que el launcher se cierre por completo...\r\n" +
+                    "timeout /t 3 /nobreak > nul\r\n" +
+                    "echo Ejecutando instalador...\r\n" +
+                    "start \"\" \"" + path + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n";
+                Files.writeString(batFile, batContent);
+                
+                // Ejecutamos el .bat en una consola independiente
+                new ProcessBuilder("cmd", "/c", "start", "\"MeaCore Updater\"", batFile.toString()).start();
             } else {
                 // sleep 1: tiempo para que el launcher se cierre antes que pkexec tome control.
                 // setsid nohup: el nuevo proceso es independiente del proceso padre.
@@ -171,7 +184,7 @@ public class AutoUpdateService {
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
             // Pequeño delay para que el proceso hijo arranque antes de salir
-            Thread.sleep(2000);
+            Thread.sleep(1000);
             System.exit(0);
         } catch (Exception ignored) {
             System.exit(1);
