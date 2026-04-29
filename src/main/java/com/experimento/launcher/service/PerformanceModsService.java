@@ -46,11 +46,11 @@ public final class PerformanceModsService {
         new PerformanceMod("immediatelyfast","ImmediatelyFast", "Renderizado de entidades y UI más rápido")
     );
 
-    /** Forge 1.12.2–1.20.1 */
+    /** Forge 1.12.2–1.21+ */
     public static final List<PerformanceMod> FORGE_MODS = List.of(
         new PerformanceMod("ferritecore", "FerriteCore", "Reducción masiva de uso de RAM (-30%)"),
-        new PerformanceMod("rubidium",    "Rubidium",    "Puerto de Sodium para Forge — +50% FPS"),
-        new PerformanceMod("oculus",      "Oculus",      "Soporte de shaders compatible con Rubidium")
+        new PerformanceMod("embeddium",   "Embeddium",   "Motor de renderizado para Forge (Reemplazo de Rubidium) — +50% FPS"),
+        new PerformanceMod("modernfix",   "ModernFix",   "Tiempos de carga -50%, RAM -20%, FPS +10%")
     );
 
     /** NeoForge 1.20.2+ — usa Embeddium (fork activo de Rubidium) */

@@ -214,8 +214,7 @@ public final class LauncherFacade {
                 Files.createDirectories(modsDir);
             }
             
-            // Validación extra de "intrusos": Si hay un mod de v1.20 en una v1.12
-            validateModsForVersion(modsDir, currentVersion, log);
+            // (Eliminada la validación estricta de nombres para evitar falsos positivos con mods válidos)
 
             // Asegurar que el directorio exista antes de escribir el archivo de versión
             Files.createDirectories(profileDir);
@@ -226,30 +225,7 @@ public final class LauncherFacade {
         }
     }
 
-    private void validateModsForVersion(Path modsDir, String mcVersion, Consumer<String> log) {
-        if (!Files.exists(modsDir)) return;
-        try (var stream = Files.list(modsDir)) {
-            stream.filter(p -> p.toString().toLowerCase().endsWith(".jar")).forEach(p -> {
-                String name = p.getFileName().toString().toLowerCase();
-                // Reglas simples pero efectivas basadas en nombres comunes
-                boolean incompatible = false;
-                if (mcVersion.contains("1.12") && (name.contains("1.18") || name.contains("1.19") || name.contains("1.20") || name.contains("1.21"))) {
-                    incompatible = true;
-                } else if (mcVersion.contains("1.20") && (name.contains("1.12") || name.contains("1.8"))) {
-                    incompatible = true;
-                }
-                
-                if (incompatible) {
-                    try {
-                        Path incompatibleDir = modsDir.resolve("incompatible_detectado");
-                        Files.createDirectories(incompatibleDir);
-                        Files.move(p, incompatibleDir.resolve(p.getFileName()));
-                        log.accept("[LAUNCHER] 🚫 Mod incompatible detectado y movido: " + p.getFileName());
-                    } catch (IOException ignored) {}
-                }
-            });
-        } catch (Exception ignored) {}
-    }
+
 
     private boolean isDirectoryNotEmpty(Path path) throws IOException {
         if (!Files.isDirectory(path)) return false;
