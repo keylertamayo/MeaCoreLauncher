@@ -14,17 +14,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 /**
- * Servicio de auto-actualización del launcher — Windows & Linux.
+ * Servicio de auto-actualizacion del launcher — Windows y Linux.
  *
  * Correcciones aplicadas (v1.4.9):
- *  1. SmartScreen  → Unblock-File vía PowerShell antes de ejecutar el .exe.
- *  2. Directorio   → %LOCALAPPDATA%\MeaCore\updates en vez de %TEMP%.
- *  3. Confirmación → downloadAndInstallAsync ya NO inicia la instalación
- *                    automáticamente; sólo avisa al listener (onDownloadComplete).
- *                    La instalación real la inicia el usuario desde el banner.
- *  4. Detach       → cmd /c start desacopla completamente el proceso hijo
- *                    del launcher. El .bat usa `timeout` nativo de Windows.
- *  5. URL          → Unificada a MeaCore-Enterprise/MeaCoreLauncher.
+ *  1. SmartScreen  -> Unblock-File via PowerShell antes de ejecutar el .exe.
+ *  2. Directorio   -> LOCALAPPDATA/MeaCore/updates en vez de TEMP.
+ *  3. Confirmacion -> downloadAndInstallAsync ya NO inicia la instalacion
+ *                    automaticamente; solo avisa al listener (onDownloadComplete).
+ *                    La instalacion real la inicia el usuario desde el banner.
+ *  4. Detach       -> cmd /c start desacopla completamente el proceso hijo.
+ *  5. URL          -> Unificada a MeaCore-Enterprise/MeaCoreLauncher.
  */
 public class AutoUpdateService {
 
@@ -126,8 +125,8 @@ public class AutoUpdateService {
                 boolean isWindows = isWindows();
                 String ext = isWindows ? ".exe" : ".deb";
 
-                // CORRECCIÓN 2: usar %LOCALAPPDATA%\MeaCore\updates (más limpio y
-                // menos sospechoso para el antivirus que %TEMP%)
+                // CORRECCION 2: usar LOCALAPPDATA/MeaCore/updates (mas limpio y
+                // menos sospechoso para el antivirus que TEMP)
                 Path updateDir = isWindows
                         ? Path.of(System.getenv().getOrDefault("LOCALAPPDATA",
                                   System.getProperty("java.io.tmpdir")), "MeaCore", "updates")
