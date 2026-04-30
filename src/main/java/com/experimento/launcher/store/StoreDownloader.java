@@ -16,19 +16,25 @@ public final class StoreDownloader {
 
     private static final ObjectMapper M = new ObjectMapper();
 
-    public static ModpackDependencies install(StoreItem item, Path gameDir, String mcVersion, Consumer<String> progress) throws Exception {
+    public static ModpackDependencies install(StoreItem item, Path gameDir, String mcVersion, String preferredLoader, Consumer<String> progress) throws Exception {
         Files.createDirectories(gameDir);
 
         progress.accept("Obteniendo URL de descarga para " + item.title() + "...");
         
-        String loader = "";
-        if (item.category() == StoreCategory.MOD || item.category() == StoreCategory.MODPACK) {
-            loader = "forge"; // Idealmente esto se lee del perfil actual o se pide, por defecto probamos forge
+        String loader = preferredLoader;
+        if (loader == null || loader.isBlank()) {
+            if (item.category() == StoreCategory.MOD || item.category() == StoreCategory.MODPACK) {
+                loader = "forge"; // Default to forge if none specified
+            }
         }
 
         String url = ModrinthStoreClient.getDownloadUrl(item.id(), mcVersion, loader);
-        if (url == null && "forge".equals(loader)) {
-            // Reintento con fabric
+        
+        // Si falló con el preferido, intentar otros comunes
+        if (url == null && !"forge".equals(loader)) {
+            url = ModrinthStoreClient.getDownloadUrl(item.id(), mcVersion, "forge");
+        }
+        if (url == null && !"fabric".equals(loader)) {
             url = ModrinthStoreClient.getDownloadUrl(item.id(), mcVersion, "fabric");
         }
 

@@ -710,13 +710,17 @@ public class LauncherApp extends Application {
         ComboBox<StoreCategory> catCombo = new ComboBox<>(FXCollections.observableArrayList(StoreCategory.values()));
         catCombo.setValue(StoreCategory.MODPACK);
 
+        ComboBox<String> loaderCombo = new ComboBox<>(FXCollections.observableArrayList("Todos", "Forge", "Fabric", "Quilt", "NeoForge"));
+        loaderCombo.setValue("Todos");
+        loaderCombo.setPrefWidth(120);
+
         TextField searchField = new TextField();
         searchField.setPromptText("Buscar...");
-        searchField.setPrefWidth(300);
+        searchField.setPrefWidth(200);
 
         Button searchBtn = new Button("🔍 Buscar");
 
-        topBar.getChildren().addAll(catCombo, searchField, searchBtn);
+        topBar.getChildren().addAll(catCombo, loaderCombo, searchField, searchBtn);
 
         ListView<StoreItem> storeList = new ListView<>();
         storeList.setPrefHeight(400);
@@ -778,7 +782,8 @@ public class LauncherApp extends Application {
                         btnInstall.setText("Instalando...");
                         workers.submit(() -> {
                             try {
-                                ModpackDependencies deps = StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
+                                String selectedLoader = loaderCombo.getValue().equals("Todos") ? null : loaderCombo.getValue().toLowerCase();
+                                ModpackDependencies deps = StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, selectedLoader, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
                                 if (deps != null) {
                                     Platform.runLater(() -> log("[STORE] Modpack requiere " + deps.mcVersion() + " con " + deps.loader() + ". Configurando automáticamente..."));
                                     autoConfigureModpack(deps);
@@ -811,7 +816,8 @@ public class LauncherApp extends Application {
             storeList.getItems().clear();
             offset[0] = 0;
             workers.submit(() -> {
-                var results = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), 0);
+                String loader = loaderCombo.getValue().equals("Todos") ? null : loaderCombo.getValue().toLowerCase();
+                var results = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), loader, 0);
                 Platform.runLater(() -> storeList.getItems().addAll(results));
             });
         };
@@ -819,11 +825,13 @@ public class LauncherApp extends Application {
         searchBtn.setOnAction(e -> performSearch.run());
         searchField.setOnAction(e -> performSearch.run());
         catCombo.setOnAction(e -> performSearch.run());
+        loaderCombo.setOnAction(e -> performSearch.run());
 
         loadMoreBtn.setOnAction(e -> {
             offset[0] += 20;
             workers.submit(() -> {
-                var res = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), offset[0]);
+                String loader = loaderCombo.getValue().equals("Todos") ? null : loaderCombo.getValue().toLowerCase();
+                var res = ModrinthStoreClient.search(searchField.getText(), catCombo.getValue(), loader, offset[0]);
                 Platform.runLater(() -> storeList.getItems().addAll(res));
             });
         });

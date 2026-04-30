@@ -112,6 +112,11 @@ public final class CrashReportService {
 
         Files.writeString(reportFile, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         
+        // Reportar a Supabase si hubo un error real
+        if (hasCrashed) {
+            SupabaseService.reportCrash(report.toString(), versionId);
+        }
+
         return reportFile;
     }
 

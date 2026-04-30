@@ -49,7 +49,115 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bug report form
     setupBugReportForm();
     applyBugReportTemplate();
+
+    // Community Reviews (Supabase)
+    setupReviews();
 });
+
+// --- Supabase Config (Completar con tus datos) ---
+const SUPABASE_URL = 'https://YOUR_PROJECT_REF.supabase.co';
+const SUPABASE_KEY = 'YOUR_ANON_KEY';
+
+async function setupReviews() {
+    const container = document.getElementById('reviews-container');
+    const formToggle = document.getElementById('show-review-form');
+    const form = document.getElementById('review-form');
+    const status = document.getElementById('rev-status');
+
+    if (!container || !form) return;
+
+    // 1. Cargar reseñas
+    fetchReviews(container);
+
+    // 2. Manejar el toggle del formulario
+    if (formToggle) {
+        formToggle.addEventListener('click', () => {
+            const isHidden = form.style.display === 'none';
+            form.style.display = isHidden ? 'block' : 'none';
+            formToggle.textContent = isHidden ? 'Cancelar reseña' : 'Escribir una reseña';
+        });
+    }
+
+    // 3. Manejar envío de reseña
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('rev-submit');
+        submitBtn.disabled = true;
+        status.textContent = 'Publicando...';
+
+        const name = document.getElementById('rev-name').value;
+        const rating = parseInt(document.getElementById('rev-rating').value);
+        const comment = document.getElementById('rev-comment').value;
+
+        try {
+            if (SUPABASE_URL.includes('YOUR_PROJECT_REF')) {
+                throw new Error('Supabase no configurado. Contacta al administrador.');
+            }
+
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/reviews`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    user_name: name,
+                    rating: rating,
+                    comment: comment,
+                    approved: false // Por defecto requiere aprobación
+                })
+            });
+
+            if (!response.ok) throw new Error('Error al publicar reseña');
+
+            status.innerHTML = '<span style="color: #4CAF50;">✅ ¡Gracias! Tu reseña ha sido enviada para moderación.</span>';
+            form.reset();
+            setTimeout(() => { form.style.display = 'none'; formToggle.textContent = 'Escribir una reseña'; }, 3000);
+        } catch (err) {
+            status.innerHTML = `<span style="color: #f44336;">❌ Error: ${err.message}</span>`;
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+}
+
+async function fetchReviews(container) {
+    if (SUPABASE_URL.includes('YOUR_PROJECT_REF')) {
+        container.innerHTML = '<p>Configura Supabase para ver las reseñas.</p>';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/reviews?approved=eq.true&select=*&order=created_at.desc&limit=6`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+        });
+
+        if (!response.ok) throw new Error();
+        const reviews = await response.json();
+
+        if (reviews.length === 0) {
+            container.innerHTML = '<p>Aún no hay reseñas. ¡Sé el primero!</p>';
+            return;
+        }
+
+        container.innerHTML = reviews.map(r => `
+            <div class="review-card">
+                <div class="review-header">
+                    <strong>${r.user_name}</strong>
+                    <span class="stars">${'⭐'.repeat(r.rating)}</span>
+                </div>
+                <p>"${r.comment}"</p>
+            </div>
+        `).join('');
+    } catch (err) {
+        container.innerHTML = '<p>No se pudieron cargar las reseñas.</p>';
+    }
+}
 
 const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024; // 4 MB
 

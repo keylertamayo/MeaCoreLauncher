@@ -29,8 +29,8 @@ public class ModrinthStoreClient {
 
     private record CacheEntry(long timestamp, List<StoreItem> items) {}
 
-    public static List<StoreItem> search(String query, StoreCategory category, int offset) {
-        String cacheKey = query + "_" + category.name() + "_" + offset;
+    public static List<StoreItem> search(String query, StoreCategory category, String loader, int offset) {
+        String cacheKey = query + "_" + category.name() + "_" + loader + "_" + offset;
         CacheEntry cached = CACHE.get(cacheKey);
         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
             return cached.items;
@@ -39,7 +39,15 @@ public class ModrinthStoreClient {
         List<StoreItem> results = new ArrayList<>();
         try {
             String q = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String facets = URLEncoder.encode("[[\"project_type:" + category.getModrinthType() + "\"]]", StandardCharsets.UTF_8);
+            
+            // Construir facets dinámicamente
+            StringBuilder facetsBuilder = new StringBuilder("[[\"project_type:").append(category.getModrinthType()).append("\"]");
+            if (loader != null && !loader.isBlank()) {
+                facetsBuilder.append(",[\"categories:").append(loader.toLowerCase()).append("\"]");
+            }
+            facetsBuilder.append("]");
+            
+            String facets = URLEncoder.encode(facetsBuilder.toString(), StandardCharsets.UTF_8);
             String url = BASE_URL + "/search?query=" + q + "&facets=" + facets + "&limit=20&offset=" + offset;
 
             HttpRequest req = HttpRequest.newBuilder()

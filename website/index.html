@@ -141,6 +141,47 @@
         </div>
     </section>
 
+    <section id="reviews" class="reviews-sec">
+        <div class="report-wrap">
+            <h2>Reseñas de la Comunidad</h2>
+            <p class="report-intro">¿Qué opinas de MeaCore Launcher? Tu opinión nos ayuda a mejorar.</p>
+            
+            <div id="reviews-container" class="reviews-container">
+                <!-- Las reseñas se cargarán aquí desde Supabase -->
+                <p class="loading-reviews">Cargando reseñas...</p>
+            </div>
+
+            <div class="review-form-toggle">
+                <button id="show-review-form" class="btn btn-outline">Escribir una reseña</button>
+            </div>
+
+            <form id="review-form" class="bug-form" style="display: none; margin-top: 2rem;">
+                <div class="form-row">
+                    <label for="rev-name">Tu nombre *</label>
+                    <input id="rev-name" name="name" type="text" required maxlength="50" placeholder="Ej: Claudio">
+                </div>
+                <div class="form-row">
+                    <label for="rev-rating">Calificación *</label>
+                    <select id="rev-rating" name="rating" required>
+                        <option value="5">⭐⭐⭐⭐⭐ (Excelente)</option>
+                        <option value="4">⭐⭐⭐⭐ (Muy bueno)</option>
+                        <option value="3">⭐⭐⭐ (Bueno)</option>
+                        <option value="2">⭐⭐ (Regular)</option>
+                        <option value="1">⭐ (Malo)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="rev-comment">Comentario *</label>
+                    <textarea id="rev-comment" name="comment" required maxlength="500" rows="3" placeholder="Cuéntanos tu experiencia..."></textarea>
+                </div>
+                <div class="form-row form-actions">
+                    <button type="submit" id="rev-submit" class="btn btn-primary">Publicar Reseña</button>
+                </div>
+                <div id="rev-status" class="bug-status"></div>
+            </form>
+        </div>
+    </section>
+
     <footer>
         <p>© 2026 MeaCore-Enterprise — Arica, Chile. Todos los derechos reservados.</p>
         <div style="margin-top: 0.75rem; display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">

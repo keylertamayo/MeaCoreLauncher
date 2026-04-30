@@ -458,3 +458,60 @@ footer a {
 footer a:hover {
     color: var(--text-primary);
 }
+
+/* Reviews Section */
+.reviews-sec {
+    padding: 5rem 5%;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+.reviews-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+.review-card {
+    background: var(--bg-primary);
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+}
+.review-header strong {
+    color: var(--green-accent);
+}
+.stars {
+    font-size: 0.9rem;
+}
+.review-card p {
+    font-size: 0.95rem;
+    color: var(--text-sec);
+    font-style: italic;
+    margin: 0;
+}
+.review-form-toggle {
+    text-align: center;
+    margin-top: 2rem;
+}
+.loading-reviews {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-sec);
+    padding: 2rem;
+}
+.form-row select {
+    background: #111;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.7rem 0.9rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
