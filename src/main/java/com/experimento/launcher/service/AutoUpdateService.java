@@ -134,8 +134,9 @@ public class AutoUpdateService {
 
                 Files.createDirectories(updateDir);
 
-                Path dest = updateDir.resolve("meacore-update" + ext);
-                Files.deleteIfExists(dest);
+                // Usar un nombre temporal único para evitar errores de "archivo en uso"
+                // si el instalador anterior quedó bloqueado por el antivirus o el sistema.
+                Path dest = updateDir.resolve("meacore-update-" + System.currentTimeMillis() + ext);
 
                 downloadWithProgress(installerUrl, dest);
 

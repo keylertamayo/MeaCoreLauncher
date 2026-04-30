@@ -290,7 +290,11 @@ public class LauncherApp extends Application {
                 Platform.runLater(() -> {
                     updateBanner.setVisible(false);
                     updateBanner.setManaged(false);
-                    log("⚠ Error de actualización: " + message);
+                    String cleanMsg = message;
+                    if (message != null && message.contains("updates\\meacore-update")) {
+                        cleanMsg = "El archivo de actualización está bloqueado por otro proceso o el antivirus. Intenta reiniciar el launcher.";
+                    }
+                    log("⚠ Error de actualización: " + cleanMsg);
                 });
             }
         });
