@@ -14,10 +14,22 @@ import java.util.concurrent.CompletableFuture;
  */
 public class SupabaseService {
 
-    // NOTA: Estas credenciales deben ser configuradas por el usuario.
-    // Se recomienda usar variables de entorno o un archivo de configuración externo.
-    private static final String SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
-    private static final String SUPABASE_KEY = "YOUR_ANON_KEY";
+    private static String SUPABASE_URL = "";
+    private static String SUPABASE_KEY = "";
+
+    static {
+        try {
+            java.util.Properties props = new java.util.Properties();
+            java.nio.file.Path secretPath = java.nio.file.Paths.get("secrets.properties");
+            if (java.nio.file.Files.exists(secretPath)) {
+                try (java.io.InputStream is = java.nio.file.Files.newInputStream(secretPath)) {
+                    props.load(is);
+                    SUPABASE_URL = props.getProperty("supabase.url", "");
+                    SUPABASE_KEY = props.getProperty("supabase.key", "");
+                }
+            }
+        } catch (Exception ignored) {}
+    }
 
     private static final HttpClient CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -26,7 +38,7 @@ public class SupabaseService {
 
     /** Envia un reporte de error de forma asíncrona. */
     public static void reportCrash(String crashLog, String version) {
-        if (SUPABASE_URL.contains("YOUR_PROJECT_REF")) return;
+        if (SUPABASE_URL == null || SUPABASE_URL.isBlank()) return;
 
         Map<String, Object> data = Map.of(
             "launcher_version", version,

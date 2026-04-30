@@ -54,9 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupReviews();
 });
 
-// --- Supabase Config (Completar con tus datos) ---
-const SUPABASE_URL = 'https://YOUR_PROJECT_REF.supabase.co';
-const SUPABASE_KEY = 'YOUR_ANON_KEY';
+// --- Supabase Config (Inyectado por GitHub Actions o manual) ---
+const SUPABASE_URL = '__SUPABASE_URL__';
+const SUPABASE_KEY = '__SUPABASE_KEY__';
 
 async function setupReviews() {
     const container = document.getElementById('reviews-container');

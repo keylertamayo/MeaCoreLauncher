@@ -1,10 +1,11 @@
 package com.experimento.launcher.service;
 
 import com.experimento.launcher.LauncherMetadata;
+import com.experimento.launcher.mojang.HttpFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,30 +13,47 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Servicio de auto-actualizacion del launcher — Windows y Linux.
+ * Servicio de auto-actualización del launcher — Windows y Linux.
  *
- * Correcciones aplicadas (v1.4.9):
- *  1. SmartScreen  -> Unblock-File via PowerShell antes de ejecutar el .exe.
- *  2. Directorio   -> LOCALAPPDATA/MeaCore/updates en vez de TEMP.
- *  3. Confirmacion -> downloadAndInstallAsync ya NO inicia la instalacion
- *                    automaticamente; solo avisa al listener (onDownloadComplete).
- *                    La instalacion real la inicia el usuario desde el banner.
- *  4. Detach       -> cmd /c start desacopla completamente el proceso hijo.
- *  5. URL          -> Unificada a MeaCore-Enterprise/MeaCoreLauncher.
+ * Mejoras v2.0:
+ *  1. Descarga delegada a HttpFiles (8MB buffer, BufferedI/O, retry x3, backoff exponencial).
+ *  2. Guards atómicos — imposible lanzar dos checks o dos descargas simultáneas.
+ *  3. Rate limiting — el check de GitHub no se repite más de una vez por hora.
+ *  4. Limpieza automática de instaladores viejos antes de descargar.
+ *  5. Limpieza de archivos parciales si la descarga falla.
+ *  6. Thread.sleep reducido a 300ms (bat ya está completamente desacoplado).
+ *  7. Nombre de bat con timestamp único — evita colisión si se clica Reiniciar dos veces.
+ *  8. Bat se autolimpia con "del %~f0" al terminar.
+ *  9. Mensajes de error humanizados — sin rutas técnicas crudas al usuario.
+ * 10. Timeout explícito en el HttpRequest al GitHub API.
+ * 11. Unblock-File lanzado antes de notificar al listener — ya está listo cuando el usuario clica.
  */
-public class AutoUpdateService {
+public final class AutoUpdateService {
 
     private static final String GITHUB_API_LATEST =
             "https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest";
+
     private static final ObjectMapper M = new ObjectMapper();
-    private static UpdateListener listener;
+
+    // Listener de eventos — volatile para visibilidad entre hilos
+    private static volatile UpdateListener listener;
+
+    // Guards: impiden checks y descargas duplicadas simultáneas
+    private static final AtomicBoolean checking    = new AtomicBoolean(false);
+    private static final AtomicBoolean downloading = new AtomicBoolean(false);
+
+    // Rate limiting: no chequear GitHub más de una vez por hora
+    private static volatile Instant lastCheck    = Instant.EPOCH;
+    private static final Duration   CHECK_COOLDOWN = Duration.ofHours(1);
 
     public interface UpdateListener {
         void onUpdateFound(String version, String url);
         void onDownloadProgress(double fraction);
-        /** Descarga finalizada. El listener decide si lanzar installFromPath(). */
+        /** Descarga completada. El listener decide si llamar installFromPath(). */
         void onDownloadComplete(Path installerPath);
         void onDownloadError(String message);
     }
@@ -49,84 +67,93 @@ public class AutoUpdateService {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Consulta GitHub Releases en segundo plano y notifica al listener si hay
-     * una versión más reciente disponible para la plataforma actual.
+     * Consulta GitHub Releases en segundo plano.
+     * - No lanza un segundo hilo si ya hay uno corriendo (guard atómico).
+     * - No consulta si el último check fue hace menos de 1 hora (rate limiting).
      */
     public static void checkForUpdatesAsync() {
-        Thread thread = new Thread(() -> {
+        if (!checking.compareAndSet(false, true)) return;
+
+        if (Duration.between(lastCheck, Instant.now()).compareTo(CHECK_COOLDOWN) < 0) {
+            checking.set(false);
+            return;
+        }
+
+        Thread t = new Thread(() -> {
             try {
+                lastCheck = Instant.now();
+
                 HttpClient client = HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofSeconds(8))
+                        .connectTimeout(Duration.ofSeconds(10))
                         .build();
+
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create(GITHUB_API_LATEST))
                         .header("Accept", "application/vnd.github.v3+json")
                         .header("User-Agent", "MeaCoreLauncher/" + LauncherMetadata.VERSION)
+                        // Timeout total del request — sin esto usa solo el connectTimeout
+                        .timeout(Duration.ofSeconds(15))
                         .GET()
                         .build();
 
                 HttpResponse<InputStream> res = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
-                if (res.statusCode() == 200) {
-                    JsonNode release = M.readTree(res.body());
-                    String tagName = release.path("tag_name").asText("");
+                if (res.statusCode() != 200) return;
 
-                    // Normalizar: "bat-1.2.2" → "1.2.2", "v1.4.9" → "1.4.9"
-                    String latestVersion = tagName
-                            .replace("bat-", "")
-                            .replaceFirst("^[vV]", "")
-                            .replaceAll("-(alfa|alpha)", "")
-                            .trim();
-                    String currentVersion = LauncherMetadata.VERSION
-                            .replaceFirst("^[vV]", "")
-                            .replaceAll("-(alfa|alpha)", "")
-                            .trim();
+                JsonNode release = M.readTree(res.body());
+                String tagName       = release.path("tag_name").asText("");
+                String latestVersion = normalizeVersion(tagName);
+                String currentVersion = normalizeVersion(LauncherMetadata.VERSION);
 
-                    if (!latestVersion.isBlank() && isNewer(latestVersion, currentVersion)) {
-                        boolean isWindows = isWindows();
-                        String preferredExt = isWindows ? ".exe" : ".deb";
+                if (latestVersion.isBlank() || !isNewer(latestVersion, currentVersion)) return;
 
-                        String downloadUrl = null;
-                        JsonNode assets = release.path("assets");
-                        for (JsonNode asset : assets) {
-                            String name = asset.path("name").asText("");
-                            if (name.endsWith(preferredExt)) {
-                                downloadUrl = asset.path("browser_download_url").asText("");
-                                break;
-                            }
-                        }
+                boolean isWindows    = isWindows();
+                String  preferredExt = isWindows ? ".exe" : ".deb";
+                String  downloadUrl  = null;
 
-                        if (downloadUrl != null && listener != null) {
-                            final String url = downloadUrl;
-                            listener.onUpdateFound(latestVersion, url);
-                        }
+                for (JsonNode asset : release.path("assets")) {
+                    if (asset.path("name").asText("").endsWith(preferredExt)) {
+                        downloadUrl = asset.path("browser_download_url").asText("");
+                        break;
                     }
                 }
+
+                if (downloadUrl != null && listener != null) {
+                    final String url = downloadUrl;
+                    listener.onUpdateFound(latestVersion, url);
+                }
+
             } catch (Exception ignored) {
                 // Fallo silencioso: sin conexión o API no disponible
+            } finally {
+                checking.set(false);
             }
         }, "meacore-update-check");
-        thread.setDaemon(true);
-        thread.start();
+        t.setDaemon(true);
+        t.start();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DOWNLOAD  (solo descarga — NO ejecuta automáticamente)
+    // DOWNLOAD
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Descarga el instalador al directorio de actualizaciones de MeaCore y
-     * notifica onDownloadComplete cuando termina.
-     * La instalación real se lanza SÓLO cuando el usuario confirma desde la UI
-     * (botón "Reiniciar Ahora") invocando {@link #installFromPath(Path)}.
+     * Descarga el instalador usando HttpFiles:
+     *   - Buffer 8MB con BufferedInputStream + BufferedOutputStream en capas
+     *   - Retry automático x3 con backoff exponencial (1s, 2s, 4s)
+     *   - Timeout de conexión 30s / lectura 10min
+     *   - Progreso en tiempo real vía Consumer<Double>
+     *
+     * Solo notifica onDownloadComplete — la instalación la dispara el usuario.
      */
     public static void downloadAndInstallAsync(String installerUrl) {
+        if (!downloading.compareAndSet(false, true)) return;
+
         Thread t = new Thread(() -> {
+            Path dest = null;
             try {
                 boolean isWindows = isWindows();
-                String ext = isWindows ? ".exe" : ".deb";
+                String  ext       = isWindows ? ".exe" : ".deb";
 
-                // CORRECCION 2: usar LOCALAPPDATA/MeaCore/updates (mas limpio y
-                // menos sospechoso para el antivirus que TEMP)
                 Path updateDir = isWindows
                         ? Path.of(System.getenv().getOrDefault("LOCALAPPDATA",
                                   System.getProperty("java.io.tmpdir")), "MeaCore", "updates")
@@ -134,30 +161,41 @@ public class AutoUpdateService {
 
                 Files.createDirectories(updateDir);
 
-                // Usar un nombre temporal único para evitar errores de "archivo en uso"
-                // si el instalador anterior quedó bloqueado por el antivirus o el sistema.
-                Path dest = updateDir.resolve("meacore-update-" + System.currentTimeMillis() + ext);
+                // Limpiar instaladores anteriores antes de descargar
+                cleanOldInstallers(updateDir, ext);
 
-                downloadWithProgress(installerUrl, dest);
+                dest = updateDir.resolve("meacore-update-" + System.currentTimeMillis() + ext);
+                final Path finalDest = dest;
 
-                // CORRECCIÓN 1: Eliminar Zone.Identifier (SmartScreen) en background
-                // Se lanza aquí mientras el usuario lee el banner, para que al clicsar "Reiniciar" ya esté listo.
-                if (isWindows) {
-                    try {
-                        new ProcessBuilder(
-                                "powershell", "-NonInteractive", "-WindowStyle", "Hidden",
-                                "-Command", "Unblock-File -Path '" + dest.toAbsolutePath() + "'")
-                                .start(); // fire-and-forget
-                    } catch (Exception ignored) {}
+                // HttpFiles: 8MB buffer + BufferedI/O + retry x3 + backoff exponencial
+                // sin hash (null) porque GitHub no expone el SHA del asset en la API
+                HttpFiles.downloadIfHashMismatch(installerUrl, finalDest, null, fraction -> {
+                    if (listener != null) {
+                        listener.onDownloadProgress(fraction < 0 ? -1.0 : fraction);
+                    }
+                });
+
+                // Sanidad: verificar que el archivo no esté vacío
+                if (!Files.exists(finalDest) || Files.size(finalDest) == 0) {
+                    throw new IllegalStateException("El archivo descargado está vacío.");
                 }
 
-                // CORRECCIÓN 3: NO ejecutar automáticamente.
-                // Avisamos al listener y él decide (normalmente el banner le pregunta al usuario).
-                if (listener != null) listener.onDownloadComplete(dest);
+                // Unblock-File ANTES de notificar al listener
+                // → cuando el usuario clique "Reiniciar Ahora" ya estará desbloqueado
+                if (isWindows) {
+                    unblockFileAsync(finalDest);
+                }
+
+                if (listener != null) listener.onDownloadComplete(finalDest);
 
             } catch (Exception ex) {
-                if (listener != null) listener.onDownloadError(
-                        ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
+                // Limpiar archivo parcial para no dejar basura en disco
+                if (dest != null) {
+                    try { Files.deleteIfExists(dest); } catch (Exception ignored) {}
+                }
+                if (listener != null) listener.onDownloadError(humanizeError(ex));
+            } finally {
+                downloading.set(false);
             }
         }, "meacore-update-download");
         t.setDaemon(true);
@@ -168,10 +206,6 @@ public class AutoUpdateService {
     // INSTALL  (llamado desde la UI cuando el usuario confirma)
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Lanza el instalador de forma apropiada según la plataforma y cierra el
-     * launcher. Llamar únicamente tras confirmación explícita del usuario.
-     */
     public static void installFromPath(Path installerPath) {
         new Thread(() -> executeInstaller(installerPath, isWindows()), "meacore-update-install")
                 .start();
@@ -181,92 +215,45 @@ public class AutoUpdateService {
     // IMPLEMENTACIÓN INTERNA
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static void downloadWithProgress(String urlStr, Path dest) throws Exception {
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.ALWAYS)
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(urlStr))
-                .header("User-Agent", "MeaCoreLauncher/" + LauncherMetadata.VERSION)
-                .build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
-        long totalBytes;
-        try {
-            totalBytes = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
-        } catch (NumberFormatException e) {
-            totalBytes = -1;
-        }
-
-        try (InputStream is = response.body();
-             OutputStream os = Files.newOutputStream(dest)) {
-            byte[] buffer = new byte[524288]; // 512 KB
-            long readBytes = 0;
-            int n;
-            while ((n = is.read(buffer)) != -1) {
-                os.write(buffer, 0, n);
-                readBytes += n;
-                if (totalBytes > 0 && listener != null) {
-                    final double progress = (double) readBytes / totalBytes;
-                    listener.onDownloadProgress(progress);
-                }
-            }
-        }
-    }
-
-    /**
-     * Lanza el instalador de forma completamente desacoplada del proceso Java.
-     *
-     * Windows:
-     *   1. Desbloquea el .exe con PowerShell (elimina Zone.Identifier / SmartScreen).
-     *   2. Escribe un .bat en el mismo directorio que usa `timeout` nativo.
-     *   3. Lanza el .bat con `cmd /c start` para desacoplarlo completamente.
-     *   Resultado: Inno Setup arranca 3 s después de que la JVM haya muerto.
-     *
-     * Linux:
-     *   Usa bash + setsid + nohup para desacoplar de la sesión actual.
-     */
     private static void executeInstaller(Path installerPath, boolean isWindows) {
         try {
             String absPath = installerPath.toAbsolutePath().toString();
 
             if (isWindows) {
-                // El Unblock-File ahora se hace en downloadAndInstallAsync para no bloquear el hilo principal.
+                // Nombre único con timestamp — evita colisión si se clica Reiniciar dos veces
+                Path batFile = installerPath.getParent()
+                        .resolve("meacore_updater_" + System.currentTimeMillis() + ".bat");
 
-                // CORRECCIÓN 4: .bat con timeout nativo y cmd /c start (detach total)
-                Path batFile = installerPath.getParent().resolve("meacore_updater.bat");
                 String bat =
                     "@echo off\r\n" +
                     "title MeaCore Updater\r\n" +
-                    "echo.\r\n" +
-                    "echo  === MeaCore Launcher - Actualizacion ===\r\n" +
-                    "echo  Esperando que el launcher se cierre (3 segundos)...\r\n" +
+                    // 3s es suficiente — la JVM muere en ~300ms tras System.exit(0)
                     "timeout /t 3 /nobreak > nul\r\n" +
-                    "echo  Asegurando cierre del proceso...\r\n" +
+                    // Cierre forzado como respaldo por si algo quedó colgado
                     "taskkill /F /IM \"MeaCore Launcher.exe\" /T > nul 2>&1\r\n" +
-                    "echo  Ejecutando instalador...\r\n" +
+                    // start /wait — el bat espera a que Inno Setup termine
+                    // antes de intentar relanzar el launcher
                     "start /wait \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
-                    "echo  Relanzando MeaCore Launcher...\r\n" +
+                    // Cubrir ambas estructuras de instalación de jpackage
                     "set \"APPDIR=%LOCALAPPDATA%\\MeaCore Launcher\"\r\n" +
                     "if exist \"%APPDIR%\\MeaCore Launcher.exe\" (\r\n" +
                     "    start \"\" \"%APPDIR%\\MeaCore Launcher.exe\"\r\n" +
                     ") else if exist \"%APPDIR%\\app\\MeaCore Launcher.exe\" (\r\n" +
                     "    start \"\" \"%APPDIR%\\app\\MeaCore Launcher.exe\"\r\n" +
                     ")\r\n" +
+                    // El bat se autolimpia — no deja basura en disco
+                    "del \"%~f0\"\r\n" +
                     "exit\r\n";
 
                 Files.writeString(batFile, bat);
 
-                // Lanzar el .bat de forma completamente independiente (detached)
                 new ProcessBuilder(
                         "cmd", "/c", "start", "\"MeaCore Updater\"",
                         "/min", batFile.toAbsolutePath().toString())
                         .start();
 
             } else {
-                // Linux: setsid + nohup para desacoplar de la sesión padre
-                // && encadena la reapertura solo si el install fue exitoso
+                // Linux: setsid + nohup, && encadena solo si apt tiene éxito
                 String cmd = String.format(
                         "sleep 2 && pkexec apt install -y \"%s\" && " +
                         "setsid nohup meacorelauncher > /dev/null 2>&1 &",
@@ -274,14 +261,74 @@ public class AutoUpdateService {
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
 
-            // Dar tiempo al proceso hijo para arrancar antes de que la JVM muera
-            Thread.sleep(1200);
+            // 300ms suficientes — el proceso hijo está completamente desacoplado
+            Thread.sleep(300);
             System.exit(0);
 
         } catch (Exception e) {
-            // Si algo falla, no dejar el launcher sin salida
             System.exit(1);
         }
+    }
+
+    /**
+     * Lanza PowerShell Unblock-File como fire-and-forget.
+     * No usa .waitFor() — nunca bloquea el hilo de descarga.
+     */
+    private static void unblockFileAsync(Path file) {
+        try {
+            new ProcessBuilder(
+                    "powershell", "-NonInteractive", "-WindowStyle", "Hidden",
+                    "-Command", "Unblock-File -Path '" + file.toAbsolutePath() + "'")
+                    .start();
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Elimina instaladores anteriores del directorio de updates.
+     * Evita acumulación de archivos .exe/.deb de versiones previas.
+     */
+    private static void cleanOldInstallers(Path dir, String ext) {
+        try (var stream = Files.list(dir)) {
+            stream.filter(p -> p.getFileName().toString().startsWith("meacore-update-")
+                           && p.getFileName().toString().endsWith(ext))
+                  .forEach(p -> {
+                      try { Files.deleteIfExists(p); } catch (Exception ignored) {}
+                  });
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Convierte excepciones técnicas en mensajes legibles para el usuario.
+     * El listener no debería mostrar rutas del sistema ni stack traces.
+     */
+    private static String humanizeError(Exception ex) {
+        String msg = ex.getMessage();
+        if (msg == null) return "Error inesperado al descargar la actualización.";
+        if (msg.contains("updates\\meacore-update") || msg.contains("Access is denied")) {
+            return "El archivo de actualización está bloqueado por Windows o el antivirus. Reinicia el launcher e intenta de nuevo.";
+        }
+        if (msg.contains("Connection refused") || msg.contains("UnknownHost")
+                || msg.contains("UnknownHostException")) {
+            return "Sin conexión a internet. Verifica tu red e intenta de nuevo.";
+        }
+        if (msg.contains("timed out") || msg.contains("timeout")) {
+            return "La descarga tardó demasiado. Verifica tu conexión e intenta de nuevo.";
+        }
+        if (msg.contains("SHA1 mismatch")) {
+            return "El archivo descargado está corrupto. Intenta de nuevo.";
+        }
+        if (msg.contains("vacío")) {
+            return "Se descargó un archivo vacío. Verifica tu conexión e intenta de nuevo.";
+        }
+        return "Error al descargar: " + msg;
+    }
+
+    private static String normalizeVersion(String raw) {
+        if (raw == null) return "";
+        return raw.replace("bat-", "")
+                  .replaceFirst("^[vV]", "")
+                  .replaceAll("-(alfa|alpha)", "")
+                  .trim();
     }
 
     private static boolean isWindows() {

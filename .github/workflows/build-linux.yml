@@ -25,6 +25,11 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      - name: Inject Supabase Secrets
+        run: |
+          echo "supabase.url=${{ secrets.SUPABASE_URL }}" > secrets.properties
+          echo "supabase.key=${{ secrets.SUPABASE_KEY }}" >> secrets.properties
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
