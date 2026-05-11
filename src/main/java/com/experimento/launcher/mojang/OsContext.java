@@ -36,6 +36,10 @@ public record OsContext(String name, String arch) {
         return "linux".equals(name);
     }
 
+    public boolean isMac() {
+        return "osx".equals(name);
+    }
+
     public String javaExecutableName() {
         return isWindows() ? "java.exe" : "java";
     }
