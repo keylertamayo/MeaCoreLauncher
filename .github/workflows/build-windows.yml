@@ -158,8 +158,11 @@ jobs:
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
           Write-Host "Buscando release existente para el tag: $tag"
+          # Ignorar errores de gh CLI cuando no existe el release
+          $ErrorActionPreference = 'SilentlyContinue'
           $releaseId = gh release view $tag --json id -q '.id' 2>$null
-          if ($releaseId) {
+          $ErrorActionPreference = 'Stop'
+          if ($LASTEXITCODE -eq 0 -and $releaseId) {
             Write-Host "Release encontrado. Limpiando assets .exe antiguos..."
             $assets = gh release view $tag --json assets -q '.assets[].name' | Select-String '\.exe$'
             foreach ($asset in $assets) {
