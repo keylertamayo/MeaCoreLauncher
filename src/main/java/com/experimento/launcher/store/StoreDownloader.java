@@ -48,25 +48,7 @@ public final class StoreDownloader {
         }
 
         String fileName = url.substring(url.lastIndexOf('/') + 1);
-        Path destFile;
-
-        switch (item.category()) {
-            case MOD:
-                destFile = gameDir.resolve("mods").resolve(fileName);
-                break;
-            case RESOURCEPACK:
-                destFile = gameDir.resolve("resourcepacks").resolve(fileName);
-                break;
-            case SHADERPACK:
-                destFile = gameDir.resolve("shaderpacks").resolve(fileName);
-                break;
-            case MODPACK:
-                destFile = gameDir.resolve(fileName); // Temp mrpack
-                break;
-            default:
-                destFile = gameDir.resolve("downloads").resolve(fileName);
-                break;
-        }
+        Path destFile = resolveDestFile(item.category(), gameDir, fileName);
 
         Files.createDirectories(destFile.getParent());
         progress.accept("Descargando " + fileName + "...");
@@ -144,6 +126,45 @@ public final class StoreDownloader {
             }
             return new ModpackDependencies(mcVer, loader);
         }
+        return null;
+    }
+
+    private static Path resolveDestFile(StoreCategory category, Path gameDir, String fileName) {
+        switch (category) {
+            case MOD:
+                return gameDir.resolve("mods").resolve(fileName);
+            case RESOURCEPACK:
+                return gameDir.resolve("resourcepacks").resolve(fileName);
+            case SHADERPACK:
+                return gameDir.resolve("shaderpacks").resolve(fileName);
+            case MODPACK:
+                return gameDir.resolve(fileName); // Temp mrpack
+            default:
+                return gameDir.resolve("downloads").resolve(fileName);
+        }
+    }
+
+    /**
+     * Instala una versión específica de un mod usando el ModVersion proporcionado.
+     */
+    public static ModpackDependencies installSpecificVersion(StoreItem item, ModVersion version, Path gameDir, Consumer<String> progress) throws Exception {
+        Files.createDirectories(gameDir);
+
+        progress.accept("Descargando " + version.fileName() + " (" + version.versionNumber() + ")...");
+        
+        Path destFile = resolveDestFile(item.category(), gameDir, version.fileName());
+        Files.createDirectories(destFile.getParent());
+        
+        HttpFiles.downloadIfHashMismatch(version.downloadUrl(), destFile, null);
+
+        if (item.category() == StoreCategory.MODPACK && version.fileName().endsWith(".mrpack")) {
+            progress.accept("Instalando modpack...");
+            ModpackDependencies deps = installMrPack(destFile, gameDir, progress);
+            Files.deleteIfExists(destFile);
+            return deps;
+        }
+
+        progress.accept("✅ " + version.fileName() + " instalado exitosamente.");
         return null;
     }
 }

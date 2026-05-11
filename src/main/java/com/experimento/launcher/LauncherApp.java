@@ -97,6 +97,18 @@ public class LauncherApp extends Application {
     private javafx.scene.control.ProgressIndicator modloaderVersionSpinner;
     private String currentSelectedLoaderType;
 
+    // Store mod version selector overlay
+    private StackPane modVersionOverlay;
+    private VBox modVersionStep1;
+    private VBox modVersionStep2;
+    private ComboBox<com.experimento.launcher.store.ModVersion> modVersionCombo;
+    private Label modVersionStep2Title;
+    private Label modVersionModLabel;
+    private javafx.scene.control.ProgressIndicator modVersionSpinner;
+    private StoreItem currentSelectedStoreItem;
+    private List<com.experimento.launcher.store.ModVersion> currentModVersions;
+    private Button installSpecificVersionBtn;
+
     // Gestor de mods instalados
     private javafx.scene.control.ListView<com.experimento.launcher.service.InstalledModsService.InstalledMod> modListView;
 
@@ -240,7 +252,9 @@ public class LauncherApp extends Application {
         modloaderOverlay.setVisible(false);
         javaDownloadOverlay = buildJavaDownloadOverlay();
         javaDownloadOverlay.setVisible(false);
-        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, javaDownloadOverlay);
+        modVersionOverlay = buildModVersionOverlay();
+        modVersionOverlay.setVisible(false);
+        StackPane rootPane = new StackPane(mainLayout, deleteConfirmOverlay, modloaderOverlay, javaDownloadOverlay, modVersionOverlay);
 
         Scene scene = new Scene(rootPane, 1080, 720);
         stage.setMinWidth(1080);
@@ -778,25 +792,11 @@ public class LauncherApp extends Application {
                             new Alert(Alert.AlertType.WARNING, "Selecciona un perfil en la barra lateral primero.").show();
                             return;
                         }
-                        btnInstall.setDisable(true);
-                        btnInstall.setText("Instalando...");
-                        workers.submit(() -> {
-                            try {
-                                String selectedLoader = loaderCombo.getValue().equals("Todos") ? null : loaderCombo.getValue().toLowerCase();
-                                ModpackDependencies deps = StoreDownloader.install(item, facade.gameDirFor(selected), selected.lastVersionId, selectedLoader, msg -> Platform.runLater(() -> log("[STORE] " + msg)));
-                                if (deps != null) {
-                                    Platform.runLater(() -> log("[STORE] Modpack requiere " + deps.mcVersion() + " con " + deps.loader() + ". Configurando automáticamente..."));
-                                    autoConfigureModpack(deps);
-                                }
-                                Platform.runLater(() -> btnInstall.setText("✅ Listo"));
-                            } catch (Exception ex) {
-                                Platform.runLater(() -> {
-                                    btnInstall.setDisable(false);
-                                    btnInstall.setText("✨ Instalar");
-                                    log("[STORE] Error: " + ex.getMessage());
-                                });
-                            }
-                        });
+                        // Abrir selector de versión para mods
+                        currentSelectedStoreItem = item;
+                        modVersionModLabel.setText(item.title() + " por " + item.author());
+                        modVersionOverlay.setVisible(true);
+                        resetModVersionOverlayToStep1();
                     });
 
                     box.getChildren().addAll(iconBox, info, spacer, btnInstall);
@@ -1418,6 +1418,270 @@ public class LauncherApp extends Application {
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> log("[CRITICAL] Falló la instalación de " + choice + ": " + ex.getMessage()));
+            }
+        });
+    }
+
+    /** Construye el overlay de selección de versión específica para mods de la tienda. */
+    private StackPane buildModVersionOverlay() {
+        StackPane dim = new StackPane();
+        dim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+
+        VBox card = new VBox(16);
+        card.setMaxWidth(580);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.setStyle("-fx-background-color: #252526; -fx-background-radius: 10; "
+                + "-fx-border-radius: 10; -fx-border-color: #454545; -fx-border-width: 1; "
+                + "-fx-padding: 28; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 24, 0, 0, 6);");
+
+        // ── PASO 1: Mostrar información del mod y botón para ver versiones ──────────────────────────────────
+        modVersionStep1 = new VBox(14);
+
+        Label titleLbl = new Label("📦 Instalar Mod");
+        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 17px; -fx-font-weight: bold;");
+
+        modVersionModLabel = new Label();
+        modVersionModLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 13px;");
+
+        Label hint = new Label("Selecciona cómo quieres instalar el mod:");
+        hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
+        hint.setWrapText(true);
+
+        Button quickInstallBtn = new Button("⚡ Instalar Última Versión");
+        quickInstallBtn.setPrefWidth(220);
+        quickInstallBtn.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 11 14; -fx-background-radius: 6;");
+        quickInstallBtn.setOnAction(e -> executeQuickInstallMod());
+
+        Button viewVersionsBtn = new Button("🔽 Ver Todas las Versiones");
+        viewVersionsBtn.setPrefWidth(220);
+        viewVersionsBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 11 14; -fx-background-radius: 6;");
+        viewVersionsBtn.setOnAction(e -> showModVersionStep2());
+
+        Label note = new Label("Elige 'Última Versión' para instalar rápidamente, o 'Ver Todas' para seleccionar una versión específica.");
+        note.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+        note.setWrapText(true);
+
+        Button cancelBtn1 = new Button("Cancelar");
+        cancelBtn1.setStyle("-fx-background-color: transparent; -fx-border-color: #555555; -fx-border-radius: 5; -fx-text-fill: #aaaaaa; -fx-padding: 8 16;");
+        cancelBtn1.setOnAction(e -> modVersionOverlay.setVisible(false));
+
+        VBox btnBox = new VBox(10, quickInstallBtn, viewVersionsBtn);
+        btnBox.setAlignment(Pos.CENTER);
+        HBox cancel1Row = new HBox(cancelBtn1);
+        cancel1Row.setAlignment(Pos.CENTER_RIGHT);
+
+        modVersionStep1.getChildren().addAll(titleLbl, modVersionModLabel, hint, new Separator(), btnBox, note, cancel1Row);
+
+        // ── PASO 2: Elegir versión específica ─────────────────────────────────
+        modVersionStep2 = new VBox(14);
+        modVersionStep2.setVisible(false);
+        modVersionStep2.setManaged(false);
+
+        modVersionStep2Title = new Label();
+        modVersionStep2Title.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label step2Hint = new Label("Selecciona la versión a instalar:");
+        step2Hint.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
+
+        modVersionCombo = new ComboBox<>();
+        modVersionCombo.setMaxWidth(Double.MAX_VALUE);
+        modVersionCombo.setPromptText("Cargando versiones...");
+        // Custom cell factory to show version info
+        modVersionCombo.setCellFactory(lv -> new ListCell<com.experimento.launcher.store.ModVersion>() {
+            @Override
+            protected void updateItem(com.experimento.launcher.store.ModVersion item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    String mcVers = String.join(", ", item.gameVersions());
+                    String loaders = String.join(", ", item.loaders());
+                    setText(item.versionNumber() + " (MC: " + mcVers + ", " + loaders + ")");
+                }
+            }
+        });
+        modVersionCombo.setButtonCell(new ListCell<com.experimento.launcher.store.ModVersion>() {
+            @Override
+            protected void updateItem(com.experimento.launcher.store.ModVersion item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(modVersionCombo.getPromptText());
+                } else {
+                    String mcVers = String.join(", ", item.gameVersions());
+                    String loaders = String.join(", ", item.loaders());
+                    setText(item.versionNumber() + " (MC: " + mcVers + ", " + loaders + ")");
+                }
+            }
+        });
+
+        modVersionSpinner = new javafx.scene.control.ProgressIndicator(-1);
+        modVersionSpinner.setPrefSize(22, 22);
+        modVersionSpinner.setVisible(true);
+
+        HBox comboRow = new HBox(10, modVersionCombo, modVersionSpinner);
+        comboRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(modVersionCombo, Priority.ALWAYS);
+
+        installSpecificVersionBtn = new Button("✅ Instalar versión seleccionada");
+        installSpecificVersionBtn.setStyle("-fx-background-color: #0E639C; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 6;");
+        installSpecificVersionBtn.setMaxWidth(Double.MAX_VALUE);
+        installSpecificVersionBtn.setOnAction(e -> executeInstallSpecificModVersion());
+
+        Button backBtn = new Button("← Volver");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-border-color: #555555; -fx-border-radius: 5; -fx-text-fill: #aaaaaa; -fx-padding: 8 16;");
+        backBtn.setOnAction(e -> resetModVersionOverlayToStep1());
+
+        Button cancelBtn2 = new Button("Cancelar");
+        cancelBtn2.setStyle("-fx-background-color: transparent; -fx-text-fill: #666666; -fx-padding: 8 16;");
+        cancelBtn2.setOnAction(e -> { modVersionOverlay.setVisible(false); resetModVersionOverlayToStep1(); });
+
+        HBox step2Btns = new HBox(10, backBtn, cancelBtn2);
+        step2Btns.setAlignment(Pos.CENTER_RIGHT);
+
+        modVersionStep2.getChildren().addAll(modVersionStep2Title, step2Hint, comboRow, new Separator(), installSpecificVersionBtn, step2Btns);
+
+        card.getChildren().addAll(modVersionStep1, modVersionStep2);
+        dim.getChildren().add(card);
+        return dim;
+    }
+
+    private void showModVersionStep2() {
+        if (currentSelectedStoreItem == null || selected == null) return;
+        
+        String mcVersion = (selected.lastVersionId != null) ? selected.lastVersionId : "";
+        String loader = (selected.modLoader != null) ? selected.modLoader.toLowerCase() : null;
+        
+        modVersionStep2Title.setText("Seleccionar versión de " + currentSelectedStoreItem.title());
+        modVersionStep1.setVisible(false);
+        modVersionStep1.setManaged(false);
+        modVersionStep2.setVisible(true);
+        modVersionStep2.setManaged(true);
+        modVersionCombo.getItems().clear();
+        modVersionCombo.setPromptText("Cargando versiones...");
+        modVersionSpinner.setVisible(true);
+        installSpecificVersionBtn.setDisable(true);
+        
+        workers.submit(() -> {
+            try {
+                currentModVersions = com.experimento.launcher.store.ModrinthStoreClient.getModVersions(
+                    currentSelectedStoreItem.id(), mcVersion, loader);
+                
+                Platform.runLater(() -> {
+                    modVersionSpinner.setVisible(false);
+                    modVersionCombo.getItems().addAll(currentModVersions);
+                    if (!currentModVersions.isEmpty()) {
+                        modVersionCombo.getSelectionModel().selectFirst();
+                        modVersionCombo.setPromptText(null);
+                        installSpecificVersionBtn.setDisable(false);
+                    } else {
+                        modVersionCombo.setPromptText("Sin versiones compatibles encontradas");
+                        // Intentar sin filtros
+                        workers.submit(() -> {
+                            try {
+                                var allVersions = com.experimento.launcher.store.ModrinthStoreClient.getModVersions(
+                                    currentSelectedStoreItem.id(), null, null);
+                                Platform.runLater(() -> {
+                                    currentModVersions = allVersions;
+                                    modVersionCombo.getItems().addAll(allVersions);
+                                    if (!allVersions.isEmpty()) {
+                                        modVersionCombo.getSelectionModel().selectFirst();
+                                        installSpecificVersionBtn.setDisable(false);
+                                        modVersionCombo.setPromptText(null);
+                                    } else {
+                                        modVersionCombo.setPromptText("No hay versiones disponibles");
+                                    }
+                                });
+                            } catch (Exception ex) {
+                                Platform.runLater(() -> modVersionCombo.setPromptText("Error al cargar"));
+                            }
+                        });
+                    }
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    modVersionSpinner.setVisible(false);
+                    modVersionCombo.setPromptText("Error al cargar versiones");
+                    log("[Store] Error cargando versiones: " + ex.getMessage());
+                });
+            }
+        });
+    }
+
+    private void resetModVersionOverlayToStep1() {
+        modVersionStep1.setVisible(true);
+        modVersionStep1.setManaged(true);
+        modVersionStep2.setVisible(false);
+        modVersionStep2.setManaged(false);
+        modVersionCombo.getItems().clear();
+        currentModVersions = null;
+    }
+
+    /** Instala la versión específica del mod seleccionada en el ComboBox. */
+    private void executeInstallSpecificModVersion() {
+        if (selected == null || currentSelectedStoreItem == null) return;
+        
+        com.experimento.launcher.store.ModVersion version = modVersionCombo.getValue();
+        if (version == null) {
+            log("[Store] Selecciona una versión primero.");
+            return;
+        }
+        
+        modVersionOverlay.setVisible(false);
+        resetModVersionOverlayToStep1();
+        
+        Path gameDir = facade.gameDirFor(selected);
+        log("[Store] Instalando " + currentSelectedStoreItem.title() + " " + version.versionNumber() + "...");
+        showView("Log");
+        
+        workers.submit(() -> {
+            try {
+                com.experimento.launcher.store.StoreDownloader.installSpecificVersion(
+                    currentSelectedStoreItem, version, gameDir,
+                    msg -> Platform.runLater(() -> log(msg)));
+                Platform.runLater(() -> {
+                    log("[Store] ✅ " + currentSelectedStoreItem.title() + " " + version.versionNumber() + " instalado correctamente.");
+                    refreshModList();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("[Store] Error: " + ex.getMessage()));
+            }
+        });
+    }
+
+    /** Instala la última versión compatible del mod (instalación rápida). */
+    private void executeQuickInstallMod() {
+        if (selected == null || currentSelectedStoreItem == null) return;
+        
+        modVersionOverlay.setVisible(false);
+        resetModVersionOverlayToStep1();
+        
+        Path gameDir = facade.gameDirFor(selected);
+        String mcVersion = selected.lastVersionId;
+        String loader = selected.modLoader;
+        
+        log("[Store] Instalando última versión de " + currentSelectedStoreItem.title() + "...");
+        showView("Log");
+        
+        workers.submit(() -> {
+            try {
+                com.experimento.launcher.store.ModpackDependencies deps = 
+                    com.experimento.launcher.store.StoreDownloader.install(
+                        currentSelectedStoreItem, gameDir, mcVersion, loader,
+                        msg -> Platform.runLater(() -> log("[STORE] " + msg)));
+                
+                if (deps != null) {
+                    Platform.runLater(() -> {
+                        log("[STORE] Modpack requiere " + deps.mcVersion() + " con " + deps.loader() + ". Configurando automáticamente...");
+                        autoConfigureModpack(deps);
+                    });
+                } else {
+                    Platform.runLater(() -> {
+                        log("[Store] ✅ " + currentSelectedStoreItem.title() + " instalado correctamente.");
+                        refreshModList();
+                    });
+                }
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("[Store] Error: " + ex.getMessage()));
             }
         });
     }

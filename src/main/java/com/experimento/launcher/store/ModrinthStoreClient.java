@@ -121,4 +121,88 @@ public class ModrinthStoreClient {
         } catch (Exception ignored) { }
         return null; // Falló obtener url
     }
+
+    /**
+     * Obtiene todas las versiones disponibles de un mod, opcionalmente filtradas por versión de Minecraft y loader.
+     */
+    public static List<ModVersion> getModVersions(String projectId, String mcVersion, String loader) {
+        List<ModVersion> versions = new ArrayList<>();
+        try {
+            StringBuilder urlBuilder = new StringBuilder(BASE_URL).append("/project/").append(projectId).append("/version?");
+            
+            if (mcVersion != null && !mcVersion.isBlank()) {
+                urlBuilder.append("game_versions=[\"").append(mcVersion).append("\"]&");
+            }
+            if (loader != null && !loader.isBlank()) {
+                urlBuilder.append("loaders=[\"").append(loader.toLowerCase()).append("\"]");
+            }
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(urlBuilder.toString()))
+                    .header("User-Agent", "MeaCore-Launcher/" + com.experimento.launcher.LauncherMetadata.VERSION + " (meacore.launcher)")
+                    .GET()
+                    .build();
+
+            HttpResponse<InputStream> res = CLIENT.send(req, HttpResponse.BodyHandlers.ofInputStream());
+            if (res.statusCode() == 200) {
+                JsonNode root = M.readTree(res.body());
+                if (root.isArray()) {
+                    for (JsonNode versionNode : root) {
+                        String versionId = versionNode.path("id").asText();
+                        String versionNumber = versionNode.path("version_number").asText();
+                        String changelog = versionNode.path("changelog").asText("");
+                        
+                        // Extraer game versions
+                        List<String> gameVersions = new ArrayList<>();
+                        JsonNode gameVersionsNode = versionNode.path("game_versions");
+                        if (gameVersionsNode.isArray()) {
+                            for (JsonNode gv : gameVersionsNode) {
+                                gameVersions.add(gv.asText());
+                            }
+                        }
+                        
+                        // Extraer loaders
+                        List<String> loaders = new ArrayList<>();
+                        JsonNode loadersNode = versionNode.path("loaders");
+                        if (loadersNode.isArray()) {
+                            for (JsonNode ld : loadersNode) {
+                                loaders.add(ld.asText());
+                            }
+                        }
+                        
+                        // Buscar archivo primario
+                        JsonNode files = versionNode.path("files");
+                        String downloadUrl = null;
+                        String fileName = null;
+                        long fileSize = 0;
+                        
+                        if (files.isArray() && files.size() > 0) {
+                            for (JsonNode file : files) {
+                                if (file.path("primary").asBoolean(false)) {
+                                    downloadUrl = file.path("url").asText();
+                                    fileName = file.path("filename").asText();
+                                    fileSize = file.path("size").asLong();
+                                    break;
+                                }
+                            }
+                            // Si no hay primario, usar el primero
+                            if (downloadUrl == null) {
+                                JsonNode firstFile = files.get(0);
+                                downloadUrl = firstFile.path("url").asText();
+                                fileName = firstFile.path("filename").asText();
+                                fileSize = firstFile.path("size").asLong();
+                            }
+                        }
+                        
+                        if (downloadUrl != null) {
+                            versions.add(new ModVersion(versionId, versionNumber, downloadUrl, fileName, fileSize, gameVersions, loaders, changelog));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Falla silenciosa
+        }
+        return versions;
+    }
 }
