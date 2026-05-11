@@ -81,8 +81,6 @@ public final class AutoUpdateService {
 
         Thread t = new Thread(() -> {
             try {
-                lastCheck = Instant.now();
-
                 HttpClient client = HttpClient.newBuilder()
                         .connectTimeout(Duration.ofSeconds(10))
                         .build();
@@ -98,6 +96,9 @@ public final class AutoUpdateService {
 
                 HttpResponse<InputStream> res = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
                 if (res.statusCode() != 200) return;
+
+                // Solo marcamos como chequeado exitosamente si la API respondió 200 OK
+                lastCheck = Instant.now();
 
                 JsonNode release = M.readTree(res.body());
                 String tagName       = release.path("tag_name").asText("");
@@ -220,28 +221,36 @@ public final class AutoUpdateService {
             String absPath = installerPath.toAbsolutePath().toString();
 
             if (isWindows) {
-                // Nombre único con timestamp — evita colisión si se clica Reiniciar dos veces
+                // Obtener ruta del ejecutable actual para relanzarlo con precisión
+                String currentExe = ProcessHandle.current().info().command().orElse("MeaCore Launcher.exe");
+                
                 Path batFile = installerPath.getParent()
                         .resolve("meacore_updater_" + System.currentTimeMillis() + ".bat");
 
                 String bat =
                     "@echo off\r\n" +
-                    "title MeaCore Updater\r\n" +
-                    // 3s es suficiente — la JVM muere en ~300ms tras System.exit(0)
-                    "timeout /t 3 /nobreak > nul\r\n" +
-                    // Cierre forzado como respaldo por si algo quedó colgado
+                    "chcp 65001 > nul\r\n" + // Forzar UTF-8 en la consola
+                    "title MeaCore Updater - Actualizando...\r\n" +
+                    "echo. \r\n" +
+                    "echo ================================================\r\n" +
+                    "echo        ACTUALIZANDO MEACORE LAUNCHER\r\n" +
+                    "echo ================================================\r\n" +
+                    "echo. \r\n" +
+                    "echo 1. Esperando a que el Launcher se cierre...\r\n" +
+                    "timeout /t 5 /nobreak > nul\r\n" +
                     "taskkill /F /IM \"MeaCore Launcher.exe\" /T > nul 2>&1\r\n" +
-                    // start /wait — el bat espera a que Inno Setup termine
-                    // antes de intentar relanzar el launcher
-                    "start /wait \"\" \"" + absPath + "\" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n" +
-                    // Cubrir ambas estructuras de instalación de jpackage
-                    "set \"APPDIR=%LOCALAPPDATA%\\MeaCore Launcher\"\r\n" +
-                    "if exist \"%APPDIR%\\MeaCore Launcher.exe\" (\r\n" +
-                    "    start \"\" \"%APPDIR%\\MeaCore Launcher.exe\"\r\n" +
-                    ") else if exist \"%APPDIR%\\app\\MeaCore Launcher.exe\" (\r\n" +
-                    "    start \"\" \"%APPDIR%\\app\\MeaCore Launcher.exe\"\r\n" +
+                    "echo. \r\n" +
+                    "echo 2. Iniciando Instalador (Si pide permisos, acepta)...\r\n" +
+                    "start /wait \"\" \"" + absPath + "\" /SILENT /NORESTART /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /SUPPRESSMSGBOXES\r\n" +
+                    "echo. \r\n" +
+                    "echo 3. Relanzando MeaCore Launcher...\r\n" +
+                    "if exist \"" + currentExe + "\" (\r\n" +
+                    "    start \"\" \"" + currentExe + "\"\r\n" +
+                    ") else (\r\n" +
+                    "    echo No se pudo relanzar automaticamente desde: \"" + currentExe + "\"\r\n" +
+                    "    echo Por favor, abre el launcher manualmente.\r\n" +
+                    "    pause\r\n" +
                     ")\r\n" +
-                    // El bat se autolimpia — no deja basura en disco
                     "del \"%~f0\"\r\n" +
                     "exit\r\n";
 
@@ -249,14 +258,15 @@ public final class AutoUpdateService {
 
                 new ProcessBuilder(
                         "cmd", "/c", "start", "\"MeaCore Updater\"",
-                        "/min", batFile.toAbsolutePath().toString())
+                        "\"" + batFile.toAbsolutePath().toString() + "\"")
                         .start();
 
             } else {
-                // Linux: setsid + nohup, && encadena solo si apt tiene éxito
+                // Linux: Corregimos el nombre del binario a 'meacore-launcher' (con guion)
+                // y usamos 'which' para asegurar que el comando esté en el PATH.
                 String cmd = String.format(
                         "sleep 2 && pkexec apt install -y \"%s\" && " +
-                        "setsid nohup meacorelauncher > /dev/null 2>&1 &",
+                        "(which meacore-launcher && setsid nohup meacore-launcher > /dev/null 2>&1 &)",
                         absPath);
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
