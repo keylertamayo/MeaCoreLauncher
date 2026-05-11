@@ -5,6 +5,7 @@ import com.experimento.launcher.mojang.GameLauncher;
 import com.experimento.launcher.mojang.LaunchFeatures;
 import com.experimento.launcher.mojang.ManifestVersionEntry;
 import com.experimento.launcher.mojang.MojangVersionResolver;
+import com.experimento.launcher.mojang.OsContext;
 import com.experimento.launcher.model.LauncherProfile;
 import com.experimento.launcher.paths.LauncherDirectories;
 import com.experimento.launcher.servers.ServersDatService;
@@ -161,7 +162,7 @@ public final class LauncherFacade {
         jvm.addAll(LanFixService.getLanArgs());
         jvm.addAll(LanFixService.getServerConnectArgs());
         
-        addChunkCacheOptimization(jvm, log);
+        addChunkCacheOptimization(jvm);
         
         String effectiveJava = p.javaExecutable;
         int requiredVer = getRequiredJavaVersion(merged, versionId);
@@ -352,9 +353,9 @@ public final class LauncherFacade {
         
         applyProcessPriority(pb, log);
         
-        applyCpuAffinity(process, log);
-        
         Process process = pb.start();
+        
+        applyCpuAffinity(process, log);
         
         // Crear servicio de crash report para esta sesión
         CrashReportService crashReporter;
@@ -520,7 +521,7 @@ public final class LauncherFacade {
         }
     }
     
-    private void addChunkCacheOptimization(List<String> jvm, java.util.function.Consumer<String> log) {
+    private void addChunkCacheOptimization(List<String> jvm) {
         int logicalCores = HardwareProbe.availableProcessors();
         
         jvm.add("-DchunkPreloaderEnabled=true");
@@ -529,7 +530,5 @@ public final class LauncherFacade {
         
         int chunkThreads = Math.max(2, logicalCores / 2);
         jvm.add("-DchunkLoadingExecutorThreads=" + chunkThreads);
-        
-        log.accept("[LAUNCHER] ⚡ Chunk Cache: " + chunkThreads + " threads, carga asíncrona");
     }
 }
