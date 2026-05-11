@@ -161,7 +161,6 @@ public final class LauncherFacade {
         jvm.addAll(LanFixService.getLanArgs());
         jvm.addAll(LanFixService.getServerConnectArgs());
         
-        addLanguageFilterAgent(jvm, log);
         addChunkCacheOptimization(jvm, log);
         
         String effectiveJava = p.javaExecutable;
@@ -471,31 +470,6 @@ public final class LauncherFacade {
             } catch (Exception e) {
                 log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad: " + e.getMessage());
             }
-        }
-    }
-    
-    private void addLanguageFilterAgent(List<String> jvm, java.util.function.Consumer<String> log) {
-        try {
-            Path launcherDir = dirs.launcherData().getParent();
-            Path agentPath = launcherDir.resolve("meacore-agent.jar");
-            
-            if (!Files.exists(agentPath)) {
-                agentPath = dirs.launcherData().resolve("meacore-agent.jar");
-            }
-            
-            if (!Files.exists(agentPath)) {
-                Path buildLibs = Path.of("build/libs/meacore-agent.jar");
-                if (Files.exists(buildLibs)) {
-                    agentPath = buildLibs;
-                }
-            }
-            
-            if (Files.exists(agentPath)) {
-                jvm.add("-javaagent:" + agentPath.toAbsolutePath());
-                log.accept("[LAUNCHER] 🌍 Filtro de idiomas inyectado (MeaCore Agent)");
-            }
-        } catch (Exception e) {
-            log.accept("[LAUNCHER] ℹ️ Filtro de idiomas: Deep Clean activo");
         }
     }
     

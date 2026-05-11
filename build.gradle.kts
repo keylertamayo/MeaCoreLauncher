@@ -31,11 +31,6 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.14.0")
     implementation("net.java.dev.jna:jna-platform:5.14.0")
     implementation("org.slf4j:slf4j-simple:2.0.16")
-    
-    // Bytecode Manipulation - ASM para Java Agent
-    implementation("org.ow2.asm:asm:9.7")
-    implementation("org.ow2.asm:asm-commons:9.7")
-    implementation("org.ow2.asm:asm-util:9.7")
 
     val junit = "5.10.3"
     testImplementation("org.junit.jupiter:junit-jupiter:$junit")
@@ -91,34 +86,4 @@ tasks.named<Jar>("jar") {
         attributes["Main-Class"] = "com.experimento.launcher.Main"
         attributes["Class-Path"] = configurations.runtimeClasspath.get().files.joinToString(" ") { it.name }
     }
-}
-
-tasks.register<Jar>("agentJar") {
-    archiveBaseName.set("meacore-agent")
-    
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    
-    manifest {
-        attributes(
-            "Premain-Class" to "com.experimento.launcher.agent.LanguageFilterAgent",
-            "Agent-Class" to "com.experimento.launcher.agent.LanguageFilterAgent",
-            "Can-Redefine-Classes" to "true",
-            "Can-Retransform-Classes" to "true"
-        )
-    }
-    
-    from(sourceSets.main.output().classesDirs) {
-        include("com/experimento/launcher/agent/**")
-    }
-}
-
-tasks.register<Copy>("copyAgentToLibs") {
-    from(tasks.named<Jar>("agentJar")) {
-        rename { "meacore-agent.jar" }
-    }
-    into(layout.buildDirectory.dir("libs"))
-}
-
-tasks.named("jar") {
-    dependsOn("copyAgentToLibs")
 }
