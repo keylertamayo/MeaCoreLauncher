@@ -61,17 +61,27 @@ public final class JvmPresetService {
                 "-Xmx2G",
                 "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseG1GC",
-                "-XX:MaxGCPauseMillis=35",
-                "-XX:G1NewSizePercent=20",
-                "-XX:G1MaxNewSizePercent=30",
-                "-XX:G1HeapRegionSize=8M",
+                "-XX:MaxGCPauseMillis=20",
+                "-XX:G1NewSizePercent=15",
+                "-XX:G1MaxNewSizePercent=25",
+                "-XX:G1HeapRegionSize=4M",
+                "-XX:G1ReservePercent=10",
+                "-XX:G1HeapWastePercent=8",
+                "-XX:G1MixedGCCountTarget=3",
+                "-XX:InitiatingHeapOccupancyPercent=10",
                 "-XX:+UseStringDeduplication",
                 "-XX:+ParallelRefProcEnabled",
                 "-XX:+DisableExplicitGC",
                 "-XX:+PerfDisableSharedMem",
+                "-XX:-UseBiasedLocking",
+                "-XX:+AlwaysPreTouch",
+                "-XX:+UseLargePages",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8"));
+                "-Dfile.encoding=UTF-8",
+                "-Dsplash=false",
+                "-XX:+UseStringDeduplication",
+                "-XX:StringDeduplicationSizeThreshold=4096"));
         
         applyCpuArgs(args, physCores, logicCores);
         return args;
@@ -89,27 +99,31 @@ public final class JvmPresetService {
                 "-Xmx" + mx,
                 "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseG1GC",
+                "-XX:MaxGCPauseMillis=10",
+                "-XX:G1NewSizePercent=30",
+                "-XX:G1MaxNewSizePercent=45",
+                "-XX:G1HeapRegionSize=16M",
+                "-XX:G1ReservePercent=15",
+                "-XX:G1HeapWastePercent=4",
+                "-XX:G1MixedGCCountTarget=6",
+                "-XX:InitiatingHeapOccupancyPercent=20",
+                "-XX:G1MixedGCLiveThresholdPercent=85",
+                "-XX:G1RSetUpdatingPauseTimePercent=3",
+                "-XX:SurvivorRatio=24",
                 "-XX:+UseStringDeduplication",
                 "-XX:+ParallelRefProcEnabled",
-                "-XX:MaxGCPauseMillis=20",
                 "-XX:+DisableExplicitGC",
                 "-XX:+AlwaysPreTouch",
-                "-XX:G1NewSizePercent=30",
-                "-XX:G1MaxNewSizePercent=40",
-                "-XX:G1HeapRegionSize=16M",
-                "-XX:G1ReservePercent=20",
-                "-XX:G1HeapWastePercent=5",
-                "-XX:G1MixedGCCountTarget=4",
-                "-XX:InitiatingHeapOccupancyPercent=15",
-                "-XX:G1MixedGCLiveThresholdPercent=90",
-                "-XX:G1RSetUpdatingPauseTimePercent=5",
-                "-XX:SurvivorRatio=32",
                 "-XX:+PerfDisableSharedMem",
                 "-XX:MaxTenuringThreshold=1",
                 "-XX:+UseNUMA",
+                "-XX:-UseBiasedLocking",
+                "-XX:+UseLargePages",
+                "-XX:SoftRefLRUPolicyMSPerMB=1000",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8"));
+                "-Dfile.encoding=UTF-8",
+                "-Dsplash=false"));
 
         applyCpuArgs(args, physCores, logicCores);
         return args;
@@ -125,42 +139,83 @@ public final class JvmPresetService {
         if (totalRamMiB >= 16 * 1024L) ms = "4G";
         else ms = "3G";
 
-        List<String> args = new ArrayList<>(List.of(
+        boolean useZGC = totalRamMiB >= 16 * 1024L;
+        
+        List<String> args;
+        
+        if (useZGC) {
+            args = new ArrayList<>(List.of(
+                "-Xms" + ms,
+                "-Xmx" + mx,
+                "-XX:+UnlockExperimentalVMOptions",
+                "-XX:+UseZGC",
+                "-XX:ZCollectionInterval=10",
+                "-XX:ZMaxMappingCount=50000",
+                "-XX:+UseLargePages",
+                "-XX:+UseNUMA",
+                "-XX:+AlwaysPreTouch",
+                "-XX:+DisableExplicitGC",
+                "-XX:+PerfDisableSharedMem",
+                "-XX:-UseBiasedLocking",
+                "-XX:+ParallelRefProcEnabled",
+                "-Dlog4j2.formatMsgNoLookups=true",
+                "-Djdk.nio.maxCachedBufferSize=262144",
+                "-Dfile.encoding=UTF-8",
+                "-Dsplash=false",
+                "-XX:SoftRefLRUPolicyMSPerMB=500"));
+        } else {
+            args = new ArrayList<>(List.of(
                 "-Xms" + ms,
                 "-Xmx" + mx,
                 "-XX:+UnlockExperimentalVMOptions",
                 "-XX:+UseG1GC",
+                "-XX:MaxGCPauseMillis=5",
+                "-XX:G1NewSizePercent=35",
+                "-XX:G1MaxNewSizePercent=50",
+                "-XX:G1HeapRegionSize=16M",
+                "-XX:G1ReservePercent=10",
+                "-XX:G1HeapWastePercent=3",
+                "-XX:G1MixedGCCountTarget=8",
+                "-XX:InitiatingHeapOccupancyPercent=25",
+                "-XX:G1MixedGCLiveThresholdPercent=80",
+                "-XX:SurvivorRatio=16",
                 "-XX:+UseStringDeduplication",
-                "-XX:+AlwaysPreTouch",
+                "-XX:+ParallelRefProcEnabled",
                 "-XX:+DisableExplicitGC",
+                "-XX:+AlwaysPreTouch",
                 "-XX:+PerfDisableSharedMem",
                 "-XX:+UseNUMA",
-                "-XX:+ParallelRefProcEnabled",
-                "-XX:MaxGCPauseMillis=10",
-                "-XX:G1NewSizePercent=30",
-                "-XX:G1MaxNewSizePercent=40",
+                "-XX:-UseBiasedLocking",
+                "-XX:+UseLargePages",
+                "-XX:MaxTenuringThreshold=1",
+                "-XX:SoftRefLRUPolicyMSPerMB=1000",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
-                "-Dfile.encoding=UTF-8"));
+                "-Dfile.encoding=UTF-8",
+                "-Dsplash=false"));
+        }
 
         applyCpuArgs(args, physCores, logicCores);
         return args;
     }
 
     private static void applyCpuArgs(List<String> args, int physCores, int logicCores) {
-        // Hilos de GC Paralelo: idealmente 1 por núcleo físico, cap de 12 para estabilidad
         int parallelGC = Math.max(2, Math.min(physCores, 12));
-        // Hilos de GC Concurrente: 1/4 de los hilos paralelos
         int concGC = Math.max(1, parallelGC / 4);
-        // CICompilerCount: hilos para compilación JIT (Jave se encarga de repartirlos entre C1 y C2)
         int ciCompiler = Math.max(2, Math.min(logicCores / 2, 8));
-
+        
         args.add("-XX:ParallelGCThreads=" + parallelGC);
         args.add("-XX:ConcGCThreads=" + concGC);
         args.add("-XX:G1ConcRefinementThreads=" + parallelGC);
         args.add("-XX:CICompilerCount=" + ciCompiler);
         
-        // Forzar a la JVM a reconocer la cantidad exacta de cores si detectamos discrepancias
         args.add("-XX:ActiveProcessorCount=" + logicCores);
+        
+        args.add("-XX:+OptimizeStringConcat");
+        args.add("-XX:+UseFastEmptyMethods");
+        args.add("-XX:+UseFastAccessorMethods");
+        
+        args.add("-XX:+AlwaysPreTouch");
+        args.add("-XX:+PreserveFramePointer");
     }
 }

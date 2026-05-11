@@ -103,8 +103,39 @@ public final class LauncherFacade {
         Path gameDir = gameDirFor(p);
         AutoOptimizerService.applyOptionsTxt(gameDir, p, ramMiB);
         ServersDatService.writeServers(gameDir, p.servers);
+        cleanLanguageInterface(gameDir, log);
         log.accept("[LAUNCHER] Servidores sincronizados (" + (p.servers != null ? p.servers.size() : 0) + ")");
         log.accept("Instancia lista en: " + gameDir);
+    }
+    
+    private void cleanLanguageInterface(Path gameDir, Consumer<String> log) {
+        try {
+            Path assetsDir = gameDir.resolve("assets/minecraft/lang");
+            if (!Files.isDirectory(assetsDir)) return;
+            
+            java.util.Set<String> keepLanguages = java.util.Set.of(
+                "en_us.json",
+                "es_ar.json", "es_cl.json", "es_es.json", "es_mx.json", 
+                "es_uy.json", "es_ve.json"
+            );
+            
+            int cleaned = 0;
+            try (var stream = Files.list(assetsDir)) {
+                for (Path langFile : stream.toList()) {
+                    String fileName = langFile.getFileName().toString();
+                    if (fileName.endsWith(".json") && !keepLanguages.contains(fileName)) {
+                        Files.delete(langFile);
+                        cleaned++;
+                    }
+                }
+            }
+            
+            if (cleaned > 0) {
+                log.accept("[LAUNCHER] 🧹 Idiomas limpiados: " + cleaned + " eliminados (solo ES + EN)");
+            }
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] ⚠️ Error limpiando idiomas: " + e.getMessage());
+        }
     }
 
     public List<String> buildLaunchCommand(LauncherProfile p, long ramMiB) throws Exception {
@@ -129,6 +160,9 @@ public final class LauncherFacade {
         // Fix de Red / LAN — separados en LAN (local) + servidores externos (Aternos etc.)
         jvm.addAll(LanFixService.getLanArgs());
         jvm.addAll(LanFixService.getServerConnectArgs());
+        
+        addLanguageFilterAgent(jvm, log);
+        addChunkCacheOptimization(jvm, log);
         
         String effectiveJava = p.javaExecutable;
         int requiredVer = getRequiredJavaVersion(merged, versionId);
@@ -312,9 +346,15 @@ public final class LauncherFacade {
         prepareInstance(p, ramMiB, log);
         List<String> cmd = buildLaunchCommand(p, ramMiB);
         log.accept(String.join(" ", cmd.subList(0, Math.min(6, cmd.size()))) + " …");
+        
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(gameDirFor(p).toFile());
         pb.redirectErrorStream(true);
+        
+        applyProcessPriority(pb, log);
+        
+        applyCpuAffinity(process, log);
+        
         Process process = pb.start();
         
         // Crear servicio de crash report para esta sesión
@@ -399,5 +439,123 @@ public final class LauncherFacade {
         if (!s.isBlank()) {
             p.customJvmArgs = s;
         }
+    }
+    
+    private void applyProcessPriority(ProcessBuilder pb, java.util.function.Consumer<String> log) {
+        OsContext os = com.experimento.launcher.mojang.OsContext.current();
+        
+        if (os.isWindows()) {
+            try {
+                List<String> originalCmd = new java.util.ArrayList<>(pb.command());
+                List<String> priorityCmd = new java.util.ArrayList<>();
+                priorityCmd.add("cmd");
+                priorityCmd.add("/c");
+                priorityCmd.add("start");
+                priorityCmd.add("/high");
+                priorityCmd.addAll(originalCmd);
+                pb.command(priorityCmd);
+                log.accept("[LAUNCHER] ⚡ Prioridad Alta (high) activada para el juego");
+            } catch (Exception e) {
+                log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad: " + e.getMessage());
+            }
+        } else if (os.isLinux() || os.isMac()) {
+            try {
+                List<String> originalCmd = new java.util.ArrayList<>(pb.command());
+                List<String> niceCmd = new java.util.ArrayList<>();
+                niceCmd.add("nice");
+                niceCmd.add("-n");
+                niceCmd.add("-10");
+                niceCmd.addAll(originalCmd);
+                pb.command(niceCmd);
+                log.accept("[LAUNCHER] ⚡ Prioridad nice -10 (alta) activada");
+            } catch (Exception e) {
+                log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad: " + e.getMessage());
+            }
+        }
+    }
+    
+    private void addLanguageFilterAgent(List<String> jvm, java.util.function.Consumer<String> log) {
+        try {
+            Path launcherDir = dirs.launcherData().getParent();
+            Path agentPath = launcherDir.resolve("meacore-agent.jar");
+            
+            if (!Files.exists(agentPath)) {
+                agentPath = dirs.launcherData().resolve("meacore-agent.jar");
+            }
+            
+            if (!Files.exists(agentPath)) {
+                Path buildLibs = Path.of("build/libs/meacore-agent.jar");
+                if (Files.exists(buildLibs)) {
+                    agentPath = buildLibs;
+                }
+            }
+            
+            if (Files.exists(agentPath)) {
+                jvm.add("-javaagent:" + agentPath.toAbsolutePath());
+                log.accept("[LAUNCHER] 🌍 Filtro de idiomas inyectado (MeaCore Agent)");
+            }
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] ℹ️ Filtro de idiomas: Deep Clean activo");
+        }
+    }
+    
+    private void applyCpuAffinity(Process process, java.util.function.Consumer<String> log) {
+        try {
+            int physicalCores = HardwareProbe.physicalCores();
+            int logicalCores = HardwareProbe.availableProcessors();
+            
+            if (physicalCores <= 1) {
+                log.accept("[LAUNCHER] ℹ️ CPU Affinity: Solo 1 núcleo disponible");
+                return;
+            }
+            
+            OsContext os = com.experimento.launcher.mojang.OsContext.current();
+            
+            if (os.isWindows()) {
+                int coresToUse = Math.max(1, physicalCores - 1);
+                String maskBinary = "1".repeat(coresToUse);
+                long mask = Long.parseLong(maskBinary, 2);
+                
+                try {
+                    ProcessBuilder pb = new ProcessBuilder(
+                        "powershell", "-NoProfile", "-Command",
+                        "(Get-Process -Id " + process.pid() + ").ProcessorAffinity = " + mask
+                    );
+                    pb.start();
+                    log.accept("[LAUNCHER] ⚡ CPU Affinity: " + coresToUse + " núcleos asignados al juego");
+                } catch (Exception e) {
+                    log.accept("[LAUNCHER] ℹ️ CPU Affinity no disponible: " + e.getMessage());
+                }
+            } 
+            else if (os.isLinux() || os.isMac()) {
+                int coresToUse = Math.max(1, physicalCores - 1);
+                String cpuRange = "0-" + (coresToUse - 1);
+                
+                try {
+                    ProcessBuilder pb = new ProcessBuilder(
+                        "taskset", "-cp", cpuRange, String.valueOf(process.pid())
+                    );
+                    pb.start();
+                    log.accept("[LAUNCHER] ⚡ CPU Affinity: cores 0-" + (coresToUse - 1) + " asignados");
+                } catch (Exception e) {
+                    log.accept("[LAUNCHER] ℹ️ CPU Affinity no disponible");
+                }
+            }
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] ℹ️ CPU Affinity: Automático");
+        }
+    }
+    
+    private void addChunkCacheOptimization(List<String> jvm, java.util.function.Consumer<String> log) {
+        int logicalCores = HardwareProbe.availableProcessors();
+        
+        jvm.add("-DchunkPreloaderEnabled=true");
+        jvm.add("-DasyncChunkLoading=true");
+        jvm.add("-DpreferConcurrentLoading=true");
+        
+        int chunkThreads = Math.max(2, logicalCores / 2);
+        jvm.add("-DchunkLoadingExecutorThreads=" + chunkThreads);
+        
+        log.accept("[LAUNCHER] ⚡ Chunk Cache: " + chunkThreads + " threads, carga asíncrona");
     }
 }
