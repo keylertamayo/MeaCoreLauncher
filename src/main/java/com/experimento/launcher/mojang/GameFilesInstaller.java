@@ -204,19 +204,6 @@ public final class GameFilesInstaller {
                     extractNatives(zipPath, nativesDir);
                 }
             }
-        } else if (lib.has("name") && lib.get("name").asText().contains("text2speech")) {
-            if (downloads != null) {
-                JsonNode art = downloads.get("artifact");
-                if (art != null) {
-                    Path jarPath = librariesDir.resolve(art.get("path").asText());
-                    if (Files.exists(jarPath)) {
-                        synchronized (nativesDir) {
-                            progress.log("📦 Extrayendo text2speech");
-                            extractNatives(jarPath, nativesDir);
-                        }
-                    }
-                }
-            }
         }
     }
 

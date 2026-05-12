@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Supabase Config (Inyectado por GitHub Actions o manual) ---
 const SUPABASE_URL = '__SUPABASE_URL__';
 const SUPABASE_KEY = '__SUPABASE_KEY__';
+const SUPABASE_CONFIGURED = !SUPABASE_URL.startsWith('__SUPABASE_');
 
 async function setupReviews() {
     const container = document.getElementById('reviews-container');
@@ -90,7 +91,7 @@ async function setupReviews() {
         const comment = document.getElementById('rev-comment').value;
 
         try {
-            if (SUPABASE_URL.includes('YOUR_PROJECT_REF')) {
+            if (!SUPABASE_CONFIGURED) {
                 throw new Error('Supabase no configurado. Contacta al administrador.');
             }
 
@@ -124,7 +125,7 @@ async function setupReviews() {
 }
 
 async function fetchReviews(container) {
-    if (SUPABASE_URL.includes('YOUR_PROJECT_REF')) {
+    if (!SUPABASE_CONFIGURED) {
         container.innerHTML = '<p>Configura Supabase para ver las reseñas.</p>';
         return;
     }

@@ -114,7 +114,7 @@ public final class CrashReportService {
         
         // Reportar a Supabase si hubo un error real
         if (hasCrashed) {
-            SupabaseService.reportCrash(report.toString(), versionId);
+            SupabaseService.reportCrash(report.toString(), com.experimento.launcher.LauncherMetadata.VERSION);
         }
 
         return reportFile;

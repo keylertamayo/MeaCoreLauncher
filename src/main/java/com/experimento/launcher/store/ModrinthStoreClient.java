@@ -29,7 +29,13 @@ public class ModrinthStoreClient {
 
     private record CacheEntry(long timestamp, List<StoreItem> items) {}
 
+    private static void evictExpired() {
+        long now = System.currentTimeMillis();
+        CACHE.entrySet().removeIf(e -> (now - e.getValue().timestamp) > CACHE_TTL_MS);
+    }
+
     public static List<StoreItem> search(String query, StoreCategory category, String loader, int offset) {
+        evictExpired();
         String cacheKey = query + "_" + category.name() + "_" + loader + "_" + offset;
         CacheEntry cached = CACHE.get(cacheKey);
         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {

@@ -80,7 +80,6 @@ public final class JvmPresetService {
                 "-Djdk.nio.maxCachedBufferSize=262144",
                 "-Dfile.encoding=UTF-8",
                 "-Dsplash=false",
-                "-XX:+UseStringDeduplication",
                 "-XX:StringDeduplicationSizeThreshold=4096"));
         
         applyCpuArgs(args, physCores, logicCores);

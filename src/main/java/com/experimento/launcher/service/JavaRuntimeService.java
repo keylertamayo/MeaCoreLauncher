@@ -21,8 +21,8 @@ public final class JavaRuntimeService {
             "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse?project=jdk";
     
     // Fallbacks de GitHub para casos donde Adoptium falle (repositorio oficial MeaCore o mirrors)
-    private static final String GITHUB_JRE_8_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre8-windows.zip";
-    private static final String GITHUB_JRE_21_WIN = "https://github.com/keylertamayo/MeaCoreLauncher/releases/download/v1.0.0/jre21-windows.zip";
+    private static final String GITHUB_JRE_8_WIN = "https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/download/v1.0.0/jre8-windows.zip";
+    private static final String GITHUB_JRE_21_WIN = "https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/download/v1.0.0/jre21-windows.zip";
 
     private static final int DOWNLOAD_BUFFER_SIZE = 524288;
 
@@ -167,40 +167,41 @@ public final class JavaRuntimeService {
         HttpClient client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.ALWAYS)
                 .build();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(java.time.Duration.ofMinutes(10))
-                .build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
-        long total = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
         int retries = 3;
         while (retries > 0) {
-            try (InputStream is = response.body();
-                 OutputStream os2 = Files.newOutputStream(dest)) {
-                byte[] buf = new byte[DOWNLOAD_BUFFER_SIZE];
-                long read = 0;
-                int n;
-                if (progress != null) {
-                    if (total > 0) {
-                        progress.accept(0.0);
-                    } else {
-                        progress.accept(-1.0);
-                    }
-                }
-                while ((n = is.read(buf)) != -1) {
-                    os2.write(buf, 0, n);
-                    read += n;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(java.time.Duration.ofMinutes(10))
+                        .build();
+                HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+                long total = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
+                try (InputStream is = response.body();
+                     OutputStream os2 = Files.newOutputStream(dest)) {
+                    byte[] buf = new byte[DOWNLOAD_BUFFER_SIZE];
+                    long read = 0;
+                    int n;
                     if (progress != null) {
                         if (total > 0) {
-                            progress.accept((double) read / total);
+                            progress.accept(0.0);
+                        } else {
+                            progress.accept(-1.0);
                         }
                     }
+                    while ((n = is.read(buf)) != -1) {
+                        os2.write(buf, 0, n);
+                        read += n;
+                        if (progress != null) {
+                            if (total > 0) {
+                                progress.accept((double) read / total);
+                            }
+                        }
+                    }
+                    if (progress != null) {
+                        progress.accept(1.0);
+                    }
+                    return;
                 }
-                if (progress != null) {
-                    progress.accept(1.0);
-                }
-                return;
             } catch (IOException e) {
                 retries--;
                 if (retries == 0) throw e;
