@@ -110,7 +110,6 @@ public final class GameFilesInstaller {
                 }
             });
             toRemove.forEach(objNode::remove);
-            M.writeValue(indexFile.toFile(), indexJson);
             if (!toRemove.isEmpty()) progress.log("🧹 Deep Clean: Ocultados " + toRemove.size() + " idiomas");
         }
 

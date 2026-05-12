@@ -97,7 +97,7 @@ public final class PerformanceModsService {
                     continue;
                 }
 
-                String fileName = mod.slug() + "-" + mcVersion + ".jar";
+                String fileName = mod.slug() + "-" + mcVersion + "-" + loader + ".jar";
                 Path dest = modsDir.resolve(fileName);
 
                 if (Files.exists(dest)) {

@@ -57,6 +57,8 @@ public final class LauncherDirectories {
         Files.createDirectories(versionsDir());
         Files.createDirectories(librariesDir());
         Files.createDirectories(assetsDir());
+        Files.createDirectories(launcherData().resolve("natives"));
+        Files.createDirectories(launcherData().resolve("runtime"));
     }
 
     private static String safeSegment(String id) {

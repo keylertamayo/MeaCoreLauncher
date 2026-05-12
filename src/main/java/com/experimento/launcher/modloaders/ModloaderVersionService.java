@@ -4,6 +4,10 @@ import com.experimento.launcher.mojang.HttpFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,22 +31,19 @@ public final class ModloaderVersionService {
     public static List<String> getForgeVersions(String mcVersion) throws Exception {
         byte[] bytes = HttpFiles.getBytes(
             "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml");
-        String xml = new String(bytes, StandardCharsets.UTF_8);
+        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(new ByteArrayInputStream(bytes));
         List<String> versions = new ArrayList<>();
         String prefix = mcVersion + "-";
 
-        int idx = 0;
-        while ((idx = xml.indexOf("<version>", idx)) != -1) {
-            int end = xml.indexOf("</version>", idx);
-            if (end == -1) break;
-            String ver = xml.substring(idx + 9, end).trim();
-            // Excluir variantes internas de mappings que no son instalables
+        NodeList nodes = doc.getElementsByTagName("version");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            String ver = nodes.item(i).getTextContent().trim();
             if (ver.startsWith(prefix) && !ver.contains("_mapped_") && !ver.contains("_recomp")) {
-                versions.add(ver.substring(prefix.length())); // solo "47.4.20"
+                versions.add(ver.substring(prefix.length()));
             }
-            idx = end + 10;
         }
-        Collections.reverse(versions); // más reciente primero
+        Collections.reverse(versions);
         return versions;
     }
 
@@ -71,22 +72,19 @@ public final class ModloaderVersionService {
     public static List<String> getNeoForgeVersions(String mcVersion) throws Exception {
         byte[] bytes = HttpFiles.getBytes(
             "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml");
-        String xml = new String(bytes, StandardCharsets.UTF_8);
+        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(new ByteArrayInputStream(bytes));
         List<String> versions = new ArrayList<>();
 
-        // "1.21.1" → prefix "21.1."
         String mcShort = mcVersion.startsWith("1.") ? mcVersion.substring(2) : mcVersion;
         String prefix = mcShort + ".";
 
-        int idx = 0;
-        while ((idx = xml.indexOf("<version>", idx)) != -1) {
-            int end = xml.indexOf("</version>", idx);
-            if (end == -1) break;
-            String ver = xml.substring(idx + 9, end).trim();
+        NodeList nodes = doc.getElementsByTagName("version");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            String ver = nodes.item(i).getTextContent().trim();
             if (ver.startsWith(prefix)) {
                 versions.add(ver);
             }
-            idx = end + 10;
         }
         Collections.reverse(versions);
         return versions;

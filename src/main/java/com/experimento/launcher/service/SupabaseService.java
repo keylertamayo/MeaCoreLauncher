@@ -38,7 +38,7 @@ public class SupabaseService {
 
     /** Envia un reporte de error de forma asíncrona. */
     public static void reportCrash(String crashLog, String version) {
-        if (SUPABASE_URL == null || SUPABASE_URL.isBlank()) return;
+        if (SUPABASE_URL == null || SUPABASE_URL.isBlank() || SUPABASE_URL.startsWith("__SUPABASE_")) return;
 
         Map<String, Object> data = Map.of(
             "launcher_version", version,

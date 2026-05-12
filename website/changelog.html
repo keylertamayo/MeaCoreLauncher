@@ -53,13 +53,74 @@
         <!-- v1.5.9 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.5.9 - Windows Process Priority Fix 🛠️ (Actual)</h3>
+                <h3 style="color: #00d2ff;">v1.5.9 - Auditoría Completa de Código 🔧 (Actual)</h3>
                 <span class="version-date">12 de Mayo, 2026</span>
             </div>
-            <p><strong>🐛 Corrección de errores:</strong></p>
+            <p><strong>🔄 Auto-Update completamente reconstruido:</strong></p>
             <ul>
-                <li><strong>Fix de Lanzamiento en Windows:</strong> Corregido el error "Windows no puede encontrar el Archivo '-Xms2G'" al iniciar Minecraft. Ocurría porque <code>cmd /c start</code> interpretaba la ruta del ejecutable de Java (con espacios en "Program Files") como título de ventana en lugar de programa.</li>
-                <li><strong>Mejora interna:</strong> Ahora se pasa un título de ventana vacío explícitamente a <code>start</code> para que la prioridad alta (<code>/high</code>) funcione correctamente con cualquier ruta de Java.</li>
+                <li><strong>Fix de Rate Limit:</strong> El check de GitHub API ahora notifica errores al usuario en lugar de fallar en silencio. Se actualiza el cooldown incluso en errores para no saturar la API.</li>
+                <li><strong>Guard de Instalación:</strong> Nuevo bloqueo atómico que impide lanzar dos instaladores simultáneos si se hace doble clic en "Reiniciar Ahora".</li>
+                <li><strong>Linux Multi-Distro:</strong> Detección automática del gestor de paquetes (<code>apt</code>, <code>dnf</code>, <code>dpkg</code>). Eliminado soporte inválido para <code>pacman</code> (no instala <code>.deb</code>).</li>
+                <li><strong>Elevación de Privilegios:</strong> Se usa <code>sudo</code> en lugar de <code>pkexec</code> para evitar fallos por falta de agente polkit en sesiones SSH.</li>
+                <li><strong>Parámetros por Gestor:</strong> <code>dpkg -i</code> ya no usa el flag inválido <code>-y</code>. Solo <code>apt</code> y <code>dnf</code> usan <code>-y</code>.</li>
+                <li><strong>Ruta de Relanzamiento Linux:</strong> Ahora se detecta dinámicamente la ubicación del ejecutable actual, en lugar de la ruta hardcodeada <code>/opt/meacore-launcher/bin/MeaCore Launcher</code>.</li>
+                <li><strong>UTF-8 BOM:</strong> El script <code>.bat</code> ahora incluye BOM para que <code>chcp 65001</code> funcione correctamente en sistemas Windows con ANSI distinto.</li>
+                <li><strong>Unblock-File mejorado:</strong> Se añadió <code>-ExecutionPolicy Bypass</code> al comando de PowerShell para evitar fallos en sistemas con restricciones de ejecución.</li>
+                <li><strong>Apagado Robusto:</strong> <code>Platform.exit()</code> + <code>System.exit(0)</code> para garantizar que el JVM termine antes de la instalación.</li>
+                <li><strong>Espera ampliada:</strong> Sleep aumentado de 300ms a 2000ms para que el proceso hijo se desacople completamente.</li>
+                <li><strong>Pre-release a Stable:</strong> Ahora detecta correctamente el salto de <code>1.5.9-alpha</code> → <code>bat-1.5.9</code> (antes se quedaba atascado en la pre-release).</li>
+                <li><strong>Normalización de Versión:</strong> Se eliminaron los flags muertos <code>-beta</code>, <code>-rc</code>, <code>-snapshot</code>, <code>-pre</code>, <code>-dev</code> del comparador de versiones. Soporte case-insensitive.</li>
+                <li><strong>Banner de Error Visible:</strong> Los errores de actualización ahora muestran un banner rojo en lugar de ocultarse silenciosamente.</li>
+                <li><strong>Botón "Buscar Actualizaciones":</strong> Ya no resetea el texto a los 3s; espera a que el check termine realmente.</li>
+            </ul>
+            <p><strong>🐛 Correcciones de Librerías y Dependencias:</strong></p>
+            <ul>
+                <li><strong>Fix de Reglas de Librerías:</strong> Corregido el evaluador de reglas (<code>RuleEvaluator</code>) que excluía incorrectamente librerías nativas LWJGL al no coincidir el sistema operativo en reglas <code>allow</code>. Las librerías ahora se incluyen correctamente en todas las plataformas.</li>
+                <li><strong>Fix de Arquitectura x64:</strong> Tanto <code>RuleEvaluator</code> como <code>ArgumentRules</code> ahora distinguen correctamente entre <code>x86</code> (32 bits) y <code>x64</code> (64 bits). Antes mapeaban x64 como <code>"x86"</code>, excluyendo librerías nativas modernas.</li>
+                <li><strong>Classpath en Windows:</strong> Implementado workaround para el límite de 8191 caracteres en línea de comandos de Windows. Cuando el classpath supera los 3500 caracteres, se genera un JAR temporal con <code>Class-Path</code> en el manifiesto en lugar de pasar todas las rutas en la línea de comandos.</li>
+                <li><strong>Variable <code>path</code> renombrada:</strong> Cambiada a <code>logging_config_path</code> para evitar colisiones con otras variables de sustitución en los argumentos JVM.</li>
+                <li><strong>Importación TLauncher segura:</strong> Se eliminaron los flags JVM obsoletos (<code>-XX:-UseBiasedLocking</code>, <code>-XX:+PreserveFramePointer</code>, <code>UseFastAccessorMethods</code>, <code>UseFastEmptyMethods</code>) que eran no-ops en Java 21 o degradaban rendimiento.</li>
+                <li><strong>Agent LanguageFilter eliminado:</strong> El agente Java era un no-op completo (ambos métodos vacíos). Se eliminó junto con su registro en <code>MANIFEST.MF</code>.</li>
+            </ul>
+            <p><strong>🔧 Correcciones de Estabilidad:</strong></p>
+            <ul>
+                <li><strong>servers.dat ahora en GZIP:</strong> Minecraft espera el archivo <code>servers.dat</code> comprimido con GZIP, no en crudo. La lista de servidores ahora funciona correctamente.</li>
+                <li><strong>Default de Argumentos:</strong> Cuando ninguna regla de argumento coincide, ahora se permite por defecto (antes se denegaba), siguiendo la especificación de Mojang.</li>
+                <li><strong>Thread Pool Acotado:</strong> Cambiado de <code>newCachedThreadPool</code> (ilimitado) a <code>newFixedThreadPool(16)</code> para evitar creación de hilos infinita.</li>
+                <li><strong>ConcurrentHashMap:</strong> <code>activeProcesses</code> cambió de <code>HashMap</code> a <code>ConcurrentHashMap</code> para seguridad entre hilos.</li>
+                <li><strong>CPU Affinity con BigInteger:</strong> La máscara de afinidad ahora usa <code>BigInteger</code> en lugar de <code>long</code>, soportando sistemas con 64+ núcleos.</li>
+                <li><strong>macOS taskset eliminado:</strong> Se eliminó el uso de <code>taskset</code> en macOS (no existe ese comando). CPU Affinity ahora solo se aplica en Linux.</li>
+                <li><strong>Deadlock prevention:</strong> Todos los procesos lanzados (<code>where java</code>, <code>tar</code>, etc.) ahora consumen su salida stdout para evitar bloqueos por buffer lleno.</li>
+                <li><strong>Charset UTF-8 forzado:</strong> Los Scanners en <code>ModloaderInstallerService</code> ahora usan explícitamente UTF-8 para evitar caracteres corruptos en consolas no inglesas.</li>
+                <li><strong>Disk Stats frescos:</strong> <code>SystemInfoService</code> ahora relee el espacio en disco en cada llamada en lugar de usar valores cacheados.</li>
+                <li><strong>HTTP Status Check:</strong> Las descargas de JRE ahora verifican el código de estado HTTP antes de escribir el archivo (evita descargar páginas 404 como JRE).</li>
+                <li><strong>Buffer de Descarga optimizado:</strong> Reducido de 8MB a 256KB para menor uso de memoria con 16 hilos concurrentes.</li>
+                <li><strong>Logging de Errores:</strong> Las fallas en mirrors Maven ahora se registran en consola para facilitar diagnóstico.</li>
+            </ul>
+            <p><strong>🏪 MCStore:</strong></p>
+            <ul>
+                <li><strong>Fix de Mapeo de Versiones:</strong> Corregido el campo <code>latestVersion</code> que obtenía un nombre de categoría ("Fabric") en lugar del número de versión del mod. Ahora usa <code>latest_version</code> de la API de Modrinth.</li>
+                <li><strong>Filename único:</strong> Los mods de rendimiento ahora incluyen el loader en el nombre del archivo para evitar colisiones.</li>
+            </ul>
+            <p><strong>🏗️ Modloaders:</strong></p>
+            <ul>
+                <li><strong>Parser XML Robusto:</strong> <code>ModloaderInstallerService</code> y <code>ModloaderVersionService</code> ahora usan <code>DocumentBuilderFactory</code> (DOM parser) en lugar de <code>String.indexOf</code> para parsear XML de repositorios Maven. Esto previene roturas por cambios de formato XML.</li>
+                <li><strong>Orden de Versiones NeoForge:</strong> Las versiones ahora se recolectan en una lista, se ordenan numéricamente descendente y se toma la más reciente. Antes solo se conservaba la última línea del XML.</li>
+            </ul>
+            <p><strong>🛡️ Seguridad y Limpieza:</strong></p>
+            <ul>
+                <li><strong>Sanitización de Filenames:</strong> Los reportes de crash ahora sanitizan todos los caracteres inseguros de Windows (<code>\</code>, <code>:</code>, <code>*</code>, <code>?</code>, <code>"</code>, <code><</code>, <code>></code>, <code>|</code>).</li>
+                <li><strong>Guard de Supabase:</strong> <code>reportCrash()</code> ahora verifica que la URL de Supabase esté configurada antes de enviar datos, igual que <code>sendEvent()</code>.</li>
+                <li><strong>Asset Index intacto:</strong> El Deep Clean de idiomas ya no modifica el archivo <code>index.json</code> en disco, solo filtra en memoria.</li>
+                <li><strong>Desktop.open con fallback:</strong> Si <code>java.awt.Desktop</code> no está soportado (Wayland, SSH), usa <code>xdg-open</code> como alternativa.</li>
+            </ul>
+            <p><strong>🧹 Mejoras Internas:</strong></p>
+            <ul>
+                <li><strong>Logging acotado:</strong> La consola ahora se limpia automáticamente al superar 50000 caracteres para evitar degradación de rendimiento.</li>
+                <li><strong>Directorios base completos:</strong> <code>ensureBaseDirs()</code> ahora crea también <code>natives/</code> y <code>runtime/</code> para evitar race conditions en el primer acceso.</li>
+                <li><strong>Temp dir específico:</strong> El JAR temporal de classpath se crea dentro del directorio de datos del launcher en lugar del <code>/tmp</code> del sistema.</li>
+                <li><strong>InputStream cerrado:</strong> <code>Hashing.sha1Hex()</code> ahora cierra correctamente el InputStream con try-with-resources.</li>
+                <li><strong>Iconos en CI Linux:</strong> Corregida la ruta de copia de iconos en el workflow de Linux (<code>src/main/resources/</code> → <code>src/main/resources/com/experimento/launcher/ui/</code>).</li>
             </ul>
         </div>
 

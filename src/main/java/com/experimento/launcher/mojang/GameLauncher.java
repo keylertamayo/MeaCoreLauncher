@@ -48,7 +48,9 @@ public final class GameLauncher {
         // Windows workaround for command line length limit (8191 chars)
         if (os.isWindows() && classpathStr.length() > 3500) {
             try {
-                Path cpJar = Files.createTempFile("meacore-classpath-", ".jar");
+                Path tmpDir = versionsDir.resolve("tmp");
+                Files.createDirectories(tmpDir);
+                Path cpJar = Files.createTempFile(tmpDir, "meacore-classpath-", ".jar");
                 cpJar.toFile().deleteOnExit();
                 java.util.jar.Manifest mf = new java.util.jar.Manifest();
                 mf.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
@@ -98,7 +100,7 @@ public final class GameLauncher {
 
         Path logFile = resolveLogConfig(mergedVersion, versionRoot);
         if (logFile != null) {
-            vars.put("path", logFile.toAbsolutePath().toString());
+            vars.put("logging_config_path", logFile.toAbsolutePath().toString());
         }
 
         List<String> jvm = new ArrayList<>();

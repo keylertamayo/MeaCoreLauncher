@@ -200,12 +200,8 @@ public class LauncherApp extends Application {
         checkUpdateBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 10px; -fx-padding: 0; -fx-cursor: hand;");
         checkUpdateBtn.setOnAction(e -> {
             checkUpdateBtn.setText("Buscando...");
+            checkUpdateBtn.setDisable(true);
             AutoUpdateService.checkForUpdatesAsync();
-            // Reset text after a bit
-            new Thread(() -> {
-                try { Thread.sleep(3000); } catch (Exception ignored) {}
-                Platform.runLater(() -> checkUpdateBtn.setText("Buscar Actualizaciones"));
-            }).start();
         });
 
         VBox sidebarFooter = new VBox(5, sidebarStatusBox, sidebarVersionLabel, checkUpdateBtn);
@@ -305,13 +301,13 @@ public class LauncherApp extends Application {
             @Override
             public void onDownloadError(String message) {
                 Platform.runLater(() -> {
-                    updateBanner.setVisible(false);
-                    updateBanner.setManaged(false);
-                    String cleanMsg = message;
-                    if (message != null && message.contains("updates\\meacore-update")) {
-                        cleanMsg = "El archivo de actualización está bloqueado por otro proceso o el antivirus. Intenta reiniciar el launcher.";
-                    }
-                    log("⚠ Error de actualización: " + cleanMsg);
+                    updateBtn.setText("❌ Error");
+                    updateBtn.setDisable(true);
+                    updateStatus.setText("⚠ " + message);
+                    updateBanner.setVisible(true);
+                    updateBanner.setManaged(true);
+                    updateBanner.setStyle("-fx-background-color: #5a1a1a;");
+                    log("⚠ Error de actualización: " + message);
                 });
             }
         });
@@ -592,7 +588,7 @@ public class LauncherApp extends Application {
                     nameLbl.setMaxWidth(Double.MAX_VALUE);
                     if (!item.enabled()) {
                         nameLbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px; " +
-                                "-fx-underline: false; text-decoration: line-through;");
+                                "-fx-underline: false;");
                         // JavaFX no soporta strikethrough en Label directamente, usamos opacidad
                         nameLbl.setOpacity(0.45);
                     } else {
@@ -645,6 +641,11 @@ public class LauncherApp extends Application {
                 java.nio.file.Files.createDirectories(modsDir);
                 if (java.awt.Desktop.isDesktopSupported()) {
                     java.awt.Desktop.getDesktop().open(modsDir.toFile());
+                } else {
+                    String os = System.getProperty("os.name", "").toLowerCase();
+                    if (os.contains("nix") || os.contains("nux")) {
+                        Runtime.getRuntime().exec(new String[]{"xdg-open", modsDir.toString()});
+                    }
                 }
             } catch (Exception ex) {
                 log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());
@@ -686,16 +687,19 @@ public class LauncherApp extends Application {
     private void handleInstallPerformanceMods(Button btn) {
         if (selected == null) {
             log("[PERF] Selecciona un perfil primero.");
+            btn.setDisable(false); btn.setText("🚀 Instalar Mods de Rendimiento");
             return;
         }
         String version = selected.lastVersionId;
         if (version == null || version.isBlank()) {
             log("[PERF] El perfil no tiene versión configurada.");
+            btn.setDisable(false); btn.setText("🚀 Instalar Mods de Rendimiento");
             return;
         }
         String loader = selected.modLoader != null ? selected.modLoader : "vanilla";
         if (!PerformanceModsService.isSupported(loader)) {
             log("[PERF] Este perfil no tiene modloader activo. Instala Fabric, Forge o NeoForge primero desde la pestaña Modding.");
+            btn.setDisable(false); btn.setText("🚀 Instalar Mods de Rendimiento");
             return;
         }
         btn.setDisable(true);
@@ -1102,7 +1106,7 @@ public class LauncherApp extends Application {
         LauncherProfile p = LauncherProfile.createDefault();
         profiles.add(p);
         runningState.put(p.id, new SimpleBooleanProperty(false));
-        profileList.setItems(FXCollections.observableList(profiles));
+        profileList.getItems().setAll(profiles);
         profileList.getSelectionModel().select(p);
         saveProfiles();
     }
@@ -1162,7 +1166,7 @@ public class LauncherApp extends Application {
         selected = null;
         deleteProfileBtn.setDisable(true);
         profileList.getSelectionModel().clearSelection();
-        profileList.setItems(FXCollections.observableArrayList(profiles));
+        profileList.getItems().setAll(profiles);
         bindProfile(null);
         headerProfileName.setText("Ningún perfil");
 
@@ -2264,6 +2268,9 @@ public class LauncherApp extends Application {
 
     private void log(String s) {
         Platform.runLater(() -> {
+            if (logArea.getLength() > 50000) {
+                logArea.clear();
+            }
             logArea.appendText(s + "\n");
             logArea.selectPositionCaret(logArea.getLength());
         });

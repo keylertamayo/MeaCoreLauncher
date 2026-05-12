@@ -17,7 +17,7 @@ public final class RuleEvaluator {
             String action = text(rule, "action");
             boolean matches = matchesRule(rule, os);
             if ("allow".equals(action)) {
-                last = matches;
+                if (matches) last = true;
             } else if ("disallow".equals(action)) {
                 if (matches) {
                     last = false;

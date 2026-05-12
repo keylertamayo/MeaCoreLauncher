@@ -77,8 +77,8 @@ public class ModrinthStoreClient {
                             hit.path("description").asText(),
                             hit.path("icon_url").asText(),
                             hit.path("downloads").asLong(),
+                            hit.path("latest_version").asText(),
                             versions.isArray() && versions.size() > 0 ? versions.get(0).asText() : "",
-                            mcVersions.isArray() && mcVersions.size() > 0 ? mcVersions.get(0).asText() : "",
                             null, // Download URL is fetched later per specific version/loader
                             category,
                             "https://modrinth.com/" + category.getModrinthType() + "/" + hit.path("project_id").asText()

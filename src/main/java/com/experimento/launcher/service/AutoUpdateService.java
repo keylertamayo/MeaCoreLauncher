@@ -43,9 +43,10 @@ public final class AutoUpdateService {
     // Listener de eventos — volatile para visibilidad entre hilos
     private static volatile UpdateListener listener;
 
-    // Guards: impiden checks y descargas duplicadas simultáneas
+    // Guards: impiden checks, descargas e instalaciones duplicadas simultáneas
     private static final AtomicBoolean checking    = new AtomicBoolean(false);
     private static final AtomicBoolean downloading = new AtomicBoolean(false);
+    private static final AtomicBoolean installing  = new AtomicBoolean(false);
 
     // Rate limiting: no chequear GitHub más de una vez por hora
     private static volatile Instant lastCheck    = Instant.EPOCH;
@@ -96,20 +97,25 @@ public final class AutoUpdateService {
                         .build();
 
                 HttpResponse<InputStream> res = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                lastCheck = Instant.now();
                 if (res.statusCode() != 200) {
-                    System.err.println("[AutoUpdate] GitHub API responded with " + res.statusCode());
+                    if (listener != null) listener.onDownloadError("GitHub API no disponible (código " + res.statusCode() + "). Intenta más tarde.");
                     return;
                 }
 
-                // Solo marcamos como chequeado exitosamente si la API respondió 200 OK
-                lastCheck = Instant.now();
-
                 JsonNode release = M.readTree(res.body());
                 String tagName       = release.path("tag_name").asText("");
+                String latestRaw     = tagName;
+                String currentRaw    = LauncherMetadata.VERSION;
                 String latestVersion = normalizeVersion(tagName);
                 String currentVersion = normalizeVersion(LauncherMetadata.VERSION);
 
-                if (latestVersion.isBlank() || !isNewer(latestVersion, currentVersion)) return;
+                if (latestVersion.isBlank()) return;
+                if (latestVersion.equals(currentVersion) && !latestRaw.equals(currentRaw)) {
+                    // remote is a stable release where local is a pre-release — proceed
+                } else if (!isNewer(latestVersion, currentVersion)) {
+                    return;
+                }
 
                 boolean isWindows    = isWindows();
                 String  preferredExt = isWindows ? ".exe" : ".deb";
@@ -128,7 +134,7 @@ public final class AutoUpdateService {
                 }
 
             } catch (Exception e) {
-                System.err.println("[AutoUpdate] Check failed: " + e.getMessage());
+                if (listener != null) listener.onDownloadError("Error de conexión: " + e.getMessage());
             } finally {
                 checking.set(false);
             }
@@ -212,8 +218,14 @@ public final class AutoUpdateService {
     // ─────────────────────────────────────────────────────────────────────────
 
     public static void installFromPath(Path installerPath) {
-        new Thread(() -> executeInstaller(installerPath, isWindows()), "meacore-update-install")
-                .start();
+        if (!installing.compareAndSet(false, true)) return;
+        new Thread(() -> {
+            try {
+                executeInstaller(installerPath, isWindows());
+            } finally {
+                installing.set(false);
+            }
+        }, "meacore-update-install").start();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -258,7 +270,7 @@ public final class AutoUpdateService {
                     "del \"%~f0\"\r\n" +
                     "exit\r\n";
 
-                Files.writeString(batFile, bat);
+                Files.writeString(batFile, "\uFEFF" + bat);
 
                 new ProcessBuilder(
                         "cmd", "/c", "start", "\"MeaCore Updater\"",
@@ -267,33 +279,42 @@ public final class AutoUpdateService {
 
             } else {
                 // Linux: detect package manager and elevation tool, then install & relaunch
+                String currentExe = ProcessHandle.current().info().command().orElse("/opt/meacore-launcher/bin/MeaCore Launcher");
                 String pmCmd, elevate;
                 if (Files.exists(Path.of("/usr/bin/apt"))) {
                     pmCmd = "apt install";
-                    elevate = Files.exists(Path.of("/usr/bin/pkexec")) ? "pkexec" : "sudo";
+                    elevate = "sudo";
                 } else if (Files.exists(Path.of("/usr/bin/dnf"))) {
                     pmCmd = "dnf install";
-                    elevate = "sudo";
-                } else if (Files.exists(Path.of("/usr/bin/pacman"))) {
-                    pmCmd = "pacman -U";
                     elevate = "sudo";
                 } else {
                     pmCmd = "dpkg -i";
                     elevate = "sudo";
                 }
-                String cmd = String.format(
-                        "sleep 2 && %s %s -y \"%s\" 2>&1 && " +
-                        "(nohup \"/opt/meacore-launcher/bin/MeaCore Launcher\" > /dev/null 2>&1 &)",
-                        elevate, pmCmd, absPath);
+                boolean useY = !pmCmd.equals("dpkg -i");
+                String cmd;
+                if (useY) {
+                    cmd = String.format(
+                            "sleep 2 && %s %s -y \"%s\" 2>&1 && " +
+                            "(nohup \"" + currentExe + "\" > /dev/null 2>&1 &)",
+                            elevate, pmCmd, absPath);
+                } else {
+                    cmd = String.format(
+                            "sleep 2 && %s %s \"%s\" 2>&1 && " +
+                            "(nohup \"" + currentExe + "\" > /dev/null 2>&1 &)",
+                            elevate, pmCmd, absPath);
+                }
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
 
-            // 300ms suficientes — el proceso hijo está completamente desacoplado
-            Thread.sleep(300);
+            // 2000ms para que el proceso hijo se desacople completamente
+            Thread.sleep(2000);
             Platform.exit();
+            System.exit(0);
 
         } catch (Exception e) {
             Platform.exit();
+            System.exit(0);
         }
     }
 
@@ -304,7 +325,7 @@ public final class AutoUpdateService {
     private static void unblockFileAsync(Path file) {
         try {
             new ProcessBuilder(
-                    "powershell", "-NonInteractive", "-WindowStyle", "Hidden",
+                    "powershell", "-ExecutionPolicy", "Bypass", "-NonInteractive", "-WindowStyle", "Hidden",
                     "-Command", "Unblock-File -Path '" + file.toAbsolutePath() + "'")
                     .start();
         } catch (Exception ignored) {}
@@ -352,9 +373,9 @@ public final class AutoUpdateService {
 
     private static String normalizeVersion(String raw) {
         if (raw == null) return "";
-        return raw.replace("bat-", "")
+        return raw.replaceFirst("^bat-", "")
                   .replaceFirst("^[vV]", "")
-                  .replaceAll("-(alfa|alpha)", "")
+                  .replaceAll("(?i)-(alfa|alpha|beta|rc|snapshot|pre|dev).*", "")
                   .trim();
     }
 

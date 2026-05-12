@@ -269,7 +269,10 @@ public final class LauncherFacade {
     private boolean isJavaInPath() {
         String cmd = com.experimento.launcher.mojang.OsContext.current().isWindows() ? "where java" : "which java";
         try {
-            Process p = new ProcessBuilder(cmd.split(" ")).start();
+            ProcessBuilder pb = new ProcessBuilder(cmd.split(" "));
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
             return p.waitFor() == 0;
         } catch (Exception e) {
             return false;

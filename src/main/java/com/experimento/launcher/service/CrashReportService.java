@@ -71,8 +71,8 @@ public final class CrashReportService {
 
         LocalDateTime now = LocalDateTime.now();
         String filename = String.format("crash_%s_%s_%s.log", 
-            profileName.replace(" ", "_").replace("/", "_"),
-            versionId.replace(".", "_"),
+            profileName.replaceAll("[\\\\/:*?\"<>| ]", "_"),
+            versionId.replaceAll("[\\\\/:*?\"<>|. ]", "_"),
             now.format(FILENAME_FMT));
         
         Path reportFile = crashesDir.resolve(filename);

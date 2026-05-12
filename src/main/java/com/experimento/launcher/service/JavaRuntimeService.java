@@ -114,7 +114,11 @@ public final class JavaRuntimeService {
                     "tar", "-xzf",
                     archiveFile.toAbsolutePath().toString(),
                     "-C", extractDir.toAbsolutePath().toString());
+            pb.redirectErrorStream(true);
             Process p = pb.start();
+            try (java.util.Scanner s = new java.util.Scanner(p.getInputStream())) {
+                while (s.hasNextLine()) { s.nextLine(); }
+            }
             success = p.waitFor() == 0;
         }
 
@@ -175,6 +179,9 @@ public final class JavaRuntimeService {
                         .timeout(java.time.Duration.ofMinutes(10))
                         .build();
                 HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+                if (response.statusCode() / 100 != 2) {
+                    throw new IOException("Server returned " + response.statusCode());
+                }
                 long total = Long.parseLong(response.headers().firstValue("Content-Length").orElse("-1"));
                 try (InputStream is = response.body();
                      OutputStream os2 = Files.newOutputStream(dest)) {

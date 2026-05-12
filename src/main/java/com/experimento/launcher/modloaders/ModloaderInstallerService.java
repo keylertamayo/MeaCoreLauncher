@@ -61,7 +61,7 @@ public class ModloaderInstallerService {
         pb.directory(tempInstaller.getParent().toFile());
         pb.redirectErrorStream(true);
         Process p = pb.start();
-        try (Scanner s = new Scanner(p.getInputStream())) {
+        try (Scanner s = new Scanner(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8.name())) {
             while (s.hasNextLine()) {
                 String line = s.nextLine();
                 if (line.contains("Downloading") || line.contains("Extracting")
@@ -152,7 +152,7 @@ public class ModloaderInstallerService {
         pb.directory(tempInstaller.getParent().toFile());
         pb.redirectErrorStream(true);
         Process p = pb.start();
-        try (Scanner s = new Scanner(p.getInputStream())) {
+        try (Scanner s = new Scanner(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8.name())) {
             while (s.hasNextLine()) logger.accept("[NeoForge-Bot] " + s.nextLine());
         }
         int exitCode = p.waitFor();
@@ -205,7 +205,7 @@ public class ModloaderInstallerService {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
         Process p = pb.start();
-        try (Scanner s = new Scanner(p.getInputStream())) {
+        try (Scanner s = new Scanner(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8.name())) {
             while (s.hasNextLine()) logger.accept("[Fabric-Bot] " + s.nextLine());
         }
         int exitCode = p.waitFor();

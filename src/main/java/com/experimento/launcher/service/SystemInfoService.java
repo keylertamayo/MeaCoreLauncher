@@ -34,6 +34,7 @@ public final class SystemInfoService {
     public static HardwareInfo getInfo() {
         if (cachedInfo != null) {
             GlobalMemory mem = HAL.getMemory();
+            java.io.File root = new java.io.File(System.getProperty("user.home"));
             return new HardwareInfo(
                     cachedInfo.cpuName(),
                     cachedInfo.physicalCores(),
@@ -41,8 +42,8 @@ public final class SystemInfoService {
                     mem.getTotal(),
                     mem.getAvailable(),
                     cachedInfo.osName(),
-                    cachedInfo.diskTotalBytes(),
-                    cachedInfo.diskFreeBytes()
+                    root.getTotalSpace(),
+                    root.getFreeSpace()
             );
         }
         return refreshCache();
