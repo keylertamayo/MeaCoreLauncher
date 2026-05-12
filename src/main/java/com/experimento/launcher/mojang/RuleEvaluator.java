@@ -38,11 +38,16 @@ public final class RuleEvaluator {
         }
         String arch = text(osNode, "arch");
         if (arch != null) {
-            String current = "arm64".equals(os.arch()) ? "arm64" : "x86";
-            if ("x86".equals(arch) && !"x86".equals(current)) {
-                return false;
+            String raw = os.arch();
+            String current;
+            if ("arm64".equals(raw) || "aarch64".equals(raw)) {
+                current = "arm64";
+            } else if ("x86".equals(raw) || "i386".equals(raw)) {
+                current = "x86";
+            } else {
+                current = "x64";
             }
-            if ("arm64".equals(arch) && !"arm64".equals(current)) {
+            if (!current.equals(arch)) {
                 return false;
             }
         }

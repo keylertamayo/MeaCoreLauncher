@@ -24,7 +24,7 @@ public final class HttpFiles {
                     .connectTimeout(Duration.ofSeconds(30))
                     .build();
 
-    private static final int BUFFER_SIZE = 8 * 1024 * 1024;
+    private static final int BUFFER_SIZE = 256 * 1024;
     private static final int MAX_RETRIES = 3;
 
     private HttpFiles() {}

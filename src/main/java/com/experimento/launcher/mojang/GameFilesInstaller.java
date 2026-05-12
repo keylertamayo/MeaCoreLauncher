@@ -223,7 +223,9 @@ public final class GameFilesInstaller {
             try {
                 HttpFiles.downloadIfHashMismatch(mirror + path, dest, null);
                 if (Files.exists(dest)) return;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                System.err.println("[INSTALL] Mirror failed: " + mirror + " - " + e.getMessage());
+            }
         }
     }
 

@@ -73,7 +73,6 @@ public final class JvmPresetService {
                 "-XX:+ParallelRefProcEnabled",
                 "-XX:+DisableExplicitGC",
                 "-XX:+PerfDisableSharedMem",
-                "-XX:-UseBiasedLocking",
                 "-XX:+AlwaysPreTouch",
                 "-XX:+UseLargePages",
                 "-Dlog4j2.formatMsgNoLookups=true",
@@ -116,7 +115,6 @@ public final class JvmPresetService {
                 "-XX:+PerfDisableSharedMem",
                 "-XX:MaxTenuringThreshold=1",
                 "-XX:+UseNUMA",
-                "-XX:-UseBiasedLocking",
                 "-XX:+UseLargePages",
                 "-XX:SoftRefLRUPolicyMSPerMB=1000",
                 "-Dlog4j2.formatMsgNoLookups=true",
@@ -155,7 +153,6 @@ public final class JvmPresetService {
                 "-XX:+AlwaysPreTouch",
                 "-XX:+DisableExplicitGC",
                 "-XX:+PerfDisableSharedMem",
-                "-XX:-UseBiasedLocking",
                 "-XX:+ParallelRefProcEnabled",
                 "-Dlog4j2.formatMsgNoLookups=true",
                 "-Djdk.nio.maxCachedBufferSize=262144",
@@ -184,7 +181,6 @@ public final class JvmPresetService {
                 "-XX:+AlwaysPreTouch",
                 "-XX:+PerfDisableSharedMem",
                 "-XX:+UseNUMA",
-                "-XX:-UseBiasedLocking",
                 "-XX:+UseLargePages",
                 "-XX:MaxTenuringThreshold=1",
                 "-XX:SoftRefLRUPolicyMSPerMB=1000",
@@ -211,10 +207,7 @@ public final class JvmPresetService {
         args.add("-XX:ActiveProcessorCount=" + logicCores);
         
         args.add("-XX:+OptimizeStringConcat");
-        args.add("-XX:+UseFastEmptyMethods");
-        args.add("-XX:+UseFastAccessorMethods");
         
         args.add("-XX:+AlwaysPreTouch");
-        args.add("-XX:+PreserveFramePointer");
     }
 }

@@ -1,5 +1,1 @@
 Manifest-Version: 1.0
-Premain-Class: com.experimento.launcher.agent.LanguageFilterAgent
-Agent-Class: com.experimento.launcher.agent.LanguageFilterAgent
-Can-Redefine-Classes: true
-Can-Retransform-Classes: true

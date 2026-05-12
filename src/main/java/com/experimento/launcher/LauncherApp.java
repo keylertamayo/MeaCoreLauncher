@@ -32,12 +32,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LauncherApp extends Application {
 
-    private final ExecutorService workers = Executors.newCachedThreadPool();
+    private final ExecutorService workers = Executors.newFixedThreadPool(16);
     private final List<ManifestVersionEntry> allManifestEntries = FXCollections.observableArrayList();
     
     private boolean syncingVersionUi;
@@ -47,8 +49,9 @@ public class LauncherApp extends Application {
     private List<LauncherProfile> profiles;
     private LauncherProfile selected;
 
-    private final Map<String, Process> activeProcesses = new HashMap<>();
+    private final Map<String, Process> activeProcesses = new ConcurrentHashMap<>();
     private final Map<String, BooleanProperty> runningState = new HashMap<>();
+    private final AtomicBoolean installing = new AtomicBoolean(false);
     
     private StackPane contentStack;
     private final Map<String, Node> views = new HashMap<>();
@@ -640,7 +643,9 @@ public class LauncherApp extends Application {
             Path modsDir = facade.gameDirFor(selected).resolve("mods");
             try {
                 java.nio.file.Files.createDirectories(modsDir);
-                java.awt.Desktop.getDesktop().open(modsDir.toFile());
+                if (java.awt.Desktop.isDesktopSupported()) {
+                    java.awt.Desktop.getDesktop().open(modsDir.toFile());
+                }
             } catch (Exception ex) {
                 log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());
             }
@@ -1809,6 +1814,10 @@ public class LauncherApp extends Application {
 
     private void handlePlayClick() {
         if (selected == null) return;
+        if (installing.get()) {
+            log("[LAUNCHER] Espera a que termine la instalación antes de jugar.");
+            return;
+        }
         
         // Desactivar UI mientras validamos
         playBtn.setDisable(true);
@@ -2020,10 +2029,15 @@ public class LauncherApp extends Application {
     private javafx.concurrent.Task<Void> createInstallTask() {
         return new javafx.concurrent.Task<>() {
             @Override protected Void call() throws Exception {
-                if (selected == null) return null;
-                updateMessage("Instalando " + selected.lastVersionId + "...");
-                facade.installVersion(selected.lastVersionId, s -> Platform.runLater(() -> log(s)));
-                return null;
+                installing.set(true);
+                try {
+                    if (selected == null) return null;
+                    updateMessage("Instalando " + selected.lastVersionId + "...");
+                    facade.installVersion(selected.lastVersionId, s -> Platform.runLater(() -> log(s)));
+                    return null;
+                } finally {
+                    installing.set(false);
+                }
             }
             @Override protected void succeeded() {
                 log("Instalación completada.");

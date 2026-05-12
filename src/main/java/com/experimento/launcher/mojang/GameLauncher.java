@@ -45,6 +45,27 @@ public final class GameLauncher {
         String classpathStr =
                 classpath.stream().map(p -> p.toAbsolutePath().toString()).collect(Collectors.joining(cpSep));
 
+        // Windows workaround for command line length limit (8191 chars)
+        if (os.isWindows() && classpathStr.length() > 3500) {
+            try {
+                Path cpJar = Files.createTempFile("meacore-classpath-", ".jar");
+                cpJar.toFile().deleteOnExit();
+                java.util.jar.Manifest mf = new java.util.jar.Manifest();
+                mf.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
+                String cpEntries = classpath.stream()
+                        .map(p -> p.toAbsolutePath().toUri().toString())
+                        .collect(java.util.stream.Collectors.joining(" "));
+                mf.getMainAttributes().put(java.util.jar.Attributes.Name.CLASS_PATH, cpEntries);
+                try (java.util.jar.JarOutputStream jos = new java.util.jar.JarOutputStream(
+                        new java.io.BufferedOutputStream(Files.newOutputStream(cpJar)), mf)) {
+                    // empty jar with just the manifest
+                }
+                classpathStr = cpJar.toAbsolutePath().toString();
+            } catch (Exception e) {
+                // fallback — if it fails, use the long classpath (will likely fail too)
+            }
+        }
+
         JsonNode assetIndex = mergedVersion.get("assetIndex");
         String assetIndexName = assetIndex.get("id").asText();
 

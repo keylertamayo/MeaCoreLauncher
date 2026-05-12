@@ -31,7 +31,7 @@ public final class ArgumentRules {
             }
         }
         if (allowed == null) {
-            return false;
+            return true;
         }
         return allowed;
     }
@@ -47,7 +47,15 @@ public final class ArgumentRules {
         }
         String arch = osNode.path("arch").asText("");
         if (!arch.isEmpty()) {
-            String cur = "arm64".equals(os.arch()) ? "arm64" : "x86";
+            String raw = os.arch();
+            String cur;
+            if ("arm64".equals(raw) || "aarch64".equals(raw)) {
+                cur = "arm64";
+            } else if ("x86".equals(raw) || "i386".equals(raw)) {
+                cur = "x86";
+            } else {
+                cur = "x64";
+            }
             if (!arch.equalsIgnoreCase(cur)) {
                 return false;
             }

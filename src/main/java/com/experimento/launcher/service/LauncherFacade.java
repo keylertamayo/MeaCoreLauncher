@@ -162,8 +162,6 @@ public final class LauncherFacade {
         jvm.addAll(LanFixService.getLanArgs());
         jvm.addAll(LanFixService.getServerConnectArgs());
         
-        addChunkCacheOptimization(jvm);
-        
         String effectiveJava = p.javaExecutable;
         int requiredVer = getRequiredJavaVersion(merged, versionId);
         
@@ -290,7 +288,8 @@ public final class LauncherFacade {
         }
 
         // Java 21 para 1.20.5+ y versiones futuras (IDs altos como 26.x.x)
-        if (versionId.matches("1\\.2[1-9].*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d.*")) {
+        // Java 21 for 1.20.5+ (which has protocol changes requiring Java 21)
+        if (versionId.matches("1\\.20\\.[5-9].*") || versionId.matches("1\\.2[1-9]\\..*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d+\\..*")) {
             return 21;
         }
         if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {
@@ -490,12 +489,12 @@ public final class LauncherFacade {
             if (os.isWindows()) {
                 int coresToUse = Math.max(1, physicalCores - 1);
                 String maskBinary = "1".repeat(coresToUse);
-                long mask = Long.parseLong(maskBinary, 2);
+                java.math.BigInteger mask = new java.math.BigInteger(maskBinary, 2);
                 
                 try {
                     ProcessBuilder pb = new ProcessBuilder(
                         "powershell", "-NoProfile", "-Command",
-                        "(Get-Process -Id " + process.pid() + ").ProcessorAffinity = " + mask
+                        "(Get-Process -Id " + process.pid() + ").ProcessorAffinity = " + mask.toString()
                     );
                     pb.start();
                     log.accept("[LAUNCHER] ⚡ CPU Affinity: " + coresToUse + " núcleos asignados al juego");
@@ -503,7 +502,7 @@ public final class LauncherFacade {
                     log.accept("[LAUNCHER] ℹ️ CPU Affinity no disponible: " + e.getMessage());
                 }
             } 
-            else if (os.isLinux() || os.isMac()) {
+            else if (os.isLinux()) {
                 int coresToUse = Math.max(1, physicalCores - 1);
                 String cpuRange = "0-" + (coresToUse - 1);
                 
@@ -520,16 +519,5 @@ public final class LauncherFacade {
         } catch (Exception e) {
             log.accept("[LAUNCHER] ℹ️ CPU Affinity: Automático");
         }
-    }
-    
-    private void addChunkCacheOptimization(List<String> jvm) {
-        int logicalCores = HardwareProbe.availableProcessors();
-        
-        jvm.add("-DchunkPreloaderEnabled=true");
-        jvm.add("-DasyncChunkLoading=true");
-        jvm.add("-DpreferConcurrentLoading=true");
-        
-        int chunkThreads = Math.max(2, logicalCores / 2);
-        jvm.add("-DchunkLoadingExecutorThreads=" + chunkThreads);
     }
 }

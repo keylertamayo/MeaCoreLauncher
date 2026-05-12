@@ -54,9 +54,9 @@ jobs:
           convert icon.png -resize 48x48   icon-48.png
           convert icon.png -resize 128x128 icon-128.png
           convert icon.png -resize 256x256 icon-256.png
-          cp icon-48.png  src/main/resources/
-          cp icon-128.png src/main/resources/
-          cp icon-256.png src/main/resources/
+          cp icon-48.png  src/main/resources/com/experimento/launcher/ui/
+          cp icon-128.png src/main/resources/com/experimento/launcher/ui/
+          cp icon-256.png src/main/resources/com/experimento/launcher/ui/
 
       - name: Create .deb with jpackage
         run: |

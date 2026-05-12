@@ -7,8 +7,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.function.Consumer;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 public class ModloaderInstallerService {
     private static final ObjectMapper M = new ObjectMapper();
@@ -93,14 +99,30 @@ public class ModloaderInstallerService {
         } catch (Exception e) {
             throw new Exception("No se pudo acceder a los servidores de NeoForge. Verifica tu conexión a internet.");
         }
-        String metaStr = new String(mavenMeta);
-        String latestVersion = null;
-        for (String line : metaStr.split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("<version>") && trimmed.contains(mcVersionShort + ".")) {
-                latestVersion = trimmed.replace("<version>", "").replace("</version>", "").trim();
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        Document doc = factory.newDocumentBuilder().parse(new java.io.ByteArrayInputStream(mavenMeta));
+        NodeList versionNodes = doc.getDocumentElement().getElementsByTagName("version");
+        List<String> versions = new ArrayList<>();
+        for (int i = 0; i < versionNodes.getLength(); i++) {
+            String v = versionNodes.item(i).getTextContent().trim();
+            if (v.startsWith(mcVersionShort + ".") || v.startsWith(mcVersionShort + "-")) {
+                versions.add(v);
             }
         }
+        versions.sort((a, b) -> {
+            try {
+                String[] pa = a.split("\\.");
+                String[] pb = b.split("\\.");
+                for (int i = 0; i < Math.min(pa.length, pb.length); i++) {
+                    int na = Integer.parseInt(pa[i]);
+                    int nb = Integer.parseInt(pb[i]);
+                    if (na != nb) return Integer.compare(nb, na);
+                }
+                return Integer.compare(pb.length, pa.length);
+            } catch (Exception e) { return 0; }
+        });
+        String latestVersion = versions.isEmpty() ? null : versions.get(0);
         if (latestVersion == null)
             throw new Exception("No se encontró NeoForge para Minecraft " + mcVersion
                     + ". NeoForge soporta 1.20.2+. Para versiones anteriores usa Forge.");

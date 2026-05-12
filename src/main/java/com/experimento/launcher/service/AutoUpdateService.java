@@ -2,6 +2,7 @@ package com.experimento.launcher.service;
 
 import com.experimento.launcher.LauncherMetadata;
 import com.experimento.launcher.mojang.HttpFiles;
+import javafx.application.Platform;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -95,7 +96,10 @@ public final class AutoUpdateService {
                         .build();
 
                 HttpResponse<InputStream> res = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
-                if (res.statusCode() != 200) return;
+                if (res.statusCode() != 200) {
+                    System.err.println("[AutoUpdate] GitHub API responded with " + res.statusCode());
+                    return;
+                }
 
                 // Solo marcamos como chequeado exitosamente si la API respondió 200 OK
                 lastCheck = Instant.now();
@@ -123,8 +127,8 @@ public final class AutoUpdateService {
                     listener.onUpdateFound(latestVersion, url);
                 }
 
-            } catch (Exception ignored) {
-                // Fallo silencioso: sin conexión o API no disponible
+            } catch (Exception e) {
+                System.err.println("[AutoUpdate] Check failed: " + e.getMessage());
             } finally {
                 checking.set(false);
             }
@@ -262,21 +266,34 @@ public final class AutoUpdateService {
                         .start();
 
             } else {
-                // Linux: Corregimos el nombre del binario a 'meacore-launcher' (con guion)
-                // y usamos 'which' para asegurar que el comando esté en el PATH.
+                // Linux: detect package manager and elevation tool, then install & relaunch
+                String pmCmd, elevate;
+                if (Files.exists(Path.of("/usr/bin/apt"))) {
+                    pmCmd = "apt install";
+                    elevate = Files.exists(Path.of("/usr/bin/pkexec")) ? "pkexec" : "sudo";
+                } else if (Files.exists(Path.of("/usr/bin/dnf"))) {
+                    pmCmd = "dnf install";
+                    elevate = "sudo";
+                } else if (Files.exists(Path.of("/usr/bin/pacman"))) {
+                    pmCmd = "pacman -U";
+                    elevate = "sudo";
+                } else {
+                    pmCmd = "dpkg -i";
+                    elevate = "sudo";
+                }
                 String cmd = String.format(
-                        "sleep 2 && pkexec apt install -y \"%s\" && " +
-                        "(which meacore-launcher && setsid nohup meacore-launcher > /dev/null 2>&1 &)",
-                        absPath);
+                        "sleep 2 && %s %s -y \"%s\" 2>&1 && " +
+                        "(nohup \"/opt/meacore-launcher/bin/MeaCore Launcher\" > /dev/null 2>&1 &)",
+                        elevate, pmCmd, absPath);
                 new ProcessBuilder("bash", "-c", cmd).start();
             }
 
             // 300ms suficientes — el proceso hijo está completamente desacoplado
             Thread.sleep(300);
-            System.exit(0);
+            Platform.exit();
 
         } catch (Exception e) {
-            System.exit(1);
+            Platform.exit();
         }
     }
 
