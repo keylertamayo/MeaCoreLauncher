@@ -50,10 +50,23 @@
 
     <div class="timeline">
 
+        <!-- v1.5.9 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.5.9 - Windows Process Priority Fix 🛠️ (Actual)</h3>
+                <span class="version-date">12 de Mayo, 2026</span>
+            </div>
+            <p><strong>🐛 Corrección de errores:</strong></p>
+            <ul>
+                <li><strong>Fix de Lanzamiento en Windows:</strong> Corregido el error "Windows no puede encontrar el Archivo '-Xms2G'" al iniciar Minecraft. Ocurría porque <code>cmd /c start</code> interpretaba la ruta del ejecutable de Java (con espacios en "Program Files") como título de ventana en lugar de programa.</li>
+                <li><strong>Mejora interna:</strong> Ahora se pasa un título de ventana vacío explícitamente a <code>start</code> para que la prioridad alta (<code>/high</code>) funcione correctamente con cualquier ruta de Java.</li>
+            </ul>
+        </div>
+
         <!-- v1.5.8 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.5.8 - Extreme Performance Optimization 🚀 (Actual)</h3>
+                <h3 style="color: #888888;">v1.5.8 - Extreme Performance Optimization 🚀</h3>
                 <span class="version-date">11 de Mayo, 2026</span>
             </div>
             <p><strong>🚀 Optimizaciones de Rendimiento Extremo:</strong></p>

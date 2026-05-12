@@ -451,6 +451,7 @@ public final class LauncherFacade {
                 priorityCmd.add("cmd");
                 priorityCmd.add("/c");
                 priorityCmd.add("start");
+                priorityCmd.add("");   // empty window title (start treats first quoted arg as title)
                 priorityCmd.add("/high");
                 priorityCmd.addAll(originalCmd);
                 pb.command(priorityCmd);
