@@ -50,14 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
     setupBugReportForm();
     applyBugReportTemplate();
 
-    // Community Reviews (Supabase)
-    setupReviews();
+    // Init Supabase then load reviews
+    initSupabase().then(() => setupReviews());
 });
 
-// --- Supabase Config (Inyectado por GitHub Actions o manual) ---
-const SUPABASE_URL = '__SUPABASE_URL__';
-const SUPABASE_KEY = '__SUPABASE_KEY__';
-const SUPABASE_CONFIGURED = !SUPABASE_URL.startsWith('__SUPABASE_');
+// --- Supabase Config ---
+let SUPABASE_URL = '__SUPABASE_URL__';
+let SUPABASE_KEY = '__SUPABASE_KEY__';
+// Check if placeholders were replaced (Netlify CI) or fetch from Worker (Cloudflare)
+async function initSupabase() {
+    if (SUPABASE_URL.startsWith('__SUPABASE_')) {
+        try {
+            const res = await fetch('/api/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                if (cfg.SUPABASE_URL) { SUPABASE_URL = cfg.SUPABASE_URL; SUPABASE_KEY = cfg.SUPABASE_KEY; }
+            }
+        } catch (e) {}
+    }
+}
+const SUPABASE_CONFIGURED = () => !SUPABASE_URL.startsWith('__SUPABASE_');
 
 async function setupReviews() {
     const container = document.getElementById('reviews-container');
@@ -91,7 +103,7 @@ async function setupReviews() {
         const comment = document.getElementById('rev-comment').value;
 
         try {
-            if (!SUPABASE_CONFIGURED) {
+            if (!SUPABASE_CONFIGURED()) {
                 throw new Error('Supabase no configurado. Contacta al administrador.');
             }
 
@@ -125,8 +137,8 @@ async function setupReviews() {
 }
 
 async function fetchReviews(container) {
-    if (!SUPABASE_CONFIGURED) {
-        container.innerHTML = '<p>Configura Supabase para ver las reseñas.</p>';
+    if (!SUPABASE_CONFIGURED()) {
+        container.innerHTML = '<p>Reseñas no disponibles en este sitio. Visita la <a href="https://meacorelauncher.netlify.app" target="_blank">web principal</a> para verlas.</p>';
         return;
     }
 

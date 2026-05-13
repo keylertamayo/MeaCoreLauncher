@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meacorelauncher",
+  "compatibility_date": "2026-05-13",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "website",
+    "binding": "ASSETS"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "GITHUB_REPO": "MeaCore-Enterprise/MeaCoreLauncher",
+    "GITHUB_BRANCH": "Estable"
+  }
+}
