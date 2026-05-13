@@ -499,6 +499,17 @@ footer a:hover {
     text-align: center;
     margin-top: 2rem;
 }
+#show-review-form {
+    border: 2px solid var(--blue-accent);
+    color: var(--blue-accent);
+    background: transparent;
+    transition: all 0.2s ease;
+}
+#show-review-form:hover {
+    background: var(--blue-accent);
+    color: white;
+    transform: scale(1.05);
+}
 .loading-reviews {
     grid-column: 1 / -1;
     text-align: center;
