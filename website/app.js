@@ -342,7 +342,7 @@ async function updateReleaseInfo() {
     if (!badge) return;
 
     try {
-        const response = await fetch('https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest');
+        const response = await fetch('/api/latest-release');
         if (!response.ok) throw new Error('GitHub API query failed');
 
         const data = await response.json();

@@ -13,7 +13,7 @@ function json(statusCode, payload) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // Only intercept POST to the bug report endpoint
@@ -149,6 +149,24 @@ export default {
         console.error("Excepción creando issue:", err);
         return json(502, { error: "Fallo de red al crear el issue en GitHub." });
       }
+    }
+
+    // Proxy GitHub API with caching to avoid rate limit
+    if (url.pathname === "/api/latest-release") {
+      const cacheKey = new Request("https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest", request);
+      const cached = await caches.default.match(cacheKey);
+      if (cached) return cached;
+      const ghRes = await fetch("https://api.github.com/repos/MeaCore-Enterprise/MeaCoreLauncher/releases/latest", {
+        headers: { "Accept": "application/vnd.github.v3+json", "User-Agent": "MeaCoreLauncher-Website" }
+      });
+      if (!ghRes.ok) return json(502, { error: "GitHub API no disponible" });
+      const data = await ghRes.json();
+      const response = json(200, {
+        tag_name: data.tag_name,
+        assets: (data.assets || []).map(a => ({ name: a.name, browser_download_url: a.browser_download_url }))
+      });
+      ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+      return response;
     }
 
     // Serve config for Supabase reviews
