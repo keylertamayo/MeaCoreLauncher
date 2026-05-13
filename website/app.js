@@ -208,6 +208,9 @@ function setupBugReportForm() {
                 })
             });
 
+            if (res.status === 404) {
+                throw new Error('El sistema de reportes no está disponible en este sitio espejo. Usa el sitio principal: <a href="https://meacorelauncher.netlify.app" target="_blank">meacorelauncher.netlify.app</a>');
+            }
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) {
                 throw new Error(data.error || 'No se pudo enviar el reporte. Intenta de nuevo.');
@@ -331,7 +334,7 @@ async function updateReleaseInfo() {
         if (!response.ok) throw new Error('GitHub API query failed');
 
         const data = await response.json();
-        const versionNum = data.tag_name.replace('bat-', '');
+        const versionNum = data.tag_name.replace(/^(bat-|v)/i, '');
         const versionTag = `v${versionNum}`;
         detectedLauncherVersion = versionTag;
         applyBugReportTemplate();
