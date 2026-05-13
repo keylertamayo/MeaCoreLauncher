@@ -5,6 +5,7 @@
   "observability": {
     "enabled": true
   },
+  "main": "workers/report-bug.js",
   "assets": {
     "directory": "website",
     "binding": "ASSETS"
