@@ -119,7 +119,7 @@ async function setupReviews() {
                     user_name: name,
                     rating: rating,
                     comment: comment,
-                    approved: false // Por defecto requiere aprobación
+                    approved: true
                 })
             });
 
