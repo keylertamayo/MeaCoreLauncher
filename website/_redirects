@@ -1,3 +1,0 @@
-# Evitar URLs con trailing slash duplicadas
-/index.html   /   301
-/changelog    /changelog.html   301

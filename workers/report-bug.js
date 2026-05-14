@@ -13,12 +13,26 @@ function json(statusCode, payload) {
   });
 }
 
-function addSecurityHeaders(response) {
+function addSecurityHeaders(response, pathname) {
   const h = new Headers(response.headers);
   h.set("X-Content-Type-Options", "nosniff");
   h.set("X-Frame-Options", "DENY");
   h.set("Referrer-Policy", "strict-origin-when-cross-origin");
   h.set("Permissions-Policy", "geolocation=(), camera=(), microphone=()");
+
+  // Cache control based on file extension
+  if (!h.has("Cache-Control")) {
+    const ext = pathname.split(".").pop().toLowerCase();
+    if (["css", "js", "png", "ico", "svg", "woff", "woff2", "ttf"].includes(ext)) {
+      h.set("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (ext === "xml") {
+      h.set("Cache-Control", "public, max-age=3600");
+    } else if (ext === "txt") {
+      h.set("Cache-Control", "public, max-age=86400");
+    } else {
+      h.set("Cache-Control", "public, max-age=300, must-revalidate");
+    }
+  }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers: h });
 }
 
@@ -164,12 +178,17 @@ export default {
     }
 
     // ── Assets estáticos con headers de seguridad ─────────────────
+    // Redirect /changelog (no extension) to /changelog.html
+    if (url.pathname === "/changelog") {
+      return Response.redirect(`https://${url.host}/changelog.html`, 301);
+    }
+
     try {
       const assetRes = await env.ASSETS.fetch(request);
       if (assetRes.status === 404) {
         return new Response("Página no encontrada", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }
-      return addSecurityHeaders(assetRes);
+      return addSecurityHeaders(assetRes, url.pathname);
     } catch (err) {
       return new Response("Error interno del servidor", { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     }
