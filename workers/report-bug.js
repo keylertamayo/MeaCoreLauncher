@@ -40,8 +40,17 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ── Sitemap dinámico ──────────────────────────────────────────
+    // ── Sitemap: static file first, dynamic fallback ──────────────
     if (url.pathname === "/sitemap.xml") {
+      // Try serving the static file
+      const staticRes = await env.ASSETS.fetch(request);
+      if (staticRes.status !== 404 && staticRes.status !== 200) {
+        return staticRes; // let the redirect or error pass through
+      }
+      if (staticRes.status === 200) {
+        return addSecurityHeaders(staticRes, "/sitemap.xml");
+      }
+      // Fallback: generate dynamic sitemap with lastmod from GitHub
       let lastmod = new Date().toISOString().split("T")[0];
       try {
         const gh = await fetch(
