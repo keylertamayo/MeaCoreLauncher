@@ -164,13 +164,6 @@ export default {
     }
 
     // ── Assets estáticos con headers de seguridad ─────────────────
-    // Rewrite /changelog -> /changelog.html directly in the Worker
-    // (more reliable than relying on _redirects which is Pages-only)
-    let assetPath = url.pathname;
-    if (assetPath === "/changelog") {
-      return Response.redirect(`https://${url.host}/changelog.html`, 301);
-    }
-
     try {
       const assetRes = await env.ASSETS.fetch(request);
       if (assetRes.status === 404) {
