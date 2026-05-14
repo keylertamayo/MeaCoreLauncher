@@ -164,7 +164,21 @@ export default {
     }
 
     // ── Assets estáticos con headers de seguridad ─────────────────
-    const assetRes = await env.ASSETS.fetch(request);
-    return addSecurityHeaders(assetRes);
+    // Rewrite /changelog -> /changelog.html directly in the Worker
+    // (more reliable than relying on _redirects which is Pages-only)
+    let assetPath = url.pathname;
+    if (assetPath === "/changelog") {
+      return Response.redirect(`https://${url.host}/changelog.html`, 301);
+    }
+
+    try {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes.status === 404) {
+        return new Response("Página no encontrada", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
+      return addSecurityHeaders(assetRes);
+    } catch (err) {
+      return new Response("Error interno del servidor", { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    }
   }
 };
