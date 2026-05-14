@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Supabase Config ---
 let SUPABASE_URL = '__SUPABASE_URL__';
 let SUPABASE_KEY = '__SUPABASE_KEY__';
-// Check if placeholders were replaced (Netlify CI) or fetch from Worker (Cloudflare)
+// Fetch Supabase config from Worker or use static placeholders
 async function initSupabase() {
     if (SUPABASE_URL.startsWith('__SUPABASE_')) {
         try {
@@ -138,7 +138,7 @@ async function setupReviews() {
 
 async function fetchReviews(container) {
     if (!SUPABASE_CONFIGURED()) {
-        container.innerHTML = '<p>Reseñas no disponibles en este sitio. Visita la <a href="https://meacorelauncher.netlify.app" target="_blank">web principal</a> para verlas.</p>';
+        container.innerHTML = '<p>Las reseñas no están disponibles en este momento.</p>';
         return;
     }
 
@@ -221,7 +221,7 @@ function setupBugReportForm() {
             });
 
             if (res.status === 404) {
-                throw new Error('El sistema de reportes no está disponible en este sitio espejo. Usa el sitio principal: <a href="https://meacorelauncher.netlify.app" target="_blank">meacorelauncher.netlify.app</a>');
+                throw new Error('El sistema de reportes no está disponible. Asegúrate de que el Worker de Cloudflare tenga configurado GITHUB_TOKEN.');
             }
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) {
