@@ -8,7 +8,8 @@
   "main": "workers/report-bug.js",
   "assets": {
     "directory": "website",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "html_handling": "none"
   },
   "compatibility_flags": [
     "nodejs_compat"

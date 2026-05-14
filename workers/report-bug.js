@@ -74,7 +74,7 @@ export default {
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>${base}/changelog.html</loc>
+    <loc>${base}/changelog</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -187,9 +187,15 @@ export default {
     }
 
     // ── Assets estáticos con headers de seguridad ─────────────────
-    // Redirect /changelog (no extension) to /changelog.html
+    // Rewrite /changelog internally to serve changelog.html
+    // (no HTTP redirect, no loop, clean URL in browser)
     if (url.pathname === "/changelog") {
-      return Response.redirect(`https://${url.host}/changelog.html`, 301);
+      const internalReq = new Request("https://dummy/changelog.html", request);
+      const assetRes = await env.ASSETS.fetch(internalReq);
+      if (assetRes.status === 404) {
+        return new Response("Página no encontrada", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
+      return addSecurityHeaders(assetRes, "/changelog");
     }
 
     try {

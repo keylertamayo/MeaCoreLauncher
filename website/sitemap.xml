@@ -6,7 +6,7 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://meacorelauncher.meacore-enterprise.workers.dev/changelog.html</loc>
+    <loc>https://meacorelauncher.meacore-enterprise.workers.dev/changelog</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
