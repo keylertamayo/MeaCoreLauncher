@@ -1,42 +1,42 @@
-# Contributing to MeaCore Launcher
+# Contribuir a MeaCore Launcher
 
-Thanks for your interest in contributing! Pull requests are welcome.
+¡Gracias por tu interés en contribuir! Las pull requests son bienvenidas.
 
-## Getting Started
+## Cómo empezar
 
-1. Fork the repo and create your branch from `Estable`
-2. Run `./gradlew build` to verify everything compiles
-3. Make your changes
-4. Run `./gradlew test` to ensure tests pass
-5. Submit a pull request
+1. Haz un fork del repositorio y crea tu rama desde `Estable`
+2. Ejecuta `./gradlew build` para verificar que todo compila
+3. Haz tus cambios
+4. Ejecuta `./gradlew test` para asegurarte de que los tests pasen
+5. Envía una pull request
 
-## Guidelines
+## Directrices
 
-- **Java 21** — code must compile and run on Java 21
-- **No module-info.java** — the project is intentionally non-modular
-- **Keep it simple** — avoid adding new dependencies unless necessary
-- **javafx.controls and javafx.fxml** are the only JavaFX modules used
-- **Spanish** — UI strings should be in Spanish (code comments can be in English or Spanish)
+- **Java 21** — el código debe compilar y ejecutarse en Java 21
+- **Sin module-info.java** — el proyecto es intencionalmente no modular
+- **Mantenlo simple** — evita añadir nuevas dependencias a menos que sea necesario
+- **javafx.controls y javafx.fxml** son los únicos módulos de JavaFX utilizados
+- **Español** — los textos de la interfaz deben estar en español (los comentarios del código pueden estar en inglés o español)
 
-## What we welcome
+## Qué aceptamos
 
-- Bug fixes
-- Performance improvements
-- Mod loader compatibility updates (Forge, Fabric, NeoForge)
-- Store integration improvements (Modrinth API)
-- Documentation improvements
-- Translation fixes
+- Corrección de errores
+- Mejoras de rendimiento
+- Actualizaciones de compatibilidad de modloaders (Forge, Fabric, NeoForge)
+- Mejoras en la integración con la tienda (API de Modrinth)
+- Mejoras en la documentación
+- Correcciones de traducción
 
-## What we don't accept
+## Qué no aceptamos
 
-- Pull requests that add premium/paywalled features
-- Removals of attribution or license notices
-- Breaking changes without prior discussion — open an issue first
+- Pull requests que añadan funcionalidades premium/de pago
+- Eliminación de atribuciones o avisos de licencia
+- Cambios que rompan la compatibilidad sin discusión previa — abre un issue primero
 
-## Code review
+## Revisión de código
 
-All submissions require review. We may ask you to make changes before merging.
+Todas las contribuciones requieren revisión. Podemos pedirte que hagas cambios antes de fusionar.
 
-## License
+## Licencia
 
-By contributing, you agree that your contributions will be licensed under the project's [MIT License with Non-Commercial Use Restriction](LICENSE).
+Al contribuir, aceptas que tus contribuciones se licenciarán bajo los mismos términos de la [Licencia MIT con Restricción de Uso No Comercial](LICENSE).
