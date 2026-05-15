@@ -1331,7 +1331,12 @@ public class LauncherApp extends Application {
             try {
                 List<String> versions = switch (loaderType) {
                     case "Forge" -> com.experimento.launcher.modloaders.ModloaderVersionService.getForgeVersions(mcVersion);
-                    case "Fabric" -> com.experimento.launcher.modloaders.ModloaderVersionService.getFabricLoaderVersions(mcVersion);
+                    case "Fabric" -> {
+                        if (!com.experimento.launcher.modloaders.ModloaderVersionService.isFabricSupported(mcVersion)) {
+                            throw new Exception("Fabric no soporta Minecraft " + mcVersion + ". Usa Forge para versiones antiguas (1.14-).");
+                        }
+                        yield com.experimento.launcher.modloaders.ModloaderVersionService.getFabricLoaderVersions(mcVersion);
+                    }
                     case "NeoForge" -> com.experimento.launcher.modloaders.ModloaderVersionService.getNeoForgeVersions(mcVersion);
                     default -> List.of();
                 };

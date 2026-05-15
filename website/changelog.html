@@ -82,10 +82,55 @@
 
     <div class="timeline">
 
+        <!-- v1.6.0 -->
+        <div class="log-item">
+            <div class="version-header">
+                <h3 style="color: #00d2ff;">v1.6.0 - Cloudflare Full Migration & Windows Command Line Fix 🚀 (Actual)</h3>
+                <span class="version-date">15 de Mayo, 2026</span>
+            </div>
+            <p><strong>☁️ Migración completa a Cloudflare:</strong></p>
+            <ul>
+                <li><strong>Adiós a Netlify:</strong> Eliminado todo rastro de Netlify (<code>netlify.toml</code>, funciones serverless, workflow de deploy). El sitio ahora funciona 100% en Cloudflare Workers.</li>
+                <li><strong>Worker reescrito:</strong> El Worker de Cloudflare maneja bug reports, sitemap dinámico, proxy de GitHub API, config de Supabase y assets estáticos con headers de seguridad.</li>
+                <li><strong>Sitemap dinámico + estático:</strong> <code>sitemap.xml</code> se sirve como archivo estático para Googlebot, con fallback dinámico desde el Worker.</li>
+                <li><strong>URLs limpias:</strong> <code>/changelog</code> en vez de <code>/changelog.html</code>. El Worker reescribe internamente sin redirecciones HTTP.</li>
+                <li><strong>Headers de seguridad:</strong> <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code> en todos los assets.</li>
+                <li><strong>Cache-Control inteligente:</strong> 1 año para CSS/JS/imágenes, 5 min para HTML, 1h para sitemap.</li>
+                <li><strong>SEO completo:</strong> Open Graph, Twitter Card, JSON-LD (SoftwareApplication + FAQPage + BreadcrumbList), hreflang, canonical, sitemap, robots.txt.</li>
+                <li><strong>Google Search Console:</strong> Archivo de verificación, sitemap enviado, solicitud de indexación.</li>
+            </ul>
+            <p><strong>🐛 Fix crítico: Límite de 8191 caracteres en Windows:</strong></p>
+            <ul>
+                <li><strong>Classpath vía Manifest JAR:</strong> Cuando el classpath supera los 3500 caracteres, el launcher genera un JAR temporal con <code>Class-Path</code> en el manifiesto. Esto evita el error <em>"La línea de comandos es demasiado larga"</em> al iniciar Minecraft con Forge en Windows.</li>
+                <li><strong>Fix confirmado:</strong> Forge 1.12.2 con 54 librerías ahora inicia correctamente en Windows.</li>
+            </ul>
+            <p><strong>🔧 Corrección de errores del launcher:</strong></p>
+            <ul>
+                <li><strong>Fabric no soporta 1.12.2:</strong> Añadida validación <code>isFabricSupported()</code>. Si el usuario intenta instalar Fabric en versiones anteriores a 1.14, muestra un mensaje claro: "Fabric no soporta Minecraft X.X.X. Usa Forge para versiones antiguas."</li>
+                <li><strong>Bug report via Cloudflare Worker:</strong> El formulario de reporte de bugs ahora funciona en Cloudflare Workers (no más 404). Necesita <code>GITHUB_TOKEN</code> configurado como secreto.</li>
+                <li><strong>Versión duplicada corregida:</strong> Ya no muestra <code>vv1.5.9</code> en la web. El regex ahora limpia correctamente los prefijos <code>bat-</code> y <code>v</code>.</li>
+                <li><strong>GitHub API sin rate limit:</strong> El Worker cachea la respuesta de GitHub API. El navegador ya no llama directamente a la API, evitando el límite de 60 req/hora.</li>
+            </ul>
+            <p><strong>📄 Mejoras en la web:</strong></p>
+            <ul>
+                <li><strong>Favicon añadido:</strong> El logo del launcher ahora aparece en la pestaña del navegador.</li>
+                <li><strong>Botón de reseñas con estilo MeaCore:</strong> Ahora usa el azul corporativo <code>#0E639C</code>.</li>
+                <li><strong>Reseñas auto-aprobadas:</strong> Ya no requieren moderación manual. Se envían con <code>approved: true</code>.</li>
+                <li><strong>Supabase configurable:</strong> El Worker expone un endpoint <code>/api/config</code> para que el frontend obtenga las credenciales de Supabase.</li>
+            </ul>
+            <p><strong>🧹 Limpieza y licencia:</strong></p>
+            <ul>
+                <li><strong>Nueva licencia:</strong> MIT con restricción de uso no comercial. Código abierto, contribuciones bienvenidas.</li>
+                <li><strong>CONTRIBUTING.md:</strong> Guía para contribuir con PRs (en español).</li>
+                <li><strong>CODE_OF_CONDUCT.md:</strong> Código de conducta Contributor Covenant v2.1.</li>
+                <li><strong>Issue + PR templates:</strong> Plantillas para reportar bugs y enviar pull requests.</li>
+            </ul>
+        </div>
+
         <!-- v1.5.9 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.5.9 - Auditoría Completa de Código 🔧 (Actual)</h3>
+                <h3 style="color: #888888;">v1.5.9 - Auditoría Completa de Código 🔧</h3>
                 <span class="version-date">12 de Mayo, 2026</span>
             </div>
             <p><strong>🔄 Auto-Update completamente reconstruido:</strong></p>

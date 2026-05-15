@@ -66,6 +66,23 @@ public final class ModloaderVersionService {
     }
 
     /**
+     * Verifica si Fabric Loader soporta la versi\u00f3n de Minecraft dada.
+     * Fabric solo funciona desde Minecraft 1.14 en adelante.
+     */
+    public static boolean isFabricSupported(String mcVersion) {
+        if (mcVersion == null || mcVersion.isBlank()) return false;
+        try {
+            String clean = mcVersion.split("-")[0];
+            String[] parts = clean.split("\\.");
+            int major = Integer.parseInt(parts[0]);
+            int minor = Integer.parseInt(parts[1]);
+            return major >= 2 || (major == 1 && minor >= 14);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
      * Lista todas las versiones de NeoForge para la MC version dada.
      * MC "1.21.1" → busca versiones que empiecen con "21.1.", más reciente primero.
      */
