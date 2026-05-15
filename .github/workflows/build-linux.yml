@@ -110,26 +110,9 @@ jobs:
           name: MeaCoreLauncher-Linux
           path: build/dist/*.deb
 
-      - name: Delete existing release assets
+      - name: Create or Update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          # Obtener ID del release
-          RELEASE_ID=$(gh release view "$TAG" --json id -q '.id' 2>/dev/null || echo "")
-          if [ -n "$RELEASE_ID" ]; then
-            echo "Eliminando assets existentes del release $TAG..."
-            # Listar y eliminar assets .deb existentes
-            gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null | grep '\.deb$' | while read -r asset; do
-              echo "Eliminando: $asset"
-              gh release delete-asset "$TAG" "$asset" --yes 2>/dev/null || true
-            done
-          fi
-
-      - name: GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: build/dist/*.deb
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+          gh release create "${{ github.ref_name }}" build/dist/*.deb --generate-notes --title "MeaCore Launcher ${{ github.ref_name }}" || \
+          gh release upload "${{ github.ref_name }}" build/dist/*.deb --clobber

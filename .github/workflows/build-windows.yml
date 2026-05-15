@@ -151,32 +151,16 @@ jobs:
           name: MeaCoreLauncher-Windows
           path: build/dist/*.exe
 
-      - name: Delete existing release assets
+      - name: Create or Update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          Write-Host "Buscando release existente para el tag: $tag"
-          # Ignorar errores de gh CLI cuando no existe el release
-          $ErrorActionPreference = 'SilentlyContinue'
-          $releaseId = gh release view $tag --json id -q '.id' 2>$null
-          $ErrorActionPreference = 'Stop'
-          if ($LASTEXITCODE -eq 0 -and $releaseId) {
-            Write-Host "Release encontrado. Limpiando assets .exe antiguos..."
-            $assets = gh release view $tag --json assets -q '.assets[].name' | Select-String '\.exe$'
-            foreach ($asset in $assets) {
-              Write-Host "Eliminando asset: $asset"
-              gh release delete-asset $tag $asset --yes
-            }
-          } else {
-            Write-Host "No existe un release previo para el tag $tag. Saltando limpieza."
-          }
+          $files = "build/dist/meacore-launcher-$env:VERSION.exe"
 
-      - name: GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: build/dist/*.exe
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+          # Crear release si no existe, o subir assets si ya existe
+          gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release upload $tag $files --clobber
+          }
