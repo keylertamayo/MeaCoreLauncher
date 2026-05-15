@@ -1,0 +1,64 @@
+name: Reportar error
+description: Reporta un error del launcher
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar. Antes de enviar, verifica que no exista un
+        [issue similar](https://github.com/MeaCore-Enterprise/MeaCoreLauncher/issues).
+
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: ¿Qué ocurrió? ¿Qué esperabas que pasara?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión del launcher
+      description: Aparece en la esquina inferior izquierda del launcher
+      placeholder: "ej: v1.5.9"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operativo
+      options:
+        - Windows 10/11
+        - Ubuntu / Debian
+        - Fedora
+        - Otro Linux
+    validations:
+      required: true
+
+  - type: input
+    id: mc_version
+    attributes:
+      label: Versión de Minecraft
+      description: ¿Qué versión de Minecraft intentabas ejecutar?
+      placeholder: "ej: 1.21.4"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log del launcher
+      description: Copia el contenido de la pestaña "Consola" del launcher
+      render: text
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. Abrir el launcher
+        2. Seleccionar versión X
+        3. Hacer clic en Jugar
+        4. ...
+    validations:
+      required: true
