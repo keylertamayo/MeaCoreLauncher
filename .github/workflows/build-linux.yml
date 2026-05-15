@@ -1,5 +1,8 @@
 name: Release Linux Installer
 
+concurrency:
+  group: release-${{ github.ref_name }}
+
 on:
   push:
     tags:
@@ -110,9 +113,21 @@ jobs:
           name: MeaCoreLauncher-Linux
           path: build/dist/*.deb
 
-      - name: Create or Update Release
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
         run: |
-          gh release create "${{ github.ref_name }}" build/dist/*.deb --generate-notes --title "MeaCore Launcher ${{ github.ref_name }}" || \
-          gh release upload "${{ github.ref_name }}" build/dist/*.deb --clobber
+          $tag = "${{ github.ref_name }}"
+          $files = "build/dist/*.deb"
+
+          # Esperar a que Windows cree el release, luego subir .deb
+          Start-Sleep 30
+          gh release upload $tag $files --clobber 2>$null
+
+          # Si aún no existe el release, crearlo (fallback)
+          if ($LASTEXITCODE -ne 0) {
+            gh release delete $tag --yes 2>$null
+            Start-Sleep 3
+            gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag"
+          }

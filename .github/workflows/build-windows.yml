@@ -1,5 +1,8 @@
 name: Release Windows Installer
 
+concurrency:
+  group: release-${{ github.ref_name }}
+
 on:
   push:
     tags:
@@ -151,7 +154,7 @@ jobs:
           name: MeaCoreLauncher-Windows
           path: build/dist/*.exe
 
-      - name: Create or Update Release
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -159,8 +162,9 @@ jobs:
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
           $files = "build/dist/meacore-launcher-$env:VERSION.exe"
 
-          # Crear release si no existe, o subir assets si ya existe
-          gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag" 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release upload $tag $files --clobber
-          }
+          # Eliminar release previo para evitar immutable error
+          gh release delete $tag --yes 2>$null
+          Start-Sleep 3
+
+          # Crear release fresco con assets
+          gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag"
