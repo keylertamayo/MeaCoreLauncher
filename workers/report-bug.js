@@ -187,6 +187,16 @@ export default {
     }
 
     // ── Assets estáticos con headers de seguridad ─────────────────
+    // Rewrite / to serve index.html internally (html_handling:none disables auto-mapping)
+    if (url.pathname === "/") {
+      const internalReq = new Request("https://dummy/index.html", request);
+      const assetRes = await env.ASSETS.fetch(internalReq);
+      if (assetRes.status === 404) {
+        return new Response("Página no encontrada", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
+      return addSecurityHeaders(assetRes, "/");
+    }
+
     // Rewrite /changelog internally to serve changelog.html
     // (no HTTP redirect, no loop, clean URL in browser)
     if (url.pathname === "/changelog") {
