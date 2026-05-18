@@ -162,9 +162,9 @@ jobs:
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
           $files = "build/dist/meacore-launcher-$env:VERSION.exe"
 
-          # Eliminar release previo para evitar immutable error
+          # Eliminar release previo (borra draft o publicado) para evitar immutable error
           gh release delete $tag --yes 2>$null
           Start-Sleep 3
 
-          # Crear release fresco con assets
-          gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag"
+          # Crear release en estado DRAFT fresco con assets
+          gh release create $tag $files --draft --generate-notes --title "MeaCore Launcher $tag"

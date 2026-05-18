@@ -121,12 +121,34 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $files = "build/dist/*.deb"
 
-          # Esperar a que Windows cree el release, luego subir .deb
-          Start-Sleep 30
-          gh release upload $tag $files --clobber 2>$null
+          # Esperar a que el release sea creado por Windows (como draft)
+          Write-Host "Esperando a que el job de Windows cree el release draft para $tag..."
+          $attempts = 0
+          $found = $false
+          while ($attempts -lt 15) {
+            $ErrorActionPreference = 'SilentlyContinue'
+            $releaseId = gh release view $tag --json id -q '.id' 2>$null
+            $ErrorActionPreference = 'Stop'
+            if ($LASTEXITCODE -eq 0 -and $releaseId) {
+              Write-Host "¡Release draft encontrado!"
+              $found = $true
+              break
+            }
+            Start-Sleep 10
+            $attempts++
+          }
 
-          # Si aún no existe el release, crearlo (fallback)
-          if ($LASTEXITCODE -ne 0) {
+          if ($found) {
+            # Subir el asset .deb al release draft
+            Write-Host "Subiendo asset Linux al release draft..."
+            gh release upload $tag $files --clobber
+            
+            # Publicar el release draft
+            Write-Host "Publicando el release final..."
+            gh release edit $tag --draft=false
+          } else {
+            # Fallback: si Windows no lo creó en 150 segundos, lo creamos directamente
+            Write-Host "No se encontró el release de Windows. Creándolo de forma directa..."
             gh release delete $tag --yes 2>$null
             Start-Sleep 3
             gh release create $tag $files --generate-notes --title "MeaCore Launcher $tag"
