@@ -81,37 +81,58 @@ public final class GameFilesInstaller {
         }
         progress.log("✓ Librerías completadas (" + libraries.size() + " procesadas)");
 
-        progress.log("⬇ Descargando índice de assets…");
         JsonNode assetIndex = merged.get("assetIndex");
         Path indexesDir = assetsDir.resolve("indexes");
         Files.createDirectories(indexesDir);
         Path indexFile = indexesDir.resolve(assetIndex.get("id").asText() + ".json");
-        HttpFiles.downloadIfHashMismatch(
-                assetIndex.get("url").asText(), indexFile, assetIndex.get("sha1").asText());
-        progress.log("✓ Índice descargado");
+        Path cleanMarker = indexesDir.resolve(assetIndex.get("id").asText() + ".json.cleaned");
+
+        if (!Files.exists(cleanMarker)) {
+            progress.log("⬇ Descargando índice de assets…");
+            HttpFiles.downloadIfHashMismatch(
+                    assetIndex.get("url").asText(), indexFile, assetIndex.get("sha1").asText());
+            progress.log("✓ Índice descargado");
+
+            JsonNode indexJsonNode = M.readTree(Files.readAllBytes(indexFile));
+            JsonNode objectsNode = indexJsonNode.get("objects");
+
+            if (objectsNode instanceof com.fasterxml.jackson.databind.node.ObjectNode objNode) {
+                List<String> toRemove = new ArrayList<>();
+                objNode.fieldNames().forEachRemaining(key -> {
+                    if (key.contains("/lang/") || key.startsWith("minecraft/lang/") || key.startsWith("realms/lang/")) {
+                        // Deep Clean MeaCore: solo en_us (fallback obligatorio) +
+                        // variantes español latinoamérica/españa solicitadas.
+                        boolean keep = key.contains("/en_us")   // Inglés (fallback Minecraft)
+                                   || key.contains("/es_ar")    // Español argentino
+                                   || key.contains("/es_cl")    // Español chileno
+                                   || key.contains("/es_es")    // Español (España)
+                                   || key.contains("/es_mx")    // Español mexicano
+                                   || key.contains("/es_uy")    // Español uruguayo
+                                   || key.contains("/es_ve");   // Español venezolano
+                        if (!keep) toRemove.add(key);
+                    }
+                });
+                toRemove.forEach(objNode::remove);
+                if (!toRemove.isEmpty()) {
+                    progress.log("🧹 Deep Clean: Ocultados " + toRemove.size() + " idiomas");
+                    try {
+                        Files.writeString(indexFile, M.writeValueAsString(indexJsonNode));
+                        Files.writeString(cleanMarker, "cleaned");
+                    } catch (Exception e) {
+                        progress.log("[WARN] No se pudo guardar el índice de assets filtrado: " + e.getMessage());
+                    }
+                } else {
+                    try {
+                        Files.writeString(cleanMarker, "cleaned");
+                    } catch (Exception ignored) {}
+                }
+            }
+        } else {
+            progress.log("✓ Índice de assets ya presente y optimizado");
+        }
 
         JsonNode indexJson = M.readTree(Files.readAllBytes(indexFile));
         JsonNode objects = indexJson.get("objects");
-
-        if (objects instanceof com.fasterxml.jackson.databind.node.ObjectNode objNode) {
-            List<String> toRemove = new ArrayList<>();
-            objNode.fieldNames().forEachRemaining(key -> {
-                if (key.startsWith("minecraft/lang/")) {
-                    // Deep Clean MeaCore: solo en_us (fallback obligatorio) +
-                    // variantes español latinoamérica/españa solicitadas.
-                    boolean keep = key.contains("/en_us")   // Inglés (fallback Minecraft)
-                               || key.contains("/es_ar")    // Español argentino
-                               || key.contains("/es_cl")    // Español chileno
-                               || key.contains("/es_es")    // Español (España)
-                               || key.contains("/es_mx")    // Español mexicano
-                               || key.contains("/es_uy")    // Español uruguayo
-                               || key.contains("/es_ve");   // Español venezolano
-                    if (!keep) toRemove.add(key);
-                }
-            });
-            toRemove.forEach(objNode::remove);
-            if (!toRemove.isEmpty()) progress.log("🧹 Deep Clean: Ocultados " + toRemove.size() + " idiomas");
-        }
 
         int total = objects.size();
         AtomicInteger done = new AtomicInteger();

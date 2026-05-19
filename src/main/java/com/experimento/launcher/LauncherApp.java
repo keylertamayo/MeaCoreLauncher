@@ -113,7 +113,7 @@ public class LauncherApp extends Application {
     private Button installSpecificVersionBtn;
 
     // Gestor de mods instalados
-    private javafx.scene.control.ListView<com.experimento.launcher.service.InstalledModsService.InstalledMod> modListView;
+    private javafx.scene.control.ListView<com.experimento.launcher.service.InstalledModsService.InstalledMod> storeModListView;
 
     // Nuevo Header Dinámico
     private Label headerProfileName;
@@ -539,19 +539,34 @@ public class LauncherApp extends Application {
         VBox perfCard = new VBox(10, perfTitle, perfDesc, perfModsBtn);
         perfCard.getStyleClass().add("mc-card");
 
-        // ── Card: Mis Mods Instalados ─────────────────────────────────────────
-        Label modsTitle = new Label("🧩 Mis Mods");
-        modsTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
-        Label modsDesc = new Label("Mods instalados en la instancia activa. Haz clic derecho para eliminar.");
-        modsDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px;");
+        // ── Layout final ──────────────────────────────────────────────────────
+        VBox modding = new VBox(20, loaderCard, perfCard);
+        modding.setAlignment(Pos.TOP_LEFT);
+        modding.setPadding(new Insets(0, 10, 10, 0));
 
-        modListView = new javafx.scene.control.ListView<>();
-        modListView.setPrefHeight(220);
-        modListView.setPlaceholder(new Label("📭 No hay mods instalados en esta instancia"));
+        ScrollPane scroll = new ScrollPane(modding);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
 
-        // Cell factory: [●toggle] [nombre] [tamaño]
-        modListView.setCellFactory(lv -> new javafx.scene.control.ListCell<
-                com.experimento.launcher.service.InstalledModsService.InstalledMod>() {
+        VBox wrapper = new VBox(scroll);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+        return wrapper;
+    }
+
+    /** Refresca la lista de mods del perfil activo. */
+    private void refreshModList() {
+        if (storeModListView == null) return;
+        if (selected == null) {
+            storeModListView.getItems().clear();
+            return;
+        }
+        Path modsDir = facade.gameDirFor(selected).resolve("mods");
+        var mods = com.experimento.launcher.service.InstalledModsService.scanMods(modsDir);
+        storeModListView.getItems().setAll(mods);
+    }
+
+    private void configureModListView(javafx.scene.control.ListView<com.experimento.launcher.service.InstalledModsService.InstalledMod> listView) {
+        listView.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
             @Override
             protected void updateItem(
                     com.experimento.launcher.service.InstalledModsService.InstalledMod item,
@@ -565,7 +580,6 @@ public class LauncherApp extends Application {
                     HBox row = new HBox(10);
                     row.setAlignment(Pos.CENTER_LEFT);
 
-                    // Botón toggle 🟢/🔴
                     Button toggle = new Button(item.enabled() ? "🟢" : "🔴");
                     toggle.setStyle("-fx-background-color: transparent; -fx-font-size: 14px; -fx-padding: 0 4; -fx-cursor: hand;");
                     toggle.setOnAction(ev -> {
@@ -583,13 +597,10 @@ public class LauncherApp extends Application {
                         });
                     });
 
-                    // Nombre del mod
                     Label nameLbl = new Label(item.cleanName());
                     nameLbl.setMaxWidth(Double.MAX_VALUE);
                     if (!item.enabled()) {
-                        nameLbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px; " +
-                                "-fx-underline: false;");
-                        // JavaFX no soporta strikethrough en Label directamente, usamos opacidad
+                        nameLbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
                         nameLbl.setOpacity(0.45);
                     } else {
                         nameLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 12px;");
@@ -605,12 +616,11 @@ public class LauncherApp extends Application {
             }
         });
 
-        // Menú contextual clic derecho: Eliminar
         javafx.scene.control.ContextMenu ctxMenu = new javafx.scene.control.ContextMenu();
         javafx.scene.control.MenuItem deleteItem = new javafx.scene.control.MenuItem("🗑  Eliminar mod seleccionado");
         deleteItem.setStyle("-fx-text-fill: #f44336;");
         deleteItem.setOnAction(e -> {
-            var sel = modListView.getSelectionModel().getSelectedItem();
+            var sel = listView.getSelectionModel().getSelectedItem();
             if (sel == null) return;
             workers.submit(() -> {
                 try {
@@ -625,63 +635,7 @@ public class LauncherApp extends Application {
             });
         });
         ctxMenu.getItems().add(deleteItem);
-        modListView.setContextMenu(ctxMenu);
-
-        // Barra de herramientas del mod manager
-        Button refreshModsBtn = new Button("🔄 Actualizar");
-        refreshModsBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 14;");
-        refreshModsBtn.setOnAction(e -> refreshModList());
-
-        Button openFolderBtn = new Button("📂 Abrir Carpeta de Mods");
-        openFolderBtn.setStyle("-fx-font-size: 12px; -fx-padding: 6 14; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
-        openFolderBtn.setOnAction(e -> {
-            if (selected == null) return;
-            Path modsDir = facade.gameDirFor(selected).resolve("mods");
-            try {
-                java.nio.file.Files.createDirectories(modsDir);
-                if (java.awt.Desktop.isDesktopSupported()) {
-                    java.awt.Desktop.getDesktop().open(modsDir.toFile());
-                } else {
-                    String os = System.getProperty("os.name", "").toLowerCase();
-                    if (os.contains("nix") || os.contains("nux")) {
-                        Runtime.getRuntime().exec(new String[]{"xdg-open", modsDir.toString()});
-                    }
-                }
-            } catch (Exception ex) {
-                log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());
-            }
-        });
-
-        HBox modToolbar = new HBox(8, refreshModsBtn, openFolderBtn);
-        modToolbar.setAlignment(Pos.CENTER_LEFT);
-
-        VBox myModsCard = new VBox(10, modsTitle, modsDesc, modToolbar, modListView);
-        myModsCard.getStyleClass().add("mc-card");
-
-        // ── Layout final ──────────────────────────────────────────────────────
-        VBox modding = new VBox(20, myModsCard, loaderCard, perfCard);
-        modding.setAlignment(Pos.TOP_LEFT);
-        modding.setPadding(new Insets(0, 10, 10, 0));
-
-        ScrollPane scroll = new ScrollPane(modding);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
-
-        VBox wrapper = new VBox(scroll);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
-        return wrapper;
-    }
-
-    /** Refresca la lista de mods del perfil activo. */
-    private void refreshModList() {
-        if (modListView == null) return;
-        if (selected == null) {
-            modListView.getItems().clear();
-            return;
-        }
-        Path modsDir = facade.gameDirFor(selected).resolve("mods");
-        var mods = com.experimento.launcher.service.InstalledModsService.scanMods(modsDir);
-        modListView.getItems().setAll(mods);
+        listView.setContextMenu(ctxMenu);
     }
 
     private void handleInstallPerformanceMods(Button btn) {
@@ -845,10 +799,66 @@ public class LauncherApp extends Application {
             });
         });
 
-        // Trigger initial load
-        Platform.runLater(performSearch);
+        // --- Sidebar: Mis Mods Instalados ---
+        Label myModsTitle = new Label("🧩 Mis Mods");
+        myModsTitle.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        
+        Label myModsDesc = new Label("Instancia activa. Clic derecho para borrar.");
+        myModsDesc.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11px;");
 
-        return new VBox(15, topBar, storeList, loadMoreBtn);
+        storeModListView = new javafx.scene.control.ListView<>();
+        storeModListView.setPrefHeight(300);
+        storeModListView.setPlaceholder(new Label("📭 Sin mods instalados"));
+        configureModListView(storeModListView);
+
+        Button sideRefreshBtn = new Button("🔄");
+        sideRefreshBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 8;");
+        sideRefreshBtn.setOnAction(e -> refreshModList());
+
+        Button sideOpenFolderBtn = new Button("📂 Abrir Carpeta");
+        sideOpenFolderBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 8; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
+        sideOpenFolderBtn.setOnAction(e -> {
+            if (selected == null) return;
+            Path modsDir = facade.gameDirFor(selected).resolve("mods");
+            try {
+                java.nio.file.Files.createDirectories(modsDir);
+                if (java.awt.Desktop.isDesktopSupported()) {
+                    java.awt.Desktop.getDesktop().open(modsDir.toFile());
+                } else {
+                    String os = System.getProperty("os.name", "").toLowerCase();
+                    if (os.contains("nix") || os.contains("nux")) {
+                        Runtime.getRuntime().exec(new String[]{"xdg-open", modsDir.toString()});
+                    }
+                }
+            } catch (Exception ex) {
+                log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());
+            }
+        });
+
+        HBox sideToolbar = new HBox(6, sideRefreshBtn, sideOpenFolderBtn);
+        sideToolbar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox rightSide = new VBox(10, myModsTitle, myModsDesc, sideToolbar, storeModListView);
+        rightSide.getStyleClass().add("mc-card");
+        rightSide.setPrefWidth(260);
+        rightSide.setMinWidth(260);
+        rightSide.setMaxWidth(260);
+        VBox.setVgrow(storeModListView, Priority.ALWAYS);
+
+        VBox leftSide = new VBox(15, storeList, loadMoreBtn);
+        HBox.setHgrow(leftSide, Priority.ALWAYS);
+        VBox.setVgrow(storeList, Priority.ALWAYS);
+
+        HBox body = new HBox(15, leftSide, rightSide);
+        VBox.setVgrow(body, Priority.ALWAYS);
+
+        // Trigger initial load
+        Platform.runLater(() -> {
+            performSearch.run();
+            refreshModList();
+        });
+
+        return new VBox(15, topBar, body);
     }
 
     private VBox createJavaView() {
@@ -1005,7 +1015,19 @@ public class LauncherApp extends Application {
         Button delSrv = new Button("➖ Quitar");
         delSrv.setOnAction(e -> removeSelectedServer());
 
-        return new VBox(5, serverTable, new HBox(8, addSrv, delSrv));
+        String localIp = LanFixService.getLocalIpAddress();
+        Label netInfo = new Label(
+            "══════════════ 🌐 INFO DE RED ══════════════\n" +
+            "[NETWORK] Tu IP Local: " + localIp + "\n" +
+            "[NETWORK] LAN: Para que tus amigos se conecten, abre el mundo → 'Abrir a la LAN'.\n" +
+            "[NETWORK]      Ellos deben usar 'Conexión Directa' → " + localIp + ":[PUERTO_QUE_MUESTRA_EL_JUEGO]\n" +
+            "[NETWORK] Aternos: Asegúrate de que tu servidor tenga el modo 'Cracked' activado\n" +
+            "[NETWORK]         (Panel Aternos → Options → Cracked = ON)\n" +
+            "════════════════════════════════════════════"
+        );
+        netInfo.setStyle("-fx-font-family: 'Consolas', 'monospace'; -fx-text-fill: #00d2ff; -fx-padding: 10 0 0 0; -fx-font-size: 11px;");
+
+        return new VBox(5, serverTable, new HBox(8, addSrv, delSrv), netInfo);
     }
 
     private VBox createHintSection() {
@@ -1397,41 +1419,6 @@ public class LauncherApp extends Application {
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> log("[CRITICAL] Falló la instalación de " + choice + " " + specificVersion + ": " + ex.getMessage()));
-            }
-        });
-    }
-
-    /** Lógica de instalación del modloader — delega al método específico con la última versión. */
-    private void executeInstallModloader(String choice) {
-        if (selected == null) return;
-        String mcVersion = selected.lastVersionId;
-        Path baseDir = facade.directories().launcherData();
-        log("Iniciando instalación automática de " + choice + " para Minecraft " + mcVersion + "...");
-        showView("Log");
-        workers.submit(() -> {
-            try {
-                var runtime = facade.runtime();
-                if ("Forge".equals(choice)) {
-                    ModloaderInstallerService.installForge(mcVersion, baseDir,
-                        msg -> Platform.runLater(() -> log(msg)), runtime);
-                } else if ("NeoForge".equals(choice)) {
-                    ModloaderInstallerService.installNeoForge(mcVersion, baseDir,
-                        msg -> Platform.runLater(() -> log(msg)), runtime);
-                } else if ("Fabric".equals(choice)) {
-                    ModloaderInstallerService.installFabric(mcVersion, baseDir,
-                        msg -> Platform.runLater(() -> log(msg)), runtime);
-                }
-                Platform.runLater(() -> {
-                    log("✅ ¡" + choice + " instalado! Actualizando lista de versiones...");
-                    if (selected != null) {
-                        selected.modLoader = choice.toLowerCase();
-                        saveProfiles();
-                        log("[Perfil] Modloader guardado como '" + choice.toLowerCase() + "' en el perfil.");
-                    }
-                    loadVersionManifestAsync();
-                });
-            } catch (Exception ex) {
-                Platform.runLater(() -> log("[CRITICAL] Falló la instalación de " + choice + ": " + ex.getMessage()));
             }
         });
     }
@@ -1965,7 +1952,7 @@ public class LauncherApp extends Application {
         return new javafx.concurrent.Task<>() {
             @Override
             protected Void call() throws Exception {
-                updateJavaDownloadStatus("Iniciando descarga de Java " + version + "...", 0);
+                Platform.runLater(() -> updateJavaDownloadStatus("Iniciando descarga de Java " + version + "...", 0));
 
                 Path path = facade.runtime().downloadJavaSync(version, p -> {
                     Platform.runLater(() -> updateJavaDownloadStatus(null, p));

@@ -105,6 +105,100 @@ public final class LauncherFacade {
         AutoOptimizerService.applyOptionsTxt(gameDir, p, ramMiB);
         ServersDatService.writeServers(gameDir, p.servers);
         cleanLanguageInterface(gameDir, log);
+
+        // Dynamic Language Index Filter on Launch!
+        try {
+            String versionId = p.lastVersionId;
+            if (versionId != null) {
+                Path versionJson = dirs.versionsDir().resolve(versionId).resolve("version.json");
+                if (Files.exists(versionJson)) {
+                    JsonNode merged = mapper.readTree(Files.readAllBytes(versionJson));
+                    JsonNode assetIndex = merged.get("assetIndex");
+                    if (assetIndex != null && assetIndex.has("id")) {
+                        String indexId = assetIndex.get("id").asText();
+                        Path indexFile = dirs.assetsDir().resolve("indexes").resolve(indexId + ".json");
+                        if (Files.exists(indexFile)) {
+                            JsonNode indexJson = mapper.readTree(Files.readAllBytes(indexFile));
+                            JsonNode objects = indexJson.get("objects");
+                            if (objects instanceof com.fasterxml.jackson.databind.node.ObjectNode objNode) {
+                                boolean indexModified = false;
+                                java.util.List<String> toRemove = new java.util.ArrayList<>();
+                                objNode.fieldNames().forEachRemaining(key -> {
+                                    if (key.contains("/lang/") || key.startsWith("minecraft/lang/") || key.startsWith("realms/lang/")) {
+                                        boolean keep = key.contains("/en_us")
+                                                   || key.contains("/es_ar")
+                                                   || key.contains("/es_cl")
+                                                   || key.contains("/es_es")
+                                                   || key.contains("/es_mx")
+                                                   || key.contains("/es_uy")
+                                                   || key.contains("/es_ve");
+                                        if (!keep) toRemove.add(key);
+                                    }
+                                });
+                                if (!toRemove.isEmpty()) {
+                                    toRemove.forEach(objNode::remove);
+                                    indexModified = true;
+                                }
+
+                                // Filter pack.mcmeta inside objects
+                                JsonNode packMcMetaNode = objNode.get("pack.mcmeta");
+                                if (packMcMetaNode != null && packMcMetaNode.has("hash")) {
+                                    String origHash = packMcMetaNode.get("hash").asText();
+                                    String prefix = origHash.substring(0, 2);
+                                    Path origFile = dirs.assetsDir().resolve("objects").resolve(prefix).resolve(origHash);
+                                    if (Files.exists(origFile)) {
+                                        JsonNode origMetaJson = mapper.readTree(Files.readAllBytes(origFile));
+                                        JsonNode languageNode = origMetaJson.get("language");
+                                        if (languageNode instanceof com.fasterxml.jackson.databind.node.ObjectNode langNode) {
+                                            java.util.List<String> langKeys = new java.util.ArrayList<>();
+                                            langNode.fieldNames().forEachRemaining(langKeys::add);
+                                            boolean packModified = false;
+                                            for (String langKey : langKeys) {
+                                                boolean keep = langKey.equals("en_us")
+                                                           || langKey.equals("es_ar")
+                                                           || langKey.equals("es_cl")
+                                                           || langKey.equals("es_es")
+                                                           || langKey.equals("es_mx")
+                                                           || langKey.equals("es_uy")
+                                                           || langKey.equals("es_ve");
+                                                if (!keep) {
+                                                    langNode.remove(langKey);
+                                                    packModified = true;
+                                                }
+                                            }
+                                            if (packModified) {
+                                                byte[] filteredBytes = mapper.writeValueAsBytes(origMetaJson);
+                                                String newHash = com.experimento.launcher.util.Hashing.sha1Hex(
+                                                    new java.io.ByteArrayInputStream(filteredBytes)
+                                                );
+                                                Path newFile = dirs.assetsDir().resolve("objects").resolve(newHash.substring(0, 2)).resolve(newHash);
+                                                if (!Files.exists(newFile)) {
+                                                    Files.createDirectories(newFile.getParent());
+                                                    Files.write(newFile, filteredBytes);
+                                                }
+                                                if (packMcMetaNode instanceof com.fasterxml.jackson.databind.node.ObjectNode pmNode) {
+                                                    pmNode.put("hash", newHash);
+                                                    pmNode.put("size", filteredBytes.length);
+                                                    indexModified = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (indexModified) {
+                                    Files.writeString(indexFile, mapper.writeValueAsString(indexJson));
+                                    log.accept("[LAUNCHER] 🧹 Deep Clean: Ocultados idiomas de la lista de selección de forma automática");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] ⚠️ Error en filtro dinámico de idiomas: " + e.getMessage());
+        }
+
         log.accept("[LAUNCHER] Servidores sincronizados (" + (p.servers != null ? p.servers.size() : 0) + ")");
         log.accept("Instancia lista en: " + gameDir);
     }
@@ -313,15 +407,7 @@ public final class LauncherFacade {
         Path profileDir = gameDirFor(p);
         enforceVersionIsolation(profileDir, p.lastVersionId, log);
 
-        // Log de información de red para facilitar LAN y conexión a servidores
-        String localIp = LanFixService.getLocalIpAddress();
-        log.accept("══════════════ 🌐 INFO DE RED ══════════════");
-        log.accept("[NETWORK] Tu IP Local: " + localIp);
-        log.accept("[NETWORK] LAN: Para que tus amigos se conecten, abre el mundo → 'Abrir a la LAN'.");
-        log.accept("[NETWORK]      Ellos deben usar 'Conexión Directa' → " + localIp + ":[PUERTO_QUE_MUESTRA_EL_JUEGO]");
-        log.accept("[NETWORK] Aternos: Asegúrate de que tu servidor tenga el modo 'Cracked' activado");
-        log.accept("[NETWORK]         (Panel Aternos → Options → Cracked = ON)");
-        log.accept("════════════════════════════════════════════");
+
 
         // Alerta informativa sobre RAM total
         try {
@@ -480,7 +566,6 @@ public final class LauncherFacade {
     private void applyCpuAffinity(Process process, java.util.function.Consumer<String> log) {
         try {
             int physicalCores = HardwareProbe.physicalCores();
-            int logicalCores = HardwareProbe.availableProcessors();
             
             if (physicalCores <= 1) {
                 log.accept("[LAUNCHER] ℹ️ CPU Affinity: Solo 1 núcleo disponible");

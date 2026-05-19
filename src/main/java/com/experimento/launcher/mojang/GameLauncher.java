@@ -44,27 +44,31 @@ public final class GameLauncher {
         String cpSep = File.pathSeparator;
         String classpathStr =
                 classpath.stream().map(p -> p.toAbsolutePath().toString()).collect(Collectors.joining(cpSep));
+        int requiredJava = getRequiredJavaVersion(mergedVersion, versionId);
+        boolean useArgFile = os.isWindows() && requiredJava != 8 && classpathStr.length() > 3500;
 
-        // Windows workaround for command line length limit (8191 chars)
-        if (os.isWindows() && classpathStr.length() > 3500) {
-            try {
-                Path tmpDir = versionsDir.resolve("tmp");
-                Files.createDirectories(tmpDir);
-                Path cpJar = Files.createTempFile(tmpDir, "meacore-classpath-", ".jar");
-                cpJar.toFile().deleteOnExit();
-                java.util.jar.Manifest mf = new java.util.jar.Manifest();
-                mf.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
-                String cpEntries = classpath.stream()
-                        .map(p -> p.toAbsolutePath().toUri().toString())
-                        .collect(java.util.stream.Collectors.joining(" "));
-                mf.getMainAttributes().put(java.util.jar.Attributes.Name.CLASS_PATH, cpEntries);
-                try (java.util.jar.JarOutputStream jos = new java.util.jar.JarOutputStream(
-                        new java.io.BufferedOutputStream(Files.newOutputStream(cpJar)), mf)) {
-                    // empty jar with just the manifest
+        if (!useArgFile) {
+            // Windows workaround for command line length limit (8191 chars) - Legacy Java 8 manifest JAR fallback
+            if (os.isWindows() && classpathStr.length() > 3500) {
+                try {
+                    Path tmpDir = versionsDir.resolve("tmp");
+                    Files.createDirectories(tmpDir);
+                    Path cpJar = Files.createTempFile(tmpDir, "meacore-classpath-", ".jar");
+                    cpJar.toFile().deleteOnExit();
+                    java.util.jar.Manifest mf = new java.util.jar.Manifest();
+                    mf.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
+                    String cpEntries = classpath.stream()
+                            .map(p -> p.toAbsolutePath().toUri().toString())
+                            .collect(java.util.stream.Collectors.joining(" "));
+                    mf.getMainAttributes().put(java.util.jar.Attributes.Name.CLASS_PATH, cpEntries);
+                    try (java.util.jar.JarOutputStream jos = new java.util.jar.JarOutputStream(
+                            new java.io.BufferedOutputStream(Files.newOutputStream(cpJar)), mf)) {
+                        // empty jar with just the manifest
+                    }
+                    classpathStr = cpJar.toAbsolutePath().toString();
+                } catch (Exception e) {
+                    // fallback — if it fails, use the long classpath (will likely fail too)
                 }
-                classpathStr = cpJar.toAbsolutePath().toString();
-            } catch (Exception e) {
-                // fallback — if it fails, use the long classpath (will likely fail too)
             }
         }
 
@@ -135,6 +139,31 @@ public final class GameLauncher {
             String legacy = mergedVersion.get("minecraftArguments").asText();
             for (String part : splitMinecraftArguments(legacy)) {
                 game.add(substitute(part, vars));
+            }
+        }
+
+        if (useArgFile) {
+            try {
+                Path tmpDir = versionsDir.resolve("tmp");
+                Files.createDirectories(tmpDir);
+                Path argFile = Files.createTempFile(tmpDir, "meacore-jvm-", ".args");
+                argFile.toFile().deleteOnExit();
+
+                List<String> lines = new ArrayList<>();
+                // All JVM arguments are from index 1 to jvm.size() - 2 (mainClass is at jvm.size() - 1)
+                for (int i = 1; i < jvm.size() - 1; i++) {
+                    lines.add(formatArg(jvm.get(i)));
+                }
+                Files.write(argFile, lines, java.nio.charset.StandardCharsets.UTF_8);
+
+                String javaExe = jvm.get(0);
+                String gameMainClass = jvm.get(jvm.size() - 1);
+                jvm.clear();
+                jvm.add(javaExe);
+                jvm.add("@" + argFile.toAbsolutePath().toString().replace('\\', '/'));
+                jvm.add(gameMainClass);
+            } catch (Exception e) {
+                // fallback
             }
         }
 
@@ -249,5 +278,36 @@ public final class GameLauncher {
             parts.add(cur.toString());
         }
         return parts;
+    }
+
+    private static String formatArg(String arg) {
+        String clean = arg.replace('\\', '/');
+        if (clean.contains(" ") || clean.contains("\"")) {
+            return "\"" + clean.replace("\"", "\\\"") + "\"";
+        }
+        return clean;
+    }
+
+    private int getRequiredJavaVersion(JsonNode merged, String versionId) {
+        if (merged.has("javaVersion")) {
+            int major = merged.get("javaVersion").path("majorVersion").asInt(0);
+            if (major > 0) return major;
+        }
+        String mainClass = merged.path("mainClass").asText("").toLowerCase();
+        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || versionId.contains("1.12.2")) {
+            return 8;
+        }
+        if (versionId.matches("1\\.20\\.[5-9].*") || versionId.matches("1\\.2[1-9]\\..*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d+\\..*")) {
+            return 21;
+        }
+        if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {
+            return 21;
+        }
+        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19")
+                || versionId.contains("1.20.1") || versionId.contains("1.20.2")
+                || versionId.contains("1.20.3") || versionId.contains("1.20.4")) {
+            return 17;
+        }
+        return 0;
     }
 }

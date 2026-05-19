@@ -68,7 +68,6 @@ public class ModrinthStoreClient {
                 JsonNode hits = root.path("hits");
                 for (JsonNode hit : hits) {
                     JsonNode versions = hit.path("versions");
-                    JsonNode mcVersions = hit.path("display_categories");
 
                     results.add(new StoreItem(
                             hit.path("project_id").asText(),
