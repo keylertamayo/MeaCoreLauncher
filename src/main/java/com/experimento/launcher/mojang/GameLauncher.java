@@ -1,6 +1,7 @@
 package com.experimento.launcher.mojang;
 
 import com.experimento.launcher.LauncherMetadata;
+import com.experimento.launcher.util.VersionComparator;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import java.nio.file.Files;
@@ -9,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class GameLauncher {
@@ -82,10 +84,10 @@ public final class GameLauncher {
         vars.put("assets_root", assetsDir.toAbsolutePath().toString());
         vars.put("assets_index_name", assetIndexName);
         vars.put("auth_uuid", uuidString.replace("-", ""));
-        vars.put("auth_access_token", "0");
-        vars.put("clientid", "");
-        vars.put("auth_xuid", "");
-        vars.put("user_type", "legacy");
+        vars.put("auth_access_token", UUID.randomUUID().toString().replace("-", ""));
+        vars.put("clientid", "0");
+        vars.put("auth_xuid", "0");
+        vars.put("user_type", "mojang");
         vars.put("version_type", mergedVersion.path("type").asText("release"));
         vars.put("natives_directory", nativesDir.toAbsolutePath().toString());
         vars.put("launcher_name", LauncherMetadata.TECHNICAL_ID);
@@ -294,20 +296,38 @@ public final class GameLauncher {
             if (major > 0) return major;
         }
         String mainClass = merged.path("mainClass").asText("").toLowerCase();
-        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || versionId.contains("1.12.2")) {
+        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") ||
+            VersionComparator.isVersionAtLeast(versionId, 1, 12, 2) &&
+            !VersionComparator.isVersionAtLeast(versionId, 1, 13, 0)) {
             return 8;
         }
-        if (versionId.matches("1\\.20\\.[5-9].*") || versionId.matches("1\\.2[1-9]\\..*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d+\\..*")) {
+        // 1.20.5+ requiere Java 21
+        if (VersionComparator.isVersionAtLeast(versionId, 1, 20, 5)) {
             return 21;
         }
-        if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {
-            return 21;
-        }
-        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19")
-                || versionId.contains("1.20.1") || versionId.contains("1.20.2")
-                || versionId.contains("1.20.3") || versionId.contains("1.20.4")) {
+        // 1.17-1.20.4 requiere Java 17
+        if (VersionComparator.isVersionAtLeast(versionId, 1, 17, 0) &&
+            !VersionComparator.isVersionAtLeast(versionId, 1, 20, 5)) {
             return 17;
         }
         return 0;
+    }
+
+    private static String determineUserType(JsonNode mergedVersion, String versionId) {
+        String id1 = versionId != null ? versionId.toLowerCase() : "";
+        String id2 = (mergedVersion != null && mergedVersion.has("id")) 
+                ? mergedVersion.get("id").asText().toLowerCase() 
+                : "";
+                
+        boolean isAtLeast116 = id1.matches(".*1\\.1[6-9].*")
+                || id1.matches(".*1\\.2\\d.*")
+                || id1.matches(".*1\\.[3-9]\\d.*")
+                || id1.matches(".*[2-9]\\d+.*")
+                || id2.matches(".*1\\.1[6-9].*")
+                || id2.matches(".*1\\.2\\d.*")
+                || id2.matches(".*1\\.[3-9]\\d.*")
+                || id2.matches(".*[2-9]\\d+.*");
+                
+        return isAtLeast116 ? "msa" : "legacy";
     }
 }

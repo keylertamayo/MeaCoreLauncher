@@ -1,4 +1,6 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "github-actions.workflows.pinned.workflows": []
+    "github-actions.workflows.pinned.workflows": [],
+    "search.useGlobalIgnoreFiles": true,
+    "search.useParentIgnoreFiles": true
 }

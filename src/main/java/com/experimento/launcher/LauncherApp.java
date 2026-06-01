@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import com.experimento.launcher.modloaders.ModloaderInstallerService;
 import com.experimento.launcher.util.OfflineUuid;
+import com.experimento.launcher.util.VersionComparator;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -1126,9 +1127,31 @@ public class LauncherApp extends Application {
 
     private void createNewProfile() {
         LauncherProfile p = LauncherProfile.createDefault();
-        profiles.add(p);
+        
+        // Generar un nombre de visualización único y no conflictivo
+        int counter = 1;
+        String baseName = "Nuevo Perfil";
+        String candidate = baseName;
+        boolean conflict = true;
+        while (conflict) {
+            conflict = false;
+            for (LauncherProfile existing : profiles) {
+                if (existing.displayName.equalsIgnoreCase(candidate)) {
+                    conflict = true;
+                    break;
+                }
+            }
+            if (conflict) {
+                candidate = baseName + " " + counter;
+                counter++;
+            }
+        }
+        p.displayName = candidate;
+        p.instanceId = sanitizeFolderName(candidate);
+
+        // Añadir a la lista observable de la vista (esto modifica automáticamente el 'profiles' subyacente de forma segura)
+        profileList.getItems().add(p);
         runningState.put(p.id, new SimpleBooleanProperty(false));
-        profileList.getItems().setAll(profiles);
         profileList.getSelectionModel().select(p);
         saveProfiles();
     }
@@ -1184,11 +1207,11 @@ public class LauncherApp extends Application {
         if (selected == null) return;
         final LauncherProfile toDelete = selected;
 
-        profiles.remove(toDelete);
+        // Remover de la lista observable (esto modifica de forma segura el 'profiles' subyacente y actualiza la UI)
+        profileList.getItems().remove(toDelete);
         selected = null;
         deleteProfileBtn.setDisable(true);
         profileList.getSelectionModel().clearSelection();
-        profileList.getItems().setAll(profiles);
         bindProfile(null);
         headerProfileName.setText("Ningún perfil");
 
@@ -1722,13 +1745,7 @@ public class LauncherApp extends Application {
                     // Recargar manifiesto para encontrar el nuevo ID
                     Platform.runLater(() -> {
                         log("[STORE] Actualizando lista de versiones...");
-                        loadVersionManifestAsync();
-                        
-                        // Esperar un poco a que el manifiesto cargue y buscar la mejor coincidencia
-                        workers.submit(() -> {
-                            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                            Platform.runLater(() -> finalizeModpackSetup(mcVer, loader));
-                        });
+                        loadVersionManifestAsync(() -> finalizeModpackSetup(mcVer, loader));
                     });
                 } else {
                     // Solo vanilla
@@ -1844,13 +1861,12 @@ public class LauncherApp extends Application {
                     }
                 }
 
-                // Forzar Java 17 para versiones entre 1.17 y 1.20.4, o Java 21 para 1.20.5+ y 1.21.x
                 if (requiredJava == 0 || requiredJava > 17) {
                     String vid = selected.lastVersionId;
-                    if (vid.contains("1.17") || vid.contains("1.18") || vid.contains("1.19") || vid.contains("1.20.1") || vid.contains("1.20.2") || vid.contains("1.20.4")) {
-                        requiredJava = 17;
-                    } else if (vid.contains("1.20.5") || vid.contains("1.20.6") || vid.contains("1.21")) {
+                    if (VersionComparator.isVersionAtLeast(vid, 1, 20, 5)) {
                         requiredJava = 21;
+                    } else if (VersionComparator.isVersionAtLeast(vid, 1, 17, 0)) {
+                        requiredJava = 17;
                     }
                 }
 
@@ -2015,11 +2031,67 @@ public class LauncherApp extends Application {
     private void saveProfiles() {
         try {
             if (selected != null && (selected.offlineUuid == null || selected.offlineUuid.isBlank())) syncUuidFromUsername();
+
+            // Renombrar carpetas de perfiles según su displayName
+            for (LauncherProfile p : profiles) {
+                if (p.useGlobalMinecraftFolder) continue;
+
+                // Si el perfil está corriendo, no podemos renombrar su carpeta
+                BooleanProperty runningProp = runningState.get(p.id);
+                if (runningProp != null && runningProp.get()) {
+                    continue;
+                }
+
+                String safeName = sanitizeFolderName(p.displayName);
+                if (!safeName.equals(p.instanceId)) {
+                    java.nio.file.Path oldDir = facade.directories().instanceGameDir(p.instanceId);
+
+                    // Encontrar un nombre de carpeta que no esté en uso por otro perfil
+                    int counter = 1;
+                    String candidate = safeName;
+                    while (java.nio.file.Files.exists(facade.directories().instanceGameDir(candidate)) 
+                           && !candidate.equals(p.instanceId)) {
+                        candidate = safeName + "_" + counter;
+                        counter++;
+                    }
+
+                    if (!candidate.equals(p.instanceId)) {
+                        java.nio.file.Path newDir = facade.directories().instanceGameDir(candidate);
+                        boolean success = true;
+                        if (java.nio.file.Files.exists(oldDir)) {
+                            try {
+                                java.nio.file.Files.move(oldDir, newDir);
+                                log("[LAUNCHER] Carpeta de perfil renombrada de '" + p.instanceId + "' a '" + candidate + "'");
+                            } catch (Exception moveEx) {
+                                success = false;
+                                log("No se pudo renombrar la carpeta de '" + p.instanceId + "': " + moveEx.getMessage());
+                            }
+                        }
+                        if (success) {
+                            p.instanceId = candidate;
+                        }
+                    }
+                }
+            }
+
             facade.profiles().save(profiles);
             log("Configuración guardada correctamente.");
         } catch (Exception ex) {
             log("Error al guardar: " + ex.getMessage());
         }
+    }
+
+    private static String sanitizeFolderName(String name) {
+        if (name == null || name.isBlank()) {
+            return "perfil";
+        }
+        String safe = name.trim()
+            .replaceAll("[\\\\/:*?\"<>|\\s]+", "_")
+            .replaceAll("_+", "_");
+        if (safe.isBlank() || safe.equals("_")) {
+            return "perfil";
+        }
+        return safe;
     }
 
     private javafx.concurrent.Task<Void> createInstallTask() {
@@ -2131,6 +2203,10 @@ public class LauncherApp extends Application {
     // --- Métodos heredados/auxiliares originales (mantenidos o simplificados) ---
 
     private void loadVersionManifestAsync() {
+        loadVersionManifestAsync(null);
+    }
+
+    private void loadVersionManifestAsync(Runnable postAction) {
         workers.submit(() -> {
             try {
                 List<ManifestVersionEntry> list = facade.fetchManifestVersions();
@@ -2139,6 +2215,13 @@ public class LauncherApp extends Application {
                     allManifestEntries.addAll(list);
                     if (selected != null) ensureProfileVersionInBackingList(selected.lastVersionId);
                     applyVersionFilter();
+                    if (postAction != null) {
+                        try {
+                            postAction.run();
+                        } catch (Exception e) {
+                            log("Error post manifest loading: " + e.getMessage());
+                        }
+                    }
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> log("Error manifest: " + ex.getMessage()));

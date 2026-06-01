@@ -1,5 +1,6 @@
 package com.experimento.launcher.mojang;
 
+import com.experimento.launcher.util.DownloadConstants;
 import com.experimento.launcher.util.Hashing;
 
 import java.io.BufferedInputStream;
@@ -24,7 +25,6 @@ public final class HttpFiles {
                     .connectTimeout(Duration.ofSeconds(30))
                     .build();
 
-    private static final int BUFFER_SIZE = 256 * 1024;
     private static final int MAX_RETRIES = 3;
 
     private HttpFiles() {}
@@ -90,10 +90,10 @@ public final class HttpFiles {
 
         long contentLength = res.headers().firstValueAsLong("content-length").orElse(-1L);
 
-        try (InputStream in = new BufferedInputStream(res.body(), BUFFER_SIZE);
-             OutputStream out = new BufferedOutputStream(Files.newOutputStream(dest, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING), BUFFER_SIZE)) {
+        try (InputStream in = new BufferedInputStream(res.body(), DownloadConstants.BUFFER_SIZE);
+             OutputStream out = new BufferedOutputStream(Files.newOutputStream(dest, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING), DownloadConstants.BUFFER_SIZE)) {
 
-            byte[] buffer = new byte[BUFFER_SIZE];
+            byte[] buffer = new byte[DownloadConstants.BUFFER_SIZE];
             long totalRead = 0;
             int bytesRead;
 

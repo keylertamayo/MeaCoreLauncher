@@ -2,6 +2,7 @@ package com.experimento.launcher.modloaders;
 
 import com.experimento.launcher.mojang.HttpFiles;
 import com.experimento.launcher.service.JavaRuntimeService;
+import com.experimento.launcher.util.VersionComparator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -248,16 +249,17 @@ public class ModloaderInstallerService {
      * - Minecraft 1.20.5+ → Java 21
      */
     private static int resolveJavaVersionForMinecraft(String mcVersion) {
-        if (mcVersion.contains("1.20.5") || mcVersion.contains("1.20.6") || mcVersion.contains("1.21")) {
+        // 1.20.5+ requiere Java 21
+        if (VersionComparator.isVersionAtLeast(mcVersion, 1, 20, 5)) {
             return 21;
-        } else if (mcVersion.contains("1.17") || mcVersion.contains("1.18") || mcVersion.contains("1.19") ||
-                   mcVersion.contains("1.20.1") || mcVersion.contains("1.20.2") || mcVersion.contains("1.20.3") ||
-                   mcVersion.contains("1.20.4")) {
-            return 17;
-        } else {
-            // 1.16.5 y anteriores usan Java 8
-            return 8;
         }
+        // 1.17-1.20.4 requiere Java 17
+        if (VersionComparator.isVersionAtLeast(mcVersion, 1, 17, 0) &&
+            !VersionComparator.isVersionAtLeast(mcVersion, 1, 20, 5)) {
+            return 17;
+        }
+        // 1.16.5 y anteriores usan Java 8
+        return 8;
     }
 
     private static String resolveJavaExecutable(JavaRuntimeService runtime, int preferredVersion) {

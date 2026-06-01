@@ -30,12 +30,18 @@ public final class ProfileStore {
         }
         List<LauncherProfile> list =
                 mapper.readValue(file.toFile(), new TypeReference<List<LauncherProfile>>() {});
-        for (LauncherProfile p : list) {
-            if (p.offlineUuid == null || p.offlineUuid.isBlank()) {
-                p.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(p.username));
-            }
-            if (p.instanceId == null || p.instanceId.isBlank()) {
-                p.instanceId = p.id;
+        if (list == null || list.isEmpty()) {
+            list = new ArrayList<>();
+            list.add(LauncherProfile.createDefault());
+            save(list);
+        } else {
+            for (LauncherProfile p : list) {
+                if (p.offlineUuid == null || p.offlineUuid.isBlank()) {
+                    p.offlineUuid = OfflineUuid.toString(OfflineUuid.forUsername(p.username));
+                }
+                if (p.instanceId == null || p.instanceId.isBlank()) {
+                    p.instanceId = p.id;
+                }
             }
         }
         return list;

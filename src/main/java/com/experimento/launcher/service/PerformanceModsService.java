@@ -37,6 +37,7 @@ public final class PerformanceModsService {
     private PerformanceModsService() {}
 
     public record PerformanceMod(String slug, String name, String description) {}
+    public record ModDownloadInfo(String url, String sha1) {}
 
     public static final List<PerformanceMod> FABRIC_MODS = List.of(
         new PerformanceMod("sodium",         "Sodium",          "Motor de renderizado moderno — +50-300% FPS"),
@@ -91,8 +92,8 @@ public final class PerformanceModsService {
         int installed = 0;
         for (PerformanceMod mod : mods) {
             try {
-                String url = resolveDownloadUrl(mod.slug(), mcVersion, loader.toLowerCase(), log);
-                if (url == null) {
+                ModDownloadInfo info = resolveDownloadUrl(mod.slug(), mcVersion, loader.toLowerCase(), log);
+                if (info == null) {
                     log.accept("[PERF] ⚠ " + mod.name() + " no disponible para esta versión, omitiendo.");
                     continue;
                 }
@@ -100,14 +101,30 @@ public final class PerformanceModsService {
                 String fileName = mod.slug() + "-" + mcVersion + "-" + loader + ".jar";
                 Path dest = modsDir.resolve(fileName);
 
+                // Si el archivo ya existe, comprobar el hash para ver si está al día o corrupto/desactualizado
                 if (Files.exists(dest)) {
-                    log.accept("[PERF] ✓ " + mod.name() + " ya está instalado.");
-                    installed++;
-                    continue;
+                    if (info.sha1() != null) {
+                        try (InputStream fis = Files.newInputStream(dest)) {
+                            String currentHash = com.experimento.launcher.util.Hashing.sha1Hex(fis);
+                            if (info.sha1().equalsIgnoreCase(currentHash)) {
+                                log.accept("[PERF] ✓ " + mod.name() + " ya está instalado y al día.");
+                                installed++;
+                                continue;
+                            } else {
+                                log.accept("[PERF] 🔄 Actualizando " + mod.name() + " (cambio de versión detectado)...");
+                            }
+                        } catch (Exception e) {
+                            // En caso de error de lectura, procedemos a re-descargar
+                        }
+                    } else {
+                        log.accept("[PERF] ✓ " + mod.name() + " ya está instalado.");
+                        installed++;
+                        continue;
+                    }
                 }
 
                 log.accept("[PERF] Descargando " + mod.name() + "...");
-                HttpFiles.downloadIfHashMismatch(url, dest, null);
+                HttpFiles.downloadIfHashMismatch(info.url(), dest, info.sha1());
                 log.accept("[PERF] ✅ " + mod.name() + " instalado — " + mod.description());
                 installed++;
 
@@ -124,11 +141,12 @@ public final class PerformanceModsService {
         }
     }
 
-    private static String resolveDownloadUrl(String slug, String mcVersion, String loader, Consumer<String> log) {
+    private static ModDownloadInfo resolveDownloadUrl(String slug, String mcVersion, String loader, Consumer<String> log) {
         try {
-            String searchUrl = MODRINTH_API + "/project/" + slug + "/version?game_versions=[\"" +
-                    URLEncoder.encode(mcVersion, StandardCharsets.UTF_8) + "\"]&loaders=[\"" +
-                    URLEncoder.encode(loader, StandardCharsets.UTF_8) + "\"]";
+            // Bug 10 URL encoding fix: encode the entire query parameter value including the brackets!
+            String searchUrl = MODRINTH_API + "/project/" + slug + "/version?game_versions=" +
+                    URLEncoder.encode("[\"" + mcVersion + "\"]", StandardCharsets.UTF_8) + "&loaders=" +
+                    URLEncoder.encode("[\"" + loader + "\"]", StandardCharsets.UTF_8);
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(searchUrl))
@@ -146,12 +164,22 @@ public final class PerformanceModsService {
             JsonNode files = firstVersion.path("files");
             if (!files.isArray() || files.isEmpty()) return null;
 
+            JsonNode targetFile = null;
             for (JsonNode file : files) {
                 if (file.path("primary").asBoolean(false)) {
-                    return file.path("url").asText(null);
+                    targetFile = file;
+                    break;
                 }
             }
-            return files.get(0).path("url").asText(null);
+            if (targetFile == null) {
+                targetFile = files.get(0);
+            }
+            
+            String url = targetFile.path("url").asText(null);
+            String sha1 = targetFile.path("hashes").path("sha1").asText(null);
+            
+            if (url == null) return null;
+            return new ModDownloadInfo(url, sha1);
 
         } catch (Exception e) {
             return null;

@@ -28,7 +28,7 @@ public class LauncherProfile {
 
     public static LauncherProfile createDefault() {
         LauncherProfile p = new LauncherProfile();
-        p.instanceId = p.id;
+        p.instanceId = "Principal";
         p.displayName = "Principal";
         p.username = "Player";
         p.offlineUuid = com.experimento.launcher.util.OfflineUuid.toString(

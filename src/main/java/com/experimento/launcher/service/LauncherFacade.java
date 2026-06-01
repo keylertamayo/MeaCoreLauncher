@@ -10,6 +10,7 @@ import com.experimento.launcher.model.LauncherProfile;
 import com.experimento.launcher.paths.LauncherDirectories;
 import com.experimento.launcher.servers.ServersDatService;
 import com.experimento.launcher.util.OfflineUuid;
+import com.experimento.launcher.util.VersionComparator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -380,23 +381,18 @@ public final class LauncherFacade {
         }
 
         String mainClass = merged.path("mainClass").asText("").toLowerCase();
-        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || versionId.contains("1.12.2")) {
+        if (mainClass.contains("launchwrapper") || mainClass.contains("net.minecraft.launchwrapper.launch") || 
+            (VersionComparator.isVersionAtLeast(versionId, 1, 12, 2) && !VersionComparator.isVersionAtLeast(versionId, 1, 13, 0))) {
             return 8;
         }
 
         // Java 21 para 1.20.5+ y versiones futuras (IDs altos como 26.x.x)
-        // Java 21 for 1.20.5+ (which has protocol changes requiring Java 21)
-        if (versionId.matches("1\\.20\\.[5-9].*") || versionId.matches("1\\.2[1-9]\\..*") || versionId.matches("1\\.[3-9]\\d.*") || versionId.matches("[2-9]\\d+\\..*")) {
-            return 21;
-        }
-        if (versionId.contains("1.20.5") || versionId.contains("1.20.6")) {
+        if (VersionComparator.isVersionAtLeast(versionId, 1, 20, 5)) {
             return 21;
         }
 
         // Java 17 para 1.17 - 1.20.4
-        if (versionId.contains("1.17") || versionId.contains("1.18") || versionId.contains("1.19")
-                || versionId.contains("1.20.1") || versionId.contains("1.20.2")
-                || versionId.contains("1.20.3") || versionId.contains("1.20.4")) {
+        if (VersionComparator.isVersionAtLeast(versionId, 1, 17, 0) && !VersionComparator.isVersionAtLeast(versionId, 1, 20, 5)) {
             return 17;
         }
 
@@ -443,6 +439,7 @@ public final class LauncherFacade {
         
         Process process = pb.start();
         
+        applyProcessPriorityWindows(process, log);
         applyCpuAffinity(process, log);
         
         // Crear servicio de crash report para esta sesión
@@ -532,22 +529,7 @@ public final class LauncherFacade {
     private void applyProcessPriority(ProcessBuilder pb, java.util.function.Consumer<String> log) {
         OsContext os = com.experimento.launcher.mojang.OsContext.current();
         
-        if (os.isWindows()) {
-            try {
-                List<String> originalCmd = new java.util.ArrayList<>(pb.command());
-                List<String> priorityCmd = new java.util.ArrayList<>();
-                priorityCmd.add("cmd");
-                priorityCmd.add("/c");
-                priorityCmd.add("start");
-                priorityCmd.add("");   // empty window title (start treats first quoted arg as title)
-                priorityCmd.add("/high");
-                priorityCmd.addAll(originalCmd);
-                pb.command(priorityCmd);
-                log.accept("[LAUNCHER] ⚡ Prioridad Alta (high) activada para el juego");
-            } catch (Exception e) {
-                log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad: " + e.getMessage());
-            }
-        } else if (os.isLinux() || os.isMac()) {
+        if (os.isLinux() || os.isMac()) {
             try {
                 List<String> originalCmd = new java.util.ArrayList<>(pb.command());
                 List<String> niceCmd = new java.util.ArrayList<>();
@@ -560,6 +542,24 @@ public final class LauncherFacade {
             } catch (Exception e) {
                 log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad: " + e.getMessage());
             }
+        }
+    }
+
+    private void applyProcessPriorityWindows(Process process, java.util.function.Consumer<String> log) {
+        OsContext os = com.experimento.launcher.mojang.OsContext.current();
+        if (!os.isWindows()) return;
+        try {
+            long pid = process.toHandle().pid();
+            ProcessBuilder pb = new ProcessBuilder(
+                "powershell", "-Command",
+                "$process = Get-Process -Id " + pid + " -ErrorAction SilentlyContinue; if ($process) { $process.PriorityClass = 'High' }"
+            );
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+            pb.start();
+            log.accept("[LAUNCHER] ⚡ Prioridad Alta (high) activada para el proceso (PID " + pid + ")");
+        } catch (Exception e) {
+            log.accept("[LAUNCHER] ⚠️ No se pudo configurar prioridad de proceso en Windows: " + e.getMessage());
         }
     }
     

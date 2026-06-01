@@ -1,6 +1,7 @@
 package com.experimento.launcher.service;
 
 import com.experimento.launcher.mojang.OsContext;
+import com.experimento.launcher.util.DownloadConstants;
 import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,7 +25,7 @@ public final class JavaRuntimeService {
     private static final String GITHUB_JRE_8_WIN = "https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/download/v1.0.0/jre8-windows.zip";
     private static final String GITHUB_JRE_21_WIN = "https://github.com/MeaCore-Enterprise/MeaCoreLauncher/releases/download/v1.0.0/jre21-windows.zip";
 
-    private static final int DOWNLOAD_BUFFER_SIZE = 524288;
+    private static final int DOWNLOAD_BUFFER_SIZE = com.experimento.launcher.util.DownloadConstants.BUFFER_SIZE;
 
     private final Path runtimeDir;
     private final OsContext os = OsContext.current();
