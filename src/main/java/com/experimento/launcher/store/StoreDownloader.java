@@ -96,7 +96,8 @@ public final class StoreDownloader {
             String mcVer = index.path("dependencies").path("minecraft").asText(null);
             String loader = null;
             JsonNode depsNode = index.path("dependencies");
-            if (depsNode.has("forge")) loader = "forge";
+            if (depsNode.has("neoforge")) loader = "neoforge";
+            else if (depsNode.has("forge")) loader = "forge";
             else if (depsNode.has("fabric")) loader = "fabric";
             else if (depsNode.has("quilt")) loader = "quilt";
 

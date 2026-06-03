@@ -96,10 +96,10 @@ public class ModrinthStoreClient {
             StringBuilder urlBuilder = new StringBuilder(BASE_URL).append("/project/").append(projectId).append("/version?");
             
             if (mcVersion != null && !mcVersion.isBlank()) {
-                urlBuilder.append("game_versions=[\"").append(mcVersion).append("\"]&");
+                urlBuilder.append("game_versions=").append(URLEncoder.encode("[\"" + mcVersion + "\"]", StandardCharsets.UTF_8)).append("&");
             }
             if (loader != null && !loader.isBlank()) {
-                urlBuilder.append("loaders=[\"").append(loader).append("\"]");
+                urlBuilder.append("loaders=").append(URLEncoder.encode("[\"" + loader + "\"]", StandardCharsets.UTF_8));
             }
 
             HttpRequest req = HttpRequest.newBuilder()
@@ -136,10 +136,10 @@ public class ModrinthStoreClient {
             StringBuilder urlBuilder = new StringBuilder(BASE_URL).append("/project/").append(projectId).append("/version?");
             
             if (mcVersion != null && !mcVersion.isBlank()) {
-                urlBuilder.append("game_versions=[\"").append(mcVersion).append("\"]&");
+                urlBuilder.append("game_versions=").append(URLEncoder.encode("[\"" + mcVersion + "\"]", StandardCharsets.UTF_8)).append("&");
             }
             if (loader != null && !loader.isBlank()) {
-                urlBuilder.append("loaders=[\"").append(loader.toLowerCase()).append("\"]");
+                urlBuilder.append("loaders=").append(URLEncoder.encode("[\"" + loader.toLowerCase() + "\"]", StandardCharsets.UTF_8));
             }
 
             HttpRequest req = HttpRequest.newBuilder()

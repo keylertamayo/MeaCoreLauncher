@@ -2132,7 +2132,9 @@ public class LauncherApp extends Application {
                 }
                 
                 updateMessage("Iniciando Minecraft...");
-                long ram = com.experimento.launcher.service.HardwareProbe.totalPhysicalRamMiB();
+                long totalRam = com.experimento.launcher.service.HardwareProbe.totalPhysicalRamMiB();
+                // Cap RAM assignment: never allocate more than 75% of physical RAM and never more than 16 GB
+                long ram = Math.min(totalRam * 3 / 4, 16 * 1024L);
                 
                 String pId = selected.id;
                 Process proc = facade.startGame(selected, ram, s -> Platform.runLater(() -> log(s)));
@@ -2177,6 +2179,7 @@ public class LauncherApp extends Application {
         playBtn.setDisable(lock);
         saveBtn.setDisable(lock);
         newProfileBtn.setDisable(lock);
+        deleteProfileBtn.setDisable(lock);
         profileList.setDisable(lock);
     }
 
@@ -2342,13 +2345,21 @@ public class LauncherApp extends Application {
     }
 
     private void log(String s) {
-        Platform.runLater(() -> {
+        if (javafx.application.Platform.isFxApplicationThread()) {
             if (logArea.getLength() > 50000) {
                 logArea.clear();
             }
             logArea.appendText(s + "\n");
             logArea.selectPositionCaret(logArea.getLength());
-        });
+        } else {
+            Platform.runLater(() -> {
+                if (logArea.getLength() > 50000) {
+                    logArea.clear();
+                }
+                logArea.appendText(s + "\n");
+                logArea.selectPositionCaret(logArea.getLength());
+            });
+        }
     }
 
     @Override

@@ -197,7 +197,11 @@ public final class JvmPresetService {
         
         args.add("-XX:ParallelGCThreads=" + parallelGC);
         args.add("-XX:ConcGCThreads=" + concGC);
-        args.add("-XX:G1ConcRefinementThreads=" + parallelGC);
+        // G1ConcRefinementThreads is G1GC-specific — only add when not using ZGC
+        boolean isZGC = args.stream().anyMatch(a -> a.contains("+UseZGC"));
+        if (!isZGC) {
+            args.add("-XX:G1ConcRefinementThreads=" + parallelGC);
+        }
         args.add("-XX:CICompilerCount=" + ciCompiler);
         
         args.add("-XX:ActiveProcessorCount=" + logicCores);

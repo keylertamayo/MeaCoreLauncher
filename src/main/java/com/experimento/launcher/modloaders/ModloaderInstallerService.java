@@ -113,13 +113,13 @@ public class ModloaderInstallerService {
         versions.sort((a, b) -> {
             try {
                 String[] pa = a.split("\\.");
-                String[] pb = b.split("\\.");
-                for (int i = 0; i < Math.min(pa.length, pb.length); i++) {
-                    int na = Integer.parseInt(pa[i]);
-                    int nb = Integer.parseInt(pb[i]);
+                String[] pb2 = b.split("\\.");
+                for (int i = 0; i < Math.min(pa.length, pb2.length); i++) {
+                    int na = Integer.parseInt(pa[i].replaceAll("[^0-9]", "").replaceAll("^$", "0"));
+                    int nb = Integer.parseInt(pb2[i].replaceAll("[^0-9]", "").replaceAll("^$", "0"));
                     if (na != nb) return Integer.compare(nb, na);
                 }
-                return Integer.compare(pb.length, pa.length);
+                return Integer.compare(pb2.length, pa.length);
             } catch (Exception e) { return 0; }
         });
         String latestVersion = versions.isEmpty() ? null : versions.get(0);
