@@ -823,13 +823,13 @@ public class LauncherApp extends Application {
             Path modsDir = facade.gameDirFor(selected).resolve("mods");
             try {
                 java.nio.file.Files.createDirectories(modsDir);
-                if (java.awt.Desktop.isDesktopSupported()) {
-                    java.awt.Desktop.getDesktop().open(modsDir.toFile());
+                String os = System.getProperty("os.name", "").toLowerCase();
+                if (os.contains("win")) {
+                    Runtime.getRuntime().exec(new String[]{"explorer", modsDir.toString()});
+                } else if (os.contains("mac")) {
+                    Runtime.getRuntime().exec(new String[]{"open", modsDir.toString()});
                 } else {
-                    String os = System.getProperty("os.name", "").toLowerCase();
-                    if (os.contains("nix") || os.contains("nux")) {
-                        Runtime.getRuntime().exec(new String[]{"xdg-open", modsDir.toString()});
-                    }
+                    Runtime.getRuntime().exec(new String[]{"xdg-open", modsDir.toString()});
                 }
             } catch (Exception ex) {
                 log("[Mods] No se pudo abrir la carpeta: " + ex.getMessage());

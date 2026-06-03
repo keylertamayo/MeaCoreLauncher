@@ -31,7 +31,7 @@ public final class ArgumentRules {
             }
         }
         if (allowed == null) {
-            return true;
+            return false;
         }
         return allowed;
     }
