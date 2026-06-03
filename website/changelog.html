@@ -81,71 +81,49 @@
     </div>
 
     <div class="timeline">
-        
-        <!-- v1.6.0 -->
+           <!-- v1.7.0 — Próximamente -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #ff00ff;">v1.6.0 - MeaCore Engine Evolution 🚀 (Próximamente)</h3>
-                <span class="version-date">Q2 2026</span>
+                <h3 style="color: #ff00ff;">v1.7.0 - MeaCore Engine Evolution 🚀 (Próximamente)</h3>
+                <span class="version-date">Q3 2026</span>
             </div>
             <p><strong>🧠 Evolución del Motor Visual:</strong></p>
             <ul>
-                <li><strong>Branding del F3:</strong> Personalización total de la pantalla de depuración (Debug Screen) con la marca MeaCore para un look premium.</li>
+                <li><strong>Branding del F3:</strong> Personalización total de la pantalla de depuración con la marca MeaCore.</li>
                 <li><strong>FPS Limiter Dinámico:</strong> El juego reducirá automáticamente los FPS al minimizarse para ahorrar hasta un 90% de recursos del sistema.</li>
-                <li><strong>Bypass de Realms:</strong> Interfaz más limpia eliminando elementos innecesarios como el botón de Minecraft Realms.</li>
-                <li><strong>Inyección de Código Pro:</strong> Implementación de parches de optimización en tiempo de ejecución (Bytecode Injection) para mejorar el rendimiento base del juego.</li>
-            </ul>
-            <p><strong>✨ Próximas Mejoras:</strong></p>
-            <ul>
-                <li>Soporte para Shaders y Resource Packs integrados.</li>
-                <li>Exportación e Importación de perfiles para compartir modpacks fácilmente con amigos.</li>
+                <li><strong>Bypass de Realms:</strong> Interfaz más limpia eliminando el botón de Minecraft Realms y otros elementos innecesarios.</li>
+                <li><strong>Pantalla de carga MeaCore:</strong> Resource Pack nativo inyectado automáticamente con logo y pantalla de carga propios.</li>
+                <li><strong>Class Data Sharing (CDS):</strong> Caché de clases Java pre-compiladas para reducir el tiempo de inicio en un 30-50% a partir del segundo arranque.</li>
+                <li><strong>Exportación e Importación de perfiles:</strong> Comparte modpacks fácilmente con amigos.</li>
             </ul>
         </div>
 
         <!-- v1.6.0 -->
         <div class="log-item">
             <div class="version-header">
-                <h3 style="color: #00d2ff;">v1.6.0 - Cloudflare Full Migration & Windows Command Line Fix 🚀 (Actual)</h3>
-                <span class="version-date">15 de Mayo, 2026</span>
+                <h3 style="color: #00d2ff;">v1.6.0 - Bugfix Engine &amp; Estabilidad Total 🛠️ (Actual)</h3>
+                <span class="version-date">2 de Junio, 2026</span>
             </div>
-            <p><strong>☁️ Migración completa a Cloudflare:</strong></p>
+            <p><strong>🐛 Correcciones Críticas del Motor de Juego:</strong></p>
             <ul>
-                <li><strong>Adiós a Netlify:</strong> Eliminado todo rastro de Netlify (<code>netlify.toml</code>, funciones serverless, workflow de deploy). El sitio ahora funciona 100% en Cloudflare Workers.</li>
-                <li><strong>Worker reescrito:</strong> El Worker de Cloudflare maneja bug reports, sitemap dinámico, proxy de GitHub API, config de Supabase y assets estáticos con headers de seguridad.</li>
-                <li><strong>Sitemap dinámico + estático:</strong> <code>sitemap.xml</code> se sirve como archivo estático para Googlebot, con fallback dinámico desde el Worker.</li>
-                <li><strong>URLs limpias:</strong> <code>/changelog</code> en vez de <code>/changelog.html</code>. El Worker reescribe internamente sin redirecciones HTTP.</li>
-                <li><strong>Headers de seguridad:</strong> <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code> en todos los assets.</li>
-                <li><strong>Cache-Control inteligente:</strong> 1 año para CSS/JS/imágenes, 5 min para HTML, 1h para sitemap.</li>
-                <li><strong>SEO completo:</strong> Open Graph, Twitter Card, JSON-LD (SoftwareApplication + FAQPage + BreadcrumbList), hreflang, canonical, sitemap, robots.txt.</li>
-                <li><strong>Google Search Console:</strong> Archivo de verificación, sitemap enviado, solicitud de indexación.</li>
+                <li><strong>Fix Modo Demo eliminado:</strong> Corregido el evaluador de reglas de argumentos (<code>ArgumentRules.java</code>) que devolvía <code>true</code> por defecto cuando ninguna regla coincidía, lo que causaba que el argumento <code>--demo</code> se inyectara siempre y Minecraft arrancara en modo demostración de 5 días.</li>
+                <li><strong>Fix API Modrinth (HTTP 422):</strong> Los parámetros <code>game_versions</code> y <code>loaders</code> ahora se codifican correctamente en la URL con <code>URLEncoder</code>. Las búsquedas e instalaciones de mods desde MCStore fallaban silenciosamente con un error 422.</li>
+                <li><strong>Fix NeoForge en modpacks mrpack:</strong> El extractor de modpacks (<code>StoreDownloader</code>) ahora detecta correctamente la dependencia <code>neoforge</code> en el índice del modpack. Antes solo reconocía <code>forge</code>, <code>fabric</code> y <code>quilt</code>.</li>
+                <li><strong>Fix crash sort NeoForge:</strong> El ordenamiento de versiones disponibles de NeoForge lanzaba un <code>NumberFormatException</code> al encontrar versiones con sufijo de texto como <code>-beta</code> o <code>-rc</code>. Ahora se sanitiza la cadena antes de parsear.</li>
             </ul>
-            <p><strong>🐛 Fix crítico: Límite de 8191 caracteres en Windows:</strong></p>
+            <p><strong>⚡ Correcciones de Rendimiento y JVM:</strong></p>
             <ul>
-                <li><strong>Classpath vía Manifest JAR:</strong> Cuando el classpath supera los 3500 caracteres, el launcher genera un JAR temporal con <code>Class-Path</code> en el manifiesto. Esto evita el error <em>"La línea de comandos es demasiado larga"</em> al iniciar Minecraft con Forge en Windows.</li>
-                <li><strong>Fix confirmado:</strong> Forge 1.12.2 con 54 librerías ahora inicia correctamente en Windows.</li>
+                <li><strong>Fix RAM peligrosa:</strong> El launcher asignaba el 100% de la RAM física a Minecraft sin límite superior. En equipos de 32 GB o más esto causaba pausas largas del GC. Ahora el límite es el 75% de la RAM física con un tope absoluto de <strong>16 GB</strong>.</li>
+                <li><strong>Fix ZGC vs G1GC:</strong> El argumento <code>-XX:G1ConcRefinementThreads</code> es exclusivo de G1GC y se inyectaba incluso cuando el preset HIGH activaba ZGC, lo que generaba advertencias en la JVM. Ahora se omite cuando ZGC está activo.</li>
+                <li><strong>Fix crash "Abrir Carpeta de Mods":</strong> El botón usaba <code>java.awt.Desktop.open()</code> que en Linux provoca un conflicto de hilos GTK con JavaFX y cerraba el launcher abruptamente. Reemplazado por llamadas directas al sistema: <code>xdg-open</code> (Linux), <code>explorer</code> (Windows), <code>open</code> (macOS).</li>
             </ul>
-            <p><strong>🔧 Corrección de errores del launcher:</strong></p>
+            <p><strong>🔒 Correcciones de Interfaz y Seguridad:</strong></p>
             <ul>
-                <li><strong>Fabric no soporta 1.12.2:</strong> Añadida validación <code>isFabricSupported()</code>. Si el usuario intenta instalar Fabric en versiones anteriores a 1.14, muestra un mensaje claro: "Fabric no soporta Minecraft X.X.X. Usa Forge para versiones antiguas."</li>
-                <li><strong>Bug report via Cloudflare Worker:</strong> El formulario de reporte de bugs ahora funciona en Cloudflare Workers (no más 404). Necesita <code>GITHUB_TOKEN</code> configurado como secreto.</li>
-                <li><strong>Versión duplicada corregida:</strong> Ya no muestra <code>vv1.5.9</code> en la web. El regex ahora limpia correctamente los prefijos <code>bat-</code> y <code>v</code>.</li>
-                <li><strong>GitHub API sin rate limit:</strong> El Worker cachea la respuesta de GitHub API. El navegador ya no llama directamente a la API, evitando el límite de 60 req/hora.</li>
-            </ul>
-            <p><strong>📄 Mejoras en la web:</strong></p>
-            <ul>
-                <li><strong>Favicon añadido:</strong> El logo del launcher ahora aparece en la pestaña del navegador.</li>
-                <li><strong>Botón de reseñas con estilo MeaCore:</strong> Ahora usa el azul corporativo <code>#0E639C</code>.</li>
-                <li><strong>Reseñas auto-aprobadas:</strong> Ya no requieren moderación manual. Se envían con <code>approved: true</code>.</li>
-                <li><strong>Supabase configurable:</strong> El Worker expone un endpoint <code>/api/config</code> para que el frontend obtenga las credenciales de Supabase.</li>
-            </ul>
-            <p><strong>🧹 Limpieza y licencia:</strong></p>
-            <ul>
-                <li><strong>Nueva licencia:</strong> MIT con restricción de uso no comercial. Código abierto, contribuciones bienvenidas.</li>
-                <li><strong>CONTRIBUTING.md:</strong> Guía para contribuir con PRs (en español).</li>
-                <li><strong>CODE_OF_CONDUCT.md:</strong> Código de conducta Contributor Covenant v2.1.</li>
-                <li><strong>Issue + PR templates:</strong> Plantillas para reportar bugs y enviar pull requests.</li>
+                <li><strong>Fix bloqueo de UI incompleto:</strong> Durante instalaciones activas, el botón <code>Eliminar Perfil</code> no se deshabilitaba, permitiendo borrar el perfil mientras se descargaba. Ahora <code>setUilock()</code> bloquea todos los controles correctamente.</li>
+                <li><strong>Fix log() hilo FX:</strong> El método <code>log()</code> envolvía en <code>Platform.runLater()</code> siempre, incluso cuando ya estaba en el hilo de JavaFX. Ahora detecta el contexto con <code>isFxApplicationThread()</code> para evitar encolamiento redundante.</li>
             </ul>
         </div>
+
 
         <!-- v1.5.9 -->
         <div class="log-item">
