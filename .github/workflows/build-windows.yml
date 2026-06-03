@@ -1,7 +1,7 @@
 name: Release Windows Installer
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-windows-${{ github.ref_name }}
 
 on:
   push:

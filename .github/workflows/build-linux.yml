@@ -1,7 +1,7 @@
 name: Release Linux Installer
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-linux-${{ github.ref_name }}
 
 on:
   push:
@@ -125,7 +125,7 @@ jobs:
           Write-Host "Esperando a que el job de Windows cree el release draft para $tag..."
           $attempts = 0
           $found = $false
-          while ($attempts -lt 15) {
+          while ($attempts -lt 45) {
             $ErrorActionPreference = 'SilentlyContinue'
             $releaseId = gh release view $tag --json id -q '.id' 2>$null
             $ErrorActionPreference = 'Stop'
@@ -147,7 +147,7 @@ jobs:
             Write-Host "Publicando el release final..."
             gh release edit $tag --draft=false
           } else {
-            # Fallback: si Windows no lo creó en 150 segundos, lo creamos directamente
+            # Fallback: si Windows no lo creó en 450 segundos, lo creamos directamente
             Write-Host "No se encontró el release de Windows. Creándolo de forma directa..."
             gh release delete $tag --yes 2>$null
             Start-Sleep 3
