@@ -102,7 +102,8 @@
             <ul>
                 <li><strong>Fix bloqueo de UI incompleto:</strong> Durante instalaciones activas, el botón <code>Eliminar Perfil</code> no se deshabilitaba, permitiendo borrar el perfil mientras se descargaba. Ahora <code>setUilock()</code> bloquea todos los controles correctamente.</li>
                 <li><strong>Fix log() hilo FX:</strong> El método <code>log()</code> envolvía en <code>Platform.runLater()</code> siempre, incluso cuando ya estaba en el hilo de JavaFX. Ahora detecta el contexto con <code>isFxApplicationThread()</code> para evitar encolamiento redundante.</li>
-                <li><strong>Reorganización de UI:</strong> La gestión de mods instalados se trasladó desde la pestaña "Modding" hacia la pestaña "MCStore" para centralizar la descarga, actualización y administración de mods en un solo lugar unificado.</li>
+                <li><strong>Reorganización de UI (MCStore):</strong> La gestión de mods instalados se trasladó desde la pestaña "Modding" hacia la pestaña "MCStore" para centralizar la descarga, actualización y administración de mods en un solo lugar unificado.</li>
+                <li><strong>Reorganización de UI (Servidores):</strong> Se eliminó el apartado de "Info de Red" (IPs e interfaces) de la consola principal de Logs para limpiar la pantalla, y se trasladó estratégicamente al apartado de "Servidores", justo debajo de la lista de servidores guardados.</li>
             </ul>
         </div>
 
